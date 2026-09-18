@@ -4,8 +4,10 @@
 'use strict';
 
 let cv=null, cx=null, VW=1440, VH=820;
-const HUD_H=132;
+let HUD_H=132;
 let VIEW_H=700;
+let MOBILE=false, US=1;              // tryb dotykowy + skala interfejsu
+const IS_TOUCH=('ontouchstart' in window)||(navigator.maxTouchPoints||0)>0;
 
 function initCanvas(){
   cv=document.getElementById('cv'); cx=cv.getContext('2d');
@@ -17,6 +19,9 @@ function resizeCanvas(){
   VW=cv.clientWidth||window.innerWidth; VH=cv.clientHeight||window.innerHeight;
   cv.width=Math.round(VW*dpr); cv.height=Math.round(VH*dpr);
   cx.setTransform(dpr,0,0,dpr,0,0);
+  MOBILE=IS_TOUCH&&Math.min(VW,VH)<820;
+  US=MOBILE?clamp(Math.min(VW,VH)/420,.8,1.25):1;
+  HUD_H=MOBILE?Math.round(clamp(VH*.26,116,172)):132;
   VIEW_H=VH-HUD_H;
   CAM.w=VW/ZOOM; CAM.h=VIEW_H/ZOOM; // pasek HUD na dole
   camClamp();

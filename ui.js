@@ -7,6 +7,8 @@ const keys={};
 let mouse={x:-99,y:-99,down:false,dragX:0,dragY:0,drag:false,inWorld:false,seen:false};
 let hudBtns=[], mmRect={x:0,y:0,w:0,h:0}, buildMenuOpen=false, hoverBtn=null;
 let paused=false, last=0;
+let touch={id:null,x:0,y:0,sx:0,sy:0,moved:false,box:false,camX:0,camY:0};
+let pinch=null, boxMode=false, topBarH=0;
 
 /* ==========================================================================
    START / MENU
@@ -16,6 +18,7 @@ function startGame(faction){
   document.getElementById('result').style.display='none';
   paused=false; buildMenuOpen=false;
   newGame(faction);
+  if(MOBILE) setZoom(VIEW_H<360?1:(Math.min(VW,VH)<400?1.15:1.25));
   banner('OBROŃ SWOJĄ OSADĘ','#e6c273');
 }
 function showResult(win){
@@ -51,6 +54,93 @@ function selectAllOfType(type){
   selectUnits(G.units.filter(u=>u.side==='player'&&!u.dead&&u.type===type),false);
 }
 
+function selectInBox(ax,ay,bx,by,add){
+  const x0=Math.min(ax,bx), x1=Math.max(ax,bx), y0=Math.min(ay,by), y1=Math.max(ay,by);
+  const list=G.units.filter(u=>u.side==='player'&&!u.dead&&
+    toScreenX(u.x)*ZOOM>x0&&toScreenX(u.x)*ZOOM<x1&&toScreenY(u.y)*ZOOM>y0&&toScreenY(u.y)*ZOOM<y1);
+  const fighters=list.filter(u=>u.type!=='worker');
+  selectUnits(fighters.length?fighters:list,add);
+}
+function hitBtn(x,y){
+  for(const b of hudBtns) if(x>b.x&&x<b.x+b.w&&y>b.y&&y<b.y+b.h) return b;
+  return null;
+}
+function homeView(){
+  const th=G.buildings.find(b=>b.side==='player'&&!b.dead&&b.type==='townhall');
+  if(th){ centerCam(th.x,th.y); clearSel(); G.selBuilding=th; }
+}
+
+/* ==========================================================================
+   DOTYK (telefon / tablet)
+   ========================================================================== */
+function tapWorld(px,py){
+  const wx=toWorldX(px), wy=toWorldY(py);
+  if(G.placing){ placeBuilding(wx,wy); G.placing=null; return; }
+  const u=unitAt(wx,wy,'player');
+  if(u){ selectUnits([u],false); buildMenuOpen=false; return; }
+  const b=buildingAt(wx,wy);
+  if(b&&b.side==='player'){ clearSel(); G.selBuilding=b; buildMenuOpen=false; return; }
+  if(G.sel.length){ issueOrder(G.sel.filter(x=>!x.dead),wx,wy); return; }
+  clearSel();
+}
+function bindTouch(){
+  cv.addEventListener('touchstart',e=>{
+    if(!G||G.phase!=='play') return;
+    e.preventDefault();
+    if(e.touches.length>=2){
+      const a=e.touches[0], b=e.touches[1];
+      pinch={d:Math.max(20,Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)),z:ZOOM};
+      touch.id=null; mouse.down=false; mouse.drag=false; return;
+    }
+    const t=e.touches[0], p=localPos(t);
+    const hb=hitBtn(p.x,p.y);
+    if(hb){ if(hb.action) hb.action(); touch.id=null; return; }
+    if(p.y>VIEW_H){ handleHudClick(p.x,p.y,0); touch.id=null; return; }
+    touch={id:t.identifier,x:p.x,y:p.y,sx:p.x,sy:p.y,moved:false,box:boxMode&&!G.placing,
+           camX:CAM.x,camY:CAM.y};
+    mouse.x=p.x; mouse.y=p.y; mouse.inWorld=true;
+    if(touch.box){ mouse.down=true; mouse.drag=false; mouse.dragX=p.x; mouse.dragY=p.y; }
+  },{passive:false});
+  cv.addEventListener('touchmove',e=>{
+    if(!G||G.phase!=='play') return;
+    e.preventDefault();
+    if(pinch&&e.touches.length>=2){
+      const a=e.touches[0], b=e.touches[1];
+      const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+      setZoom(pinch.z*(d/pinch.d));
+      return;
+    }
+    if(touch.id===null) return;
+    let t=null;
+    for(const tt of e.touches) if(tt.identifier===touch.id) t=tt;
+    if(!t) t=e.touches[0];
+    if(!t) return;
+    const p=localPos(t);
+    touch.x=p.x; touch.y=p.y; mouse.x=p.x; mouse.y=p.y;
+    if(Math.hypot(p.x-touch.sx,p.y-touch.sy)>11) touch.moved=true;
+    if(touch.box){ if(touch.moved) mouse.drag=true; return; }
+    if(touch.moved){
+      CAM.x=touch.camX-(p.x-touch.sx)/ZOOM;
+      CAM.y=touch.camY-(p.y-touch.sy)/ZOOM;
+      camClamp();
+    }
+  },{passive:false});
+  const endTouch=e=>{
+    if(e.touches.length<2) pinch=null;
+    if(!G||G.phase!=='play'){ touch.id=null; return; }
+    if(touch.id===null) return;
+    if(touch.box&&mouse.drag){
+      selectInBox(touch.sx,touch.sy,touch.x,touch.y,false);
+      boxMode=false;
+    } else if(!touch.moved){
+      tapWorld(touch.x,touch.y);
+    }
+    mouse.down=false; mouse.drag=false; touch.id=null;
+  };
+  cv.addEventListener('touchend',endTouch,{passive:false});
+  cv.addEventListener('touchcancel',endTouch,{passive:false});
+}
+
 /* ==========================================================================
    MYSZKA
    ========================================================================== */
@@ -59,6 +149,7 @@ function bindInput(){
   cv.addEventListener('mousedown',e=>{
     if(!G||G.phase!=='play') return;
     const p=localPos(e);
+    if(e.button===0){ const hb=hitBtn(p.x,p.y); if(hb&&p.y<VIEW_H){ if(hb.action) hb.action(); return; } }
     if(p.y>VIEW_H){ handleHudClick(p.x,p.y,e.button); return; }
     if(e.button===2){
       if(G.placing){ G.placing=null; return; }
@@ -84,12 +175,7 @@ function bindInput(){
     mouse.down=false;
     if(p.y>VIEW_H) return;
     if(mouse.drag){
-      const x0=Math.min(mouse.dragX,p.x), x1=Math.max(mouse.dragX,p.x);
-      const y0=Math.min(mouse.dragY,p.y), y1=Math.max(mouse.dragY,p.y);
-      const list=G.units.filter(u=>u.side==='player'&&!u.dead&&
-        toScreenX(u.x)*ZOOM>x0&&toScreenX(u.x)*ZOOM<x1&&toScreenY(u.y)*ZOOM>y0&&toScreenY(u.y)*ZOOM<y1);
-      const fighters=list.filter(u=>u.type!=='worker');
-      selectUnits(fighters.length?fighters:list,e.shiftKey);
+      selectInBox(mouse.dragX,mouse.dragY,p.x,p.y,e.shiftKey);
       mouse.drag=false;
       return;
     }
@@ -114,8 +200,7 @@ function bindInput(){
     if(e.key==='Escape'){ G.placing=null; buildMenuOpen=false; return; }
     if(k==='b'){ buildMenuOpen=!buildMenuOpen; G.selBuilding=null; return; }
     if(k==='a'){ selectArmy(); return; }
-    if(k==='h'){ const th=G.buildings.find(b=>b.side==='player'&&!b.dead&&b.type==='townhall');
-      if(th){ centerCam(th.x,th.y); clearSel(); G.selBuilding=th; } return; }
+    if(k==='h'){ homeView(); return; }
     if(k==='r'){ useAbility('player'); return; }
     if(e.key==='+'||e.key==='='){ setZoom(ZOOM+.2); return; }
     if(e.key==='-'||e.key==='_'){ setZoom(ZOOM-.2); return; }
@@ -182,16 +267,38 @@ function btn(x,y,w,h,title,sub,ok,action,hot){
   cx.strokeRect(x+.5,y+.5,w-1,h-1);
   cx.textAlign='left';
   cx.fillStyle=ok?'#f1e2bf':'#8f8674';
-  cx.font='600 12px Satoshi,system-ui,sans-serif';
-  cx.fillText(title,x+8,y+17);
+  const f1=Math.round(12*US), f2=Math.round(10.5*US);
+  if(h<38){                                   // jeden wiersz — tytuł + koszt w prawo
+    cx.font='600 '+f1+'px Satoshi,system-ui,sans-serif';
+    if(title.length<=3){ cx.textAlign='center'; cx.fillText(title,x+w/2,y+h/2+f1*.36); cx.textAlign='left'; }
+    else cx.fillText(fitText(title,w-(sub?58:14)),x+7,y+h/2+f1*.36);
+    if(sub){
+      cx.textAlign='right';
+      cx.fillStyle=ok?'rgba(230,214,180,.75)':'rgba(140,132,116,.7)';
+      cx.font='500 '+f2+'px Satoshi,system-ui,sans-serif';
+      cx.fillText(fitText(sub,54),x+w-7,y+h/2+f2*.36);
+      cx.textAlign='left';
+    }
+    return b;
+  }
+  cx.font='600 '+f1+'px Satoshi,system-ui,sans-serif';
+  cx.fillText(fitText(title,w-12),x+7,y+f1+5);
   if(sub){ cx.fillStyle=ok?'rgba(230,214,180,.75)':'rgba(140,132,116,.7)';
-    cx.font='500 10.5px Satoshi,system-ui,sans-serif';
-    cx.fillText(sub,x+8,y+h-8); }
+    cx.font='500 '+f2+'px Satoshi,system-ui,sans-serif';
+    cx.fillText(fitText(sub,w-12),x+7,y+h-7); }
   return b;
+}
+function fitText(t,maxw){
+  t=String(t);
+  if(cx.measureText(t).width<=maxw) return t;
+  while(t.length>1&&cx.measureText(t+'…').width>maxw) t=t.slice(0,-1);
+  return t+'…';
 }
 function costStr(c){ return (c.gold?c.gold+'z ':'')+(c.wood?c.wood+'d':''); }
 
 function drawHUD(){
+  if(MOBILE){ drawHUDMobile(); return; }
+  topBarH=0;
   hudBtns=[];
   const y0=VIEW_H;
   panel(0,y0,VW,HUD_H,.95);
@@ -332,6 +439,158 @@ function drawHUD(){
     cx.fillText('SPACJA — wróć do gry',VW/2,VIEW_H/2+34);
   }
 }
+
+/* ==========================================================================
+   HUD DOTYKOWY — telefon / tablet
+   ========================================================================== */
+function drawHUDMobile(){
+  hudBtns=[];
+  const y0=VIEW_H;
+  panel(0,y0,VW,HUD_H,.96);
+  cx.fillStyle='rgba(230,194,115,.5)'; cx.fillRect(0,y0,VW,1);
+
+  /* --- minimapa --- */
+  let mw=Math.min(Math.round(VW*.27),Math.round((HUD_H-14)*MAP_W/MAP_H));
+  let mh=Math.round(mw*MAP_H/MAP_W);
+  mmRect={x:VW-mw-7,y:y0+Math.round((HUD_H-mh)/2),w:mw,h:mh};
+  drawMinimap();
+
+  const L=8, avail=VW-mw-22;
+  const fixedH=Math.round(clamp((HUD_H-14)*.36,38,50));
+  const fixedY=y0+HUD_H-fixedH-6;
+  const ctxTop=y0+6, ctxH=fixedY-ctxTop-5;
+
+  /* --- rząd kontekstowy: co teraz mogę zrobić --- */
+  const items=[];
+  let info=null;
+  if(G.placing){
+    info='Stawiam: '+BUILDINGS[G.placing].label+' — dotknij mapy';
+    items.push({t:'Anuluj',s:'nie stawiaj',ok:true,a:()=>{G.placing=null;}});
+  } else if(buildMenuOpen){
+    for(const t of BUILD_ORDER){
+      const d=BUILDINGS[t];
+      items.push({t:d.label,s:costStr(d.cost),ok:canAfford('player',d.cost),a:()=>startPlacing(t)});
+    }
+  } else if(G.selBuilding&&!G.selBuilding.dead){
+    const b=G.selBuilding, d=BUILDINGS[b.type];
+    if(!b.done) info=d.label+' — w budowie '+Math.round(b.progress*100)+'%';
+    else if(d.upgrades){
+      info='Kuźnia — ulepszenia widoczne na jednostkach';
+      for(const t of ['warrior','archer','heavy','worker']){
+        const lvl=G.lvl.player[t], maxed=lvl>=UPG[t].max, c=upgCost(t,lvl);
+        items.push({t:UPG[t].label+' '+lvl+'/'+UPG[t].max,s:maxed?'maksimum':costStr(c),
+          ok:!maxed&&canAfford('player',c),a:()=>tryUpgrade('player',t)});
+      }
+    } else if(d.trains&&d.trains.length){
+      info=d.label+(b.queue.length?'  ·  kolejka '+b.queue.length+' ('+Math.ceil(b.trainLeft)+'s)':'');
+      for(const t of d.trains){
+        const du=UNITS[t];
+        items.push({t:tierName(G.pf,t,G.lvl.player[t]),s:costStr(du.cost)+' · '+du.pop+' lud.',
+          ok:canAfford('player',du.cost)&&popUsed('player')+du.pop<=popMax('player'),a:()=>trainUnit(b,t)});
+      }
+    } else info=d.label+'  ·  HP '+Math.max(0,Math.round(b.hp))+'/'+b.maxHp;
+  } else if(G.sel.length){
+    const counts={};
+    for(const u of G.sel) counts[u.type]=(counts[u.type]||0)+1;
+    const parts=[];
+    for(const t in counts){
+      const u=G.sel.find(x=>x.type===t);
+      parts.push(counts[t]+'× '+tierName(G.pf,t,u.lvl));
+    }
+    info='Zaznaczono: '+parts.join(' · ');
+    if(G.sel.some(u=>UNITS[u.type].build)) items.push({t:'Budowa',s:'postaw budynek',ok:true,a:()=>{buildMenuOpen=true;}});
+    items.push({t:'Postój',s:'zatrzymaj',ok:true,a:()=>{ for(const u of G.sel){ u.order=null; u.target=null; u.state='idle'; } }});
+  } else {
+    info='Dotknij jednostki, potem dotknij mapy — pójdzie tam i zaatakuje wroga.';
+    items.push({t:'Armia',s:'wojownicy',ok:true,a:()=>selectArmy()});
+    items.push({t:'Robotnicy',s:'zbieracze',ok:true,a:()=>selectAllOfType('worker')});
+    items.push({t:'Budowa',s:'7 budynków',ok:true,a:()=>{buildMenuOpen=true;}});
+  }
+
+  if(info){
+    cx.textAlign='left';
+    cx.font='600 '+Math.round(11.5*US)+'px Satoshi,sans-serif';
+    cx.fillStyle='rgba(230,194,115,.9)';
+    cx.fillText(info.length>Math.round(avail/(6*US))?info.slice(0,Math.round(avail/(6*US)))+'…':info,L,ctxTop+Math.round(12*US));
+  }
+  if(items.length){
+    const top=info?ctxTop+Math.round(16*US):ctxTop;
+    const areaH=fixedY-top-5;
+    const per=items.length>4?4:items.length;
+    const rows=Math.ceil(items.length/per);
+    const bh=Math.max(30,Math.floor((areaH-(rows-1)*4)/rows));
+    const bw=Math.floor((avail-(per-1)*5)/per);
+    items.forEach((it,i)=>{
+      const rx=L+(i%per)*(bw+5), ry=top+Math.floor(i/per)*(bh+4);
+      btn(rx,ry,bw,bh,it.t,it.s,it.ok,it.a,false);
+    });
+  }
+
+  /* --- stały rząd sterowania --- */
+  const ab=FACTIONS[G.pf].ability;
+  const abReady=G.abilityCd<=0&&G.will>=ab.cost;
+  const fixed=[
+    {t:boxMode?'RAMKA ✓':'RAMKA',s:boxMode?'przeciągnij':'grupa',ok:true,a:()=>{boxMode=!boxMode;}},
+    {t:'ARMIA',s:'wszyscy',ok:true,a:()=>selectArmy()},
+    {t:buildMenuOpen?'ZAMKNIJ':'BUDOWA',s:buildMenuOpen?'menu':'stawiaj',ok:true,
+      a:()=>{buildMenuOpen=!buildMenuOpen; G.placing=null;}},
+    {t:'MOC',s:G.abilityCd>0?Math.ceil(G.abilityCd)+'s':Math.min(Math.floor(G.will),G.willMax)+'/'+ab.cost,
+      ok:abReady,a:()=>useAbility('player')}
+  ];
+  const fw=Math.floor((avail-15)/4);
+  fixed.forEach((it,i)=>btn(L+i*(fw+5),fixedY,fw,fixedH,it.t,it.s,it.ok,it.a,false));
+
+  /* --- górny pasek: surowce i szybkie przyciski --- */
+  topBarH=Math.round(clamp(30*US,28,40));
+  cx.fillStyle='rgba(16,14,11,.72)'; cx.fillRect(0,0,VW,topBarH);
+  cx.fillStyle='rgba(230,194,115,.35)'; cx.fillRect(0,topBarH,VW,1);
+  const fy=Math.round(topBarH*.66), fs=Math.round(13*US);
+  cx.textAlign='left';
+  cx.fillStyle='#e6c273'; cx.beginPath(); cx.arc(14,topBarH/2,6,0,7); cx.fill();
+  cx.font='700 '+fs+'px Cinzel,Georgia,serif';
+  cx.fillText(Math.floor(G.res.player.gold),25,fy);
+  const gw=cx.measureText(Math.floor(G.res.player.gold)+'').width;
+  cx.fillStyle='#8fae58'; cx.fillRect(34+gw,topBarH/2-5,11,10);
+  cx.fillStyle='#a9d16a';
+  cx.fillText(Math.floor(G.res.player.wood),50+gw,fy);
+  const ww=cx.measureText(Math.floor(G.res.player.wood)+'').width;
+  const pu=popUsed('player'), pm=popMax('player');
+  cx.fillStyle=pu>=pm?'#df5b4d':'#cfdcf8';
+  cx.font='700 '+Math.round(12*US)+'px Cinzel,Georgia,serif';
+  cx.fillText('Lud. '+pu+'/'+pm,60+gw+ww,fy);
+  const qh=topBarH-8, qw=Math.round(qh*1.5);
+  btn(VW-qw*3-16,4,qw,qh,'⌂','',true,()=>homeView(),false);
+  btn(VW-qw*2-10,4,qw,qh,paused?'▶':'❚❚','',true,()=>{paused=!paused;},false);
+  btn(VW-qw-4,4,qw,qh,ZOOM>1.8?'－':'＋','',true,()=>setZoom(ZOOM>1.8?1.1:2.1),false);
+
+  /* --- komunikaty --- */
+  if(warnMsg){
+    cx.textAlign='center'; cx.globalAlpha=clamp(warnMsg.life,0,1);
+    const w=Math.min(VW-24,330);
+    cx.fillStyle='rgba(20,16,12,.88)'; cx.fillRect(VW/2-w/2,VIEW_H-52,w,32);
+    cx.strokeStyle='rgba(223,91,77,.8)'; cx.strokeRect(VW/2-w/2+.5,VIEW_H-51.5,w-1,31);
+    cx.fillStyle='#ffd7cf'; cx.font='600 '+Math.round(12.5*US)+'px Satoshi,sans-serif';
+    cx.fillText(warnMsg.txt,VW/2,VIEW_H-31);
+    cx.globalAlpha=1;
+  }
+  if(G.banner){
+    const t=clamp(G.banner.life/G.banner.max,0,1);
+    cx.textAlign='center'; cx.globalAlpha=Math.min(1,t*2);
+    cx.font='700 '+Math.round(clamp(VW*.062,20,34))+'px Cinzel,Georgia,serif';
+    cx.fillStyle='rgba(0,0,0,.6)'; cx.fillText(G.banner.txt,VW/2+2,topBarH+52);
+    cx.fillStyle=G.banner.col; cx.fillText(G.banner.txt,VW/2,topBarH+50);
+    cx.globalAlpha=1;
+  }
+  if(paused){
+    cx.fillStyle='rgba(10,9,7,.55)'; cx.fillRect(0,0,VW,VIEW_H);
+    cx.textAlign='center'; cx.fillStyle='#e6c273';
+    cx.font='700 '+Math.round(clamp(VW*.07,22,40))+'px Cinzel,Georgia,serif';
+    cx.fillText('PAUZA',VW/2,VIEW_H/2);
+    cx.font='500 '+Math.round(12*US)+'px Satoshi,sans-serif'; cx.fillStyle='rgba(230,220,200,.8)';
+    cx.fillText('dotknij ▶ u góry, aby wrócić',VW/2,VIEW_H/2+26);
+  }
+}
+
 function wrapText(txt,x,y,w,lh){
   const words=txt.split(' '); let line='', yy=y;
   for(const wd of words){
@@ -454,6 +713,7 @@ function step(dt){
 window.addEventListener('DOMContentLoaded',()=>{
   initCanvas();
   bindInput();
+  bindTouch();
   // przyciski menu
   document.querySelectorAll('[data-faction]').forEach(el=>{
     el.addEventListener('click',()=>startGame(el.getAttribute('data-faction')));
