@@ -575,20 +575,37 @@ function resolveHeavy(u){
 /* ==========================================================================
    MOCE KRAINY
    ========================================================================== */
+/* --- zasieg wzroku: mocy nie da sie rzucac po calej mapie --- */
+const VIS_UNIT=330, VIS_BLD=430;
+function inSight(side,x,y){
+  for(const u of G.units) if(u.side===side&&!u.dead&&Math.hypot(u.x-x,u.y-y)<VIS_UNIT) return true;
+  for(const b of G.buildings) if(b.side===side&&!b.dead&&Math.hypot(b.x-x,b.y-y)<VIS_BLD+b.r) return true;
+  return false;
+}
+function abilityTarget(side){
+  const f=sideFaction(side);
+  if(f==='orki') return G.units.some(u=>u.side===side&&!u.dead);
+  if(f==='nieumarli') return G.fallen[side]&&G.fallen[side].length>0;
+  return G.units.some(u=>!u.dead&&foe(u.side,side)&&inSight(side,u.x,u.y));
+}
 function useAbility(side){
   const f=sideFaction(side), ab=FACTIONS[f].ability;
   if(side==='player'){
     if(G.abilityCd>0||G.will<ab.cost) return false;
+    if(!abilityTarget('player')){
+      warn(f==='nieumarli'?'Brak poległych do wskrzeszenia':'Brak wrogów w zasięgu wzroku — podejdź bliżej');
+      return false;
+    }
     G.will-=ab.cost; G.abilityCd=ab.cd; G.stats.abilities++;
   }
-  const foes=G.units.filter(u=>!u.dead&&foe(u.side,side));
+  const foes=G.units.filter(u=>!u.dead&&foe(u.side,side)&&inSight(side,u.x,u.y));
   if(f==='ludzie'){
     let best=null,bc=-1;
     for(const o of foes){
       const c=foes.filter(p=>Math.hypot(p.x-o.x,p.y-o.y)<110).length;
       if(c>bc){bc=c;best=o;}
     }
-    if(!best){ if(side==='player'){ G.will+=ab.cost; G.abilityCd=0; warn('Brak celu dla deszczu strzał'); } return false; }
+    if(!best){ if(side==='player'){ G.will+=ab.cost; G.abilityCd=0; warn('Brak wrogów w zasięgu wzroku'); } return false; }
     if(side==='player') banner('DESZCZ STRZAŁ','#cfdcf8');
     for(let i=0;i<48;i++){
       const tx=best.x+rand(-110,110), ty=best.y+rand(-90,90);
@@ -606,7 +623,7 @@ function useAbility(side){
       const c=foes.filter(p=>Math.hypot(p.x-o.x,p.y-o.y)<120).length;
       if(c>bc){bc=c;best=o;}
     }
-    if(!best){ if(side==='player'){ G.will+=ab.cost; G.abilityCd=0; warn('Brak celu dla deszczu siarki'); } return false; }
+    if(!best){ if(side==='player'){ G.will+=ab.cost; G.abilityCd=0; warn('Brak wrogów w zasięgu wzroku'); } return false; }
     if(side==='player') banner('DESZCZ SIARKI','#ff9e3d');
     for(let i=0;i<9;i++){
       const tx=best.x+rand(-130,130), ty=best.y+rand(-100,100);

@@ -385,14 +385,16 @@ function drawHUD(){
   const ab=FACTIONS[G.pf].ability;
   const abReady=G.abilityCd<=0&&G.will>=ab.cost;
   const abx=200, aby=y0+12;
+  const abTgt=abilityTarget('player');
   btn(abx,aby,168,50,ab.name+'  [R]',
-    G.abilityCd>0?('odnowienie '+G.abilityCd.toFixed(0)+'s'):('wola '+Math.min(Math.floor(G.will),G.willMax)+'/'+ab.cost),
-    abReady,()=>useAbility('player'));
+    G.abilityCd>0?('odnowienie '+G.abilityCd.toFixed(0)+'s')
+      :(!abTgt?'brak celu w zasięgu wzroku':('wola '+Math.min(Math.floor(G.will),G.willMax)+'/'+ab.cost)),
+    abReady&&abTgt,()=>useAbility('player'));
   cx.fillStyle='rgba(0,0,0,.5)'; cx.fillRect(abx,aby+54,168,8);
   cx.fillStyle='#8fd0ff'; cx.fillRect(abx,aby+54,168*clamp(G.will/G.willMax,0,1),8);
-  cx.font='500 10.5px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.6)';
-  cx.fillText('B budowa · A armia · E bohater · Q moc bohatera · H ratusz',abx,aby+84);
-  cx.fillText('PPM rozkaz · LPM/ramka zaznacz · Z do złota · X do drewna · SPACJA pauza',abx,aby+102);
+  cx.font='500 9.5px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.55)';
+  const hints=['B budowa · A armia · E bohater','Q moc bohatera · H ratusz · R moc krainy','LPM/ramka zaznacz · PPM rozkaz','Z złoto · X drewno · SPACJA pauza'];
+  hints.forEach((t,i)=>cx.fillText(t,abx,aby+76+i*12));
 
   /* --- panel kontekstowy --- */
   const px=392, pw=VW-392-270, py=y0+10;
@@ -638,7 +640,7 @@ function drawHUDMobile(){
     {t:buildMenuOpen?'✕':'BUDUJ',s:buildMenuOpen?'zamknij':'menu',ok:true,
       a:()=>{buildMenuOpen=!buildMenuOpen; G.placing=null; buildPick=null;}},
     {t:'MOC',s:G.abilityCd>0?Math.ceil(G.abilityCd)+'s':Math.min(Math.floor(G.will),G.willMax)+'/'+ab.cost,
-      ok:abReady,a:()=>useAbility('player')}
+      ok:abReady&&abilityTarget('player'),a:()=>useAbility('player')}
   ];
   if(hero) fixed.push({t:'★',s:hero.hcd>0?Math.ceil(hero.hcd)+'s':'moc',ok:hero.hcd<=0,a:()=>{selectUnits([hero],false); heroPower(hero);}});
   const fn=fixed.length, fw=Math.floor((avail-(fn-1)*4)/fn);
@@ -770,6 +772,7 @@ function renderScene(){
   drawEffects();
   drawPlacementGhost();
   drawSelectionBox();
+  drawHoverHints();
   cx.restore();
   if(G.flash>0){
     cx.globalAlpha=Math.min(.45,G.flash);
@@ -782,6 +785,136 @@ function renderScene(){
   }
   cx.restore();
   drawHUD();
+}
+/* ==========================================================================
+   PODPOWIEDZI POD KURSOREM: kilof / siekiera / miecze + sciezka marszu
+   ========================================================================== */
+function iconPickaxe(x,y,s,col){
+  cx.save(); cx.translate(x,y); cx.lineCap='round';
+  cx.strokeStyle='rgba(12,10,8,.8)'; cx.lineWidth=4.4;
+  cx.beginPath(); cx.moveTo(-s*.1,s*.75); cx.lineTo(s*.16,-s*.5); cx.stroke();
+  cx.strokeStyle='#8a6636'; cx.lineWidth=2.6;
+  cx.beginPath(); cx.moveTo(-s*.1,s*.75); cx.lineTo(s*.16,-s*.5); cx.stroke();
+  cx.strokeStyle='rgba(12,10,8,.8)'; cx.lineWidth=5.6;
+  cx.beginPath(); cx.moveTo(-s*.75,-s*.28); cx.quadraticCurveTo(s*.16,-s*.86,s*.8,-s*.2); cx.stroke();
+  cx.strokeStyle=col||'#d9d2c0'; cx.lineWidth=3.4;
+  cx.beginPath(); cx.moveTo(-s*.75,-s*.28); cx.quadraticCurveTo(s*.16,-s*.86,s*.8,-s*.2); cx.stroke();
+  cx.restore();
+}
+function iconAxe(x,y,s,col){
+  cx.save(); cx.translate(x,y); cx.lineCap='round';
+  cx.strokeStyle='rgba(12,10,8,.8)'; cx.lineWidth=4.6;
+  cx.beginPath(); cx.moveTo(-s*.3,s*.8); cx.lineTo(s*.22,-s*.6); cx.stroke();
+  cx.strokeStyle='#8a6636'; cx.lineWidth=2.8;
+  cx.beginPath(); cx.moveTo(-s*.3,s*.8); cx.lineTo(s*.22,-s*.6); cx.stroke();
+  cx.fillStyle=col||'#d9d2c0';
+  cx.beginPath();
+  cx.moveTo(s*.1,-s*.66);
+  cx.quadraticCurveTo(s*1.0,-s*.5,s*.66,s*.24);
+  cx.quadraticCurveTo(s*.3,-s*.02,s*.02,-s*.1);
+  cx.closePath(); cx.fill();
+  cx.strokeStyle='rgba(12,10,8,.8)'; cx.lineWidth=1.6; cx.stroke();
+  cx.restore();
+}
+function iconSwords(x,y,s){
+  cx.save(); cx.translate(x,y); cx.lineCap='round';
+  for(const sd of [-1,1]){
+    cx.strokeStyle='rgba(12,10,8,.8)'; cx.lineWidth=5;
+    cx.beginPath(); cx.moveTo(sd*s*.7,s*.7); cx.lineTo(-sd*s*.7,-s*.7); cx.stroke();
+    cx.strokeStyle='#e2ddcd'; cx.lineWidth=2.8;
+    cx.beginPath(); cx.moveTo(sd*s*.7,s*.7); cx.lineTo(-sd*s*.7,-s*.7); cx.stroke();
+    cx.strokeStyle='#e6c273'; cx.lineWidth=2.6;
+    cx.beginPath(); cx.moveTo(sd*s*.34,s*.62); cx.lineTo(sd*s*.72,s*.24); cx.stroke();
+  }
+  cx.restore();
+}
+function iconBoots(x,y,s){
+  cx.save(); cx.translate(x,y);
+  cx.fillStyle='rgba(12,10,8,.65)';
+  for(const sd of [-1,1]){
+    cx.beginPath(); cx.ellipse(sd*s*.32,sd*s*.16,s*.2,s*.34,sd*.22,0,7); cx.fill();
+  }
+  cx.restore();
+}
+function hintLabel(x,y,txt,col){
+  cx.font='700 11px Satoshi,system-ui,sans-serif'; cx.textAlign='center';
+  const w=cx.measureText(txt).width+12;
+  cx.fillStyle='rgba(16,14,11,.82)';
+  cx.beginPath();
+  cx.roundRect?cx.roundRect(x-w/2,y-13,w,17,4):cx.rect(x-w/2,y-13,w,17);
+  cx.fill();
+  cx.strokeStyle=hexA(col,.55); cx.lineWidth=1; cx.stroke();
+  cx.fillStyle=col; cx.fillText(txt,x,y-1);
+}
+function drawHoverHints(){
+  if(!G||G.placing||!mouse.inWorld||!mouse.seen) return;
+  const wx=toWorldX(mouse.x), wy=toWorldY(mouse.y);
+  const mx=mouse.x/ZOOM, my=mouse.y/ZOOM;
+  const rs=resAt(wx,wy);
+  const hb=buildingAt(wx,wy), hu=unitAt(wx,wy);
+  const mine=G.sel.filter(u=>!u.dead);
+  const hostile=(hu&&isFoe(hu.side,'player')&&!hu.dead)||(hb&&isFoe(hb.side,'player')&&!hb.dead);
+
+  /* --- sciezka marszu wybranych jednostek --- */
+  if(mine.length&&!hostile){
+    let cxx=0,cyy=0;
+    for(const u of mine){ cxx+=u.x; cyy+=u.y; }
+    cxx/=mine.length; cyy/=mine.length;
+    const ax=toScreenX(cxx)/ZOOM, ay=toScreenY(cyy)/ZOOM;
+    const tx=rs?toScreenX(rs.x)/ZOOM:mx, ty=rs?toScreenY(rs.y)/ZOOM:my;
+    const col=rs?(rs.kind==='gold'?'#e6c273':'#9ccf6a'):'#9fe07a';
+    cx.save();
+    cx.strokeStyle=hexA(col,.35); cx.lineWidth=3; cx.setLineDash([10,8]);
+    cx.lineDashOffset=-(TIME*26)%18;
+    cx.beginPath(); cx.moveTo(ax,ay); cx.lineTo(tx,ty); cx.stroke();
+    cx.setLineDash([]);
+    // slady butow po drodze
+    const d=Math.hypot(tx-ax,ty-ay), n=Math.min(9,Math.floor(d/34));
+    const na=Math.atan2(ty-ay,tx-ax);
+    for(let i=1;i<=n;i++){
+      const t=i/(n+1);
+      iconBoots(ax+(tx-ax)*t,ay+(ty-ay)*t,5.5);
+    }
+    // grot strzalki
+    cx.fillStyle=hexA(col,.8);
+    cx.beginPath();
+    cx.moveTo(tx,ty);
+    cx.lineTo(tx-Math.cos(na-.42)*13,ty-Math.sin(na-.42)*13);
+    cx.lineTo(tx-Math.cos(na+.42)*13,ty-Math.sin(na+.42)*13);
+    cx.closePath(); cx.fill();
+    cx.restore();
+  }
+
+  /* --- ikona nad celem --- */
+  if(rs){
+    const rx=toScreenX(rs.x)/ZOOM, ry=toScreenY(rs.y)/ZOOM;
+    const gold=rs.kind==='gold';
+    const col=gold?'#e6c273':'#a8d47a';
+    cx.save();
+    cx.strokeStyle=hexA(col,.8); cx.lineWidth=2; cx.setLineDash([5,4]);
+    cx.lineDashOffset=(TIME*18)%9;
+    cx.beginPath(); cx.ellipse(rx,ry,rs.r+8,(rs.r+8)*.62,0,0,7); cx.stroke();
+    cx.setLineDash([]);
+    const iy=ry-rs.r-24;
+    if(gold) iconPickaxe(rx,iy,13,'#efe3c2'); else iconAxe(rx,iy,12,'#e7e0cc');
+    hintLabel(rx,iy-20,(gold?'Kopaj złoto':'Rąb drewno')+' · '+Math.max(0,Math.round(rs.amount)),col);
+    cx.restore();
+  } else if(hostile){
+    const t=hu&&isFoe(hu.side,'player')?hu:hb;
+    const tx=toScreenX(t.x)/ZOOM, ty=toScreenY(t.y)/ZOOM, rr=(t.r||18);
+    cx.save();
+    cx.strokeStyle='rgba(223,91,77,.9)'; cx.lineWidth=2; cx.setLineDash([5,4]);
+    cx.lineDashOffset=(TIME*18)%9;
+    cx.beginPath(); cx.ellipse(tx,ty,rr+9,(rr+9)*.62,0,0,7); cx.stroke();
+    cx.setLineDash([]);
+    iconSwords(tx,ty-rr-26,12);
+    hintLabel(tx,ty-rr-46,'Atakuj','#f09a8e');
+    cx.restore();
+  } else if(hb&&!isFoe(hb.side,'player')&&!hb.done){
+    const tx=toScreenX(hb.x)/ZOOM, ty=toScreenY(hb.y)/ZOOM;
+    iconAxe(tx,ty-hb.r-24,11,'#cfe0a8');
+    hintLabel(tx,ty-hb.r-44,'Buduj','#cfe0a8');
+  }
 }
 function drawPlacementGhost(){
   if(!G.placing||!mouse.inWorld) return;
