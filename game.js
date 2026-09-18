@@ -99,7 +99,7 @@ function spawnUnit(side,type,x,y,lvlOpt){
     hp:st.hp, maxHp:st.hp, dmg:st.dmg, range:st.range, speed:st.speed, ias:st.ias,
     facing:rand(0,7), state:'idle', order:null, carry:null, gatherAcc:0,
     atk:rand(0,.5), anim:rand(0,6), walk:0, stun:0, slow:0, hitFlash:0,
-    windup:0, windupKind:null, volley:0, hcd:0, hbuff:0,
+    windup:0, windupKind:null, volley:0, hcd:0, hbuff:0, avoid:null, stuck:0, lastD:0,
     z:0, vz:0, vx:0, vy:0, rot:0, vrot:0,
     dead:false, fade:1, sel:false
   };
@@ -148,11 +148,28 @@ function formationOffsets(n){
   }
   return out;
 }
+function freeSpot(x,y,r){
+  for(let i=0;i<14;i++){
+    let hit=null;
+    for(const b of G.buildings){
+      if(b.dead) continue;
+      const d=Math.hypot(b.x-x,b.y-y);
+      if(d<b.r+r+6){ hit={b,d}; break; }
+    }
+    if(!hit) break;
+    const d=hit.d||.01;
+    const nx=(x-hit.b.x)/d||1, ny=(y-hit.b.y)/d||0;
+    const need=hit.b.r+r+8;
+    x=hit.b.x+nx*need; y=hit.b.y+ny*need;
+  }
+  return {x:clamp(x,16,MAP_W-16),y:clamp(y,16,MAP_H-16)};
+}
 function commandMove(units,x,y){
   const off=formationOffsets(units.length);
   units.forEach((u,i)=>{
-    u.order={kind:'move',x:clamp(x+off[i].dx,16,MAP_W-16),y:clamp(y+off[i].dy,16,MAP_H-16)};
-    u.state='move';
+    const t=freeSpot(x+off[i].dx,y+off[i].dy,u.r);
+    u.order={kind:'move',x:t.x,y:t.y};
+    u.state='move'; u.stuck=0; u.lastD=0; u.avoid=null;
   });
   ring(x,y,34,'rgba(230,194,115,.85)',.45,3);
 }

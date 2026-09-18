@@ -79,8 +79,14 @@ function updateUnits(dt){
     }
     if(o&&o.kind==='move'){
       const d=Math.hypot(o.x-u.x,o.y-u.y);
-      if(d<8+u.r*.2){ u.order=null; u.state='idle'; }
-      else { moveTo(u,o.x,o.y,dt); }
+      if(d<8+u.r*.2){ u.order=null; u.state='idle'; u.stuck=0; u.lastD=0; }
+      else {
+        // jesli od 2.5 s nie ma postepu (cel w budynku, tlok), uznaj ze dotarl
+        if(u.lastD===undefined||u.lastD===0||d<u.lastD-1.5){ u.lastD=d; u.stuck=0; }
+        else { u.stuck=(u.stuck||0)+dt; }
+        if(u.stuck>2.5){ u.order=null; u.state='idle'; u.stuck=0; u.lastD=0; u.avoid=null; }
+        else moveTo(u,o.x,o.y,dt);
+      }
       // walcz w biegu, jeśli ktoś podejdzie bardzo blisko
       if(u.type!=='worker'){
         const e=findEnemy(u,u.range+u.r+14);
@@ -103,18 +109,38 @@ function updateUnits(dt){
 }
 
 function moveTo(u,tx,ty,dt,ignore){
-  let ang=Math.atan2(ty-u.y,tx-u.x);
-  // omijanie budynków
-  if(!ignore) for(const b of G.buildings){
-    if(b.dead) continue;
-    const d=Math.hypot(b.x-u.x,b.y-u.y);
-    if(d<b.r+u.r+18&&d>0.1){
-      const away=Math.atan2(u.y-b.y,u.x-b.x);
-      const diff=Math.atan2(Math.sin(ang-away),Math.cos(ang-away));
-      ang=away+(diff>0?1:-1)*Math.PI*.5;
-      break;
+  const dxT=tx-u.x, dyT=ty-u.y, dT=Math.hypot(dxT,dyT);
+  if(dT<.5) return;
+  const ux=dxT/dT, uy=dyT/dT;
+  let ang=Math.atan2(dyT,dxT);
+  if(!ignore){
+    // omijaj tylko budynek, ktory faktycznie stoi na drodze do celu
+    let bb=null, bd=1e9;
+    for(const b of G.buildings){
+      if(b.dead) continue;
+      const d=Math.hypot(b.x-u.x,b.y-u.y);
+      const R=b.r+u.r+10;
+      if(d>R+70||d<.1) continue;
+      if(d-R>dT) continue;                                  // cel blizej niz budynek
+      const proj=(b.x-u.x)*ux+(b.y-u.y)*uy;
+      if(proj<-b.r) continue;                               // budynek z tylu
+      const perp=Math.abs((b.x-u.x)*uy-(b.y-u.y)*ux);
+      if(perp>R) continue;                                  // mijamy bokiem
+      if(d<bd){ bd=d; bb=b; }
     }
-  }
+    if(bb){
+      const away=Math.atan2(u.y-bb.y,u.x-bb.x);
+      const diff=Math.atan2(Math.sin(ang-away),Math.cos(ang-away));
+      // strona omijania wybrana raz — inaczej jednostka kraz wokol budynku
+      if(!u.avoid||u.avoid.id!==bb.id||u.avoid.t<=0) u.avoid={id:bb.id,side:diff>=0?1:-1,t:1.6};
+      u.avoid.t-=dt;
+      const close=clamp((bb.r+u.r+14-bd)/45,0,1);
+      let a2=away+u.avoid.side*Math.PI*(.5+.2*close);
+      // ciagle domieszaj kierunek do celu, zeby po ominieciu wrocic na kurs
+      const dd=Math.atan2(Math.sin(ang-a2),Math.cos(ang-a2));
+      ang=a2+dd*(.4-.25*close);
+    } else if(u.avoid) u.avoid=null;
+  } else if(u.avoid) u.avoid=null;
   const sp=u.speed*spdMul(u);
   u.x+=Math.cos(ang)*sp*dt; u.y+=Math.sin(ang)*sp*dt;
   u.facing=ang; u.walk+=dt*9; u.state='move';
