@@ -856,7 +856,7 @@ function drawHoverHints(){
 
   /* --- ikona nad celem --- */
   if(rs){
-    const rx=toScreenX(rs.x)/ZOOM, ry=toScreenY(rs.y)/ZOOM;
+    const rx=toScreenX(rs.x), ry=toScreenY(rs.y);
     const gold=rs.kind==='gold';
     const col=gold?'#e6c273':'#a8d47a';
     cx.save();
@@ -864,25 +864,25 @@ function drawHoverHints(){
     cx.lineDashOffset=(TIME*18)%9;
     cx.beginPath(); cx.ellipse(rx,ry,rs.r+8,(rs.r+8)*.62,0,0,7); cx.stroke();
     cx.setLineDash([]);
-    const iy=ry-rs.r-24;
-    if(gold) iconPickaxe(rx,iy,13,'#efe3c2'); else iconAxe(rx,iy,12,'#e7e0cc');
-    hintLabel(rx,iy-20,(gold?'Kopaj złoto':'Rąb drewno')+' · '+Math.max(0,Math.round(rs.amount)),col);
+    // ikona trzyma sie kursora, nie srodka zloza
+    const ix=mx+16, iy=my-14;
+    if(gold) iconPickaxe(ix,iy,13,'#efe3c2'); else iconAxe(ix,iy,12,'#e7e0cc');
+    hintLabel(ix,iy-18,(gold?'Kopaj złoto':'Rąb drewno')+' · '+Math.max(0,Math.round(rs.amount)),col);
     cx.restore();
   } else if(hostile){
     const t=hu&&isFoe(hu.side,'player')?hu:hb;
-    const tx=toScreenX(t.x)/ZOOM, ty=toScreenY(t.y)/ZOOM, rr=(t.r||18);
+    const tx=toScreenX(t.x), ty=toScreenY(t.y), rr=(t.r||18);
     cx.save();
     cx.strokeStyle='rgba(223,91,77,.9)'; cx.lineWidth=2; cx.setLineDash([5,4]);
     cx.lineDashOffset=(TIME*18)%9;
     cx.beginPath(); cx.ellipse(tx,ty,rr+9,(rr+9)*.62,0,0,7); cx.stroke();
     cx.setLineDash([]);
-    iconSwords(tx,ty-rr-26,12);
-    hintLabel(tx,ty-rr-46,'Atakuj','#f09a8e');
+    iconSwords(mx+16,my-14,12);
+    hintLabel(mx+16,my-32,'Atakuj','#f09a8e');
     cx.restore();
   } else if(hb&&!isFoe(hb.side,'player')&&!hb.done){
-    const tx=toScreenX(hb.x)/ZOOM, ty=toScreenY(hb.y)/ZOOM;
-    iconAxe(tx,ty-hb.r-24,11,'#cfe0a8');
-    hintLabel(tx,ty-hb.r-44,'Buduj','#cfe0a8');
+    iconAxe(mx+16,my-14,11,'#cfe0a8');
+    hintLabel(mx+16,my-32,'Buduj','#cfe0a8');
   }
 }
 function drawPlacementGhost(){
