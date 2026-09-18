@@ -56,6 +56,25 @@ function debris(x,y,n=8,col='#8b7a60'){
   for(let i=0;i<n;i++) G.parts.push({x,y,vx:rand(-150,150),vy:rand(-150,150),life:rand(.5,1),max:1,
     size:rand(3,7),col,kind:'rock',rot:rand(0,7),vrot:rand(-12,12)});
 }
+function flash(x,y,size,col){
+  G.parts.push({x,y,kind:'flash',size,col:col||'#fff8e0',life:.16,max:.16,ang:rand(0,7)});
+}
+function stub(x,y,ang,col){
+  G.parts.push({x,y,kind:'stub',ang,col:col||'#cfc2a2',life:6,max:6});
+}
+function crackDecal(x,y,r,col){
+  if(G.decals.length>150) G.decals.shift();
+  G.decals.push({x,y,r,col:col||'rgba(48,38,26,.5)',life:16,max:16,seed:rand(0,7),crack:true});
+}
+function bloodCone(x,y,faction,nx,ny,power){
+  const col=FACTIONS[faction].gore;
+  const base=Math.atan2(ny,nx);
+  for(let i=0;i<10;i++){
+    const a=base+rand(-.5,.5), sp=rand(70,230)*power;
+    G.parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:rand(.3,.7),max:.7,
+      size:rand(1.6,4.2),col,kind:'gore'});
+  }
+}
 function embers(x,y,col,n=10){
   for(let i=0;i<n;i++) G.parts.push({x,y,vx:rand(-40,40),vy:rand(-70,-10),life:rand(.6,1.3),max:1.3,
     size:rand(1.4,3.2),col,kind:'ember'});
@@ -258,13 +277,18 @@ function dealDamage(t,amount,fromSide,opts={}){
     return;
   }
   spark(t.x,t.y,'#f6e2b8',opts.n||5,opts.power||1);
+  flash(t.x+(opts.dx||0)*6,t.y+(opts.dy||0)*6,7+(opts.power||1)*5);
   gore(t.x,t.y,t.faction,Math.round(2+(opts.n||5)*.4),(opts.power||1)*.7,opts.dx||0,opts.dy||0);
+  if(opts.dx||opts.dy) bloodCone(t.x,t.y,t.faction,opts.dx||0,opts.dy||0,(opts.power||1)*.8);
   if(Math.random()<.4) decal(t.x+rand(-7,7),t.y+rand(-5,5),rand(4,9),FACTIONS[t.faction].gore);
   if(t.hp<=0){
     t.dead=true; t.rot=rand(-1.4,1.4);
     gore(t.x,t.y,t.faction,t.type==='heavy'?30:14,t.type==='heavy'?1.5:1,opts.dx||0,opts.dy||0);
     decal(t.x,t.y,t.type==='heavy'?30:rand(10,16),FACTIONS[t.faction].gore);
     if(t.faction==='nieumarli') embers(t.x,t.y,'#79e0d2',t.type==='heavy'?18:8);
+    flash(t.x,t.y,t.type==='heavy'?36:16,hexA(FACTIONS[t.faction].gore,.9));
+    ring(t.x,t.y,t.type==='heavy'?60:26,hexA(FACTIONS[t.faction].col.accent,.65),.35,3);
+    bloodCone(t.x,t.y,t.faction,opts.dx||rand(-1,1),opts.dy||rand(-1,1),1.3);
     if(t.type==='heavy'){ shake(9); hitstop(.08); debris(t.x,t.y,16); shockRing(t.x,t.y,70,FACTIONS[t.faction].col.accent); }
     G.fallen[t.side].push({x:t.x,y:t.y,type:t.type,lvl:t.lvl});
     if(G.fallen[t.side].length>30) G.fallen[t.side].shift();
@@ -306,8 +330,10 @@ function meleeAttack(u,t){
   const dmg=Math.round(u.dmg*dmgMul(u.side));
   const ang=Math.atan2(t.y-u.y,t.x-u.x), nx=Math.cos(ang), ny=Math.sin(ang);
   u.facing=ang;
-  slashArc(u.x+nx*(u.r+8),u.y+ny*(u.r+8),ang,u.r*2.4+16,
-    u.faction==='nieumarli'?'#cfeee8':(u.faction==='orki'?'#f3c98f':'#eef3ff'),u.lvl>=3?6:4);
+  const swCol=u.faction==='nieumarli'?'#cfeee8':(u.faction==='orki'?'#f3c98f':'#eef3ff');
+  slashArc(u.x+nx*(u.r+8),u.y+ny*(u.r+8),ang,u.r*2.4+16,swCol,u.lvl>=3?6:4);
+  slashArc(u.x+nx*(u.r+5),u.y+ny*(u.r+5),ang-.18,u.r*2.1+10,hexA('#ffffff',.5),2.5);
+  flash(u.x+nx*(u.r+10),u.y+ny*(u.r+10),8,swCol);
   if(u.faction==='ludzie'){
     dealDamage(t,dmg,u.side,{dx:nx,dy:ny});
     if(!t.dead&&UNITS[t.type]&&Math.random()<.28){
@@ -392,6 +418,8 @@ function resolveHeavy(u){
   shake(16); hitstop(.07); G.flash=.16; G.flashCol=acc;
   shockRing(cx,cy,R,acc);
   ring(cx,cy,R*.6,'rgba(255,255,255,.75)',.4,5);
+  flash(cx,cy,R*.55,'#fff6dc');
+  crackDecal(cx,cy,R*.55);
   for(let i=0;i<34;i++){const a=rand(0,7),d=rand(8,R*.85);
     G.parts.push({x:cx+Math.cos(a)*d,y:cy+Math.sin(a)*d,vx:Math.cos(a)*rand(70,240),vy:Math.sin(a)*rand(70,240),
       life:rand(.4,.95),max:.95,size:rand(5,14),col:'#b9a98c',kind:'dust'});}

@@ -307,6 +307,7 @@ function updateArrows(dt){
           for(let i=0;i<7;i++) G.parts.push({x:o.x+rand(-8,8),y:o.y+rand(-8,8),vx:rand(-30,30),vy:rand(-30,30),
             life:.6,max:.6,size:rand(2,4),col:'#9ff0e4',kind:'ember'}); }
         else knockback(o,nx,ny,45,0);
+        flash(a.x,a.y,9,a.kind==='frost'?'#bffaf0':'#fff4d6');
         hit=true; break;
       }
     }
@@ -315,6 +316,7 @@ function updateArrows(dt){
       if(Math.hypot(b.x-a.x,b.y-a.y)<b.r*.85){ dealDamage(b,Math.round(a.dmg*.7),a.side); hit=true; break; }
     }
     if(hit) a.life=0;
+    else if(a.life<=dt){ stub(a.x,a.y,Math.atan2(a.vy,a.vx),a.kind==='frost'?'#9ff0e4':'#cfc2a2'); puff(a.x,a.y,.6); }
     if(a.x<0||a.y<0||a.x>MAP_W||a.y>MAP_H) a.life=0;
   }
   G.arrows=G.arrows.filter(a=>a.life>0);
@@ -346,7 +348,7 @@ function updateParticles(dt){
   for(const p of G.parts){
     p.life-=dt;
     if(p.kind==='ring'||p.kind==='shock'){ p.r=lerp(p.r,p.maxR,1-Math.pow(.02,dt)); continue; }
-    if(p.kind==='slash') continue;
+    if(p.kind==='slash'||p.kind==='flash'||p.kind==='stub') continue;
     if(p.kind==='boulder'){
       p.prog=Math.min(1,p.prog+dt*p.sp);
       p.x=lerp(p.sx,p.tx,p.prog); p.y=lerp(p.sy,p.ty,p.prog);
@@ -356,6 +358,7 @@ function updateParticles(dt){
         p.done=true; p.life=0;
         shake(9); hitstop(.05);
         shockRing(p.x,p.y,110,'#d9c9a4'); debris(p.x,p.y,14);
+        flash(p.x,p.y,50,'#fff2d4'); crackDecal(p.x,p.y,52);
         for(let i=0;i<20;i++) puff(p.x+rand(-24,24),p.y+rand(-18,18),1.5,'#b9a98c');
         for(const o of G.units){
           if(o.dead||o.side===p.side) continue;
