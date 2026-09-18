@@ -7,7 +7,7 @@ function update(dt){
   G.t+=dt;
   G.will=Math.min(G.willMax,G.will+dt*G.willRate);
   if(G.abilityCd>0) G.abilityCd=Math.max(0,G.abilityCd-dt);
-  for(const s of ['player','enemy']) if(G.buff[s]>0) G.buff[s]=Math.max(0,G.buff[s]-dt);
+  for(const s of G.sides) if(G.buff[s]>0) G.buff[s]=Math.max(0,G.buff[s]-dt);
   if(G.shake>0) G.shake=Math.max(0,G.shake-dt*34);
   if(G.flash>0) G.flash=Math.max(0,G.flash-dt*1.7);
   if(G.alert>0) G.alert=Math.max(0,G.alert-dt);
@@ -37,6 +37,14 @@ function updateUnits(dt){
     if(u.slow>0) u.slow-=dt;
     if(u.hcd>0) u.hcd-=dt;
     if(u.hbuff>0) u.hbuff-=dt;
+    if(u.burn>0){
+      u.burn-=dt; u.burnAcc=(u.burnAcc||0)+dt;
+      if(Math.random()<dt*22) G.parts.push({x:u.x+rand(-u.r*.6,u.r*.6),y:u.y+rand(-u.r*.5,u.r*.2),
+        vx:rand(-16,16),vy:rand(-70,-24),life:rand(.3,.7),max:.7,size:rand(3,7),
+        col:pick(['#ff9e3d','#ffca6a','#e0522a']),kind:'fire'});
+      if(u.burnAcc>=.5){ u.burnAcc=0; dealDamage(u,6,u.burnSide,{n:2,power:.5}); if(u.dead) continue; }
+      if(u.burn<=0){ u.burn=0; u.burnSide=null; }
+    }
 
     // lot po odrzuceniu
     if(u.z>0||u.vz>0){
@@ -230,7 +238,7 @@ function doBuild(u,dt){
     b.done=true; b.hp=def.hp;
     ring(b.x,b.y,b.r*1.8,'rgba(230,194,115,.9)',.7,5);
     for(let i=0;i<18;i++) puff(b.x+rand(-b.r,b.r),b.y+rand(-b.r*.7,b.r*.7),1.4,'#e0d0ad');
-    if(b.side==='player') floatText(b.x,b.y-b.r-8,def.label+' gotowy','#e6c273',14);
+    if(b.side==='player') floatText(b.x,b.y-b.r-8,bLabel(G.pf,b.type)+' gotowy','#e6c273',14);
     // robotnicy wracają do pracy
     for(const w of G.units) if(w.order&&w.order.kind==='build'&&w.order.b===b){
       const nr=nearestRes(w.x,w.y,null,700);
@@ -286,10 +294,55 @@ function updateBuildings(dt){
         // nowy robotnik od razu rusza do najbliższego surowca
         if(type==='worker'){
           autoGather(u);
-        } else if(b.side==='enemy'){
+        } else if(b.side!=='player'){
           u.order=null;
         }
         if(b.queue.length){ b.trainLeft=UNITS[b.queue[0]].time; b.trainTotal=UNITS[b.queue[0]].time; }
+      }
+    }
+    // unikalny budynek frakcji: aura / przyzywanie
+    const auraDef=BUILDINGS[b.type].aura;
+    if(auraDef){
+      b.aura=(b.aura||0)+dt;
+      if(auraDef.kind==='heal'&&b.aura>=1){
+        b.aura=0;
+        for(const u of G.units){
+          if(u.dead||!allySide(u.side,b.side)) continue;
+          if(u.hp>=u.maxHp) continue;
+          if(Math.hypot(u.x-b.x,u.y-b.y)>auraDef.range) continue;
+          u.hp=Math.min(u.maxHp,u.hp+auraDef.rate);
+          G.parts.push({x:b.x,y:b.y-14,vx:(u.x-b.x)*1.3,vy:(u.y-b.y)*1.3,life:.45,max:.45,size:3,col:'#ffe9a8',kind:'ember'});
+        }
+      } else if(auraDef.kind==='burn'&&b.aura>=.6){
+        b.aura=0;
+        for(const u of G.units){
+          if(u.dead||!foe(u.side,b.side)) continue;
+          if(Math.hypot(u.x-b.x,u.y-b.y)>auraDef.range) continue;
+          dealDamage(u,Math.round(auraDef.dps*.6),b.side,{n:2,power:.5});
+          if(!u.dead) ignite(u,2.5,b.side);
+        }
+      } else if(auraDef.kind==='dmg'&&b.aura>=1){
+        b.aura=0;
+        for(const u of G.units){
+          if(u.dead||!allySide(u.side,b.side)) continue;
+          if(Math.hypot(u.x-b.x,u.y-b.y)>auraDef.range) continue;
+          u.hbuff=Math.max(u.hbuff,1.4);
+          if(Math.random()<.2) embers(u.x,u.y,'#e07a3a',2);
+        }
+      }
+    }
+    const spw=BUILDINGS[b.type].spawner;
+    if(spw){
+      b.spawnT=(b.spawnT||0)+dt;
+      if(b.spawnT>=spw.every){
+        b.spawnT=0;
+        if(popUsed(b.side)+UNITS[spw.type].pop<=popMax(b.side)){
+          const a=rand(0,7);
+          const u=spawnUnit(b.side,spw.type,b.x+Math.cos(a)*(b.r+16),b.y+Math.sin(a)*(b.r+16));
+          ring(u.x,u.y,30,hexA(FACTIONS[b.faction].col.accent,.85),.5,3);
+          embers(u.x,u.y,FACTIONS[b.faction].col.accent,10);
+          if(b.side==='player') floatText(b.x,b.y-b.r-6,tierName(b.faction,spw.type,u.lvl),'#cfe7b8',12);
+        }
       }
     }
     // wieża strzela
@@ -299,7 +352,7 @@ function updateBuildings(dt){
       if(b.atk<=0){
         let best=null,bd=tw.range;
         for(const o of G.units){
-          if(o.dead||o.side===b.side) continue;
+          if(o.dead||!foe(o.side,b.side)) continue;
           const d=Math.hypot(o.x-b.x,o.y-b.y);
           if(d<bd){bd=d;best=o;}
         }
@@ -325,11 +378,13 @@ function updateArrows(dt){
     a.x+=a.vx*dt; a.y+=a.vy*dt;
     let hit=false;
     for(const o of G.units){
-      if(o.dead||o.side===a.side||o.z>14) continue;
+      if(o.dead||!foe(o.side,a.side)||o.z>14) continue;
       if(Math.hypot(o.x-a.x,o.y-a.y)<o.r+5){
         const nx=a.vx/560, ny=a.vy/560;
         dealDamage(o,a.dmg,a.side,{n:5,dx:nx,dy:ny});
         if(a.kind==='bolt'){ knockback(o,nx,ny,240,0); ring(o.x,o.y,20,'rgba(216,98,47,.8)',.25,3); }
+        else if(a.kind==='fire'){ knockback(o,nx,ny,90,0); ignite(o,4,a.side);
+          fireBurst(a.x,a.y,46,Math.round(a.dmg*.5),a.side,3); }
         else if(a.kind==='frost'){ o.slow=2.2;
           for(let i=0;i<7;i++) G.parts.push({x:o.x+rand(-8,8),y:o.y+rand(-8,8),vx:rand(-30,30),vy:rand(-30,30),
             life:.6,max:.6,size:rand(2,4),col:'#9ff0e4',kind:'ember'}); }
@@ -339,11 +394,11 @@ function updateArrows(dt){
       }
     }
     if(!hit) for(const b of G.buildings){
-      if(b.dead||b.side===a.side) continue;
+      if(b.dead||!foe(b.side,a.side)) continue;
       if(Math.hypot(b.x-a.x,b.y-a.y)<b.r*.85){ dealDamage(b,Math.round(a.dmg*.7),a.side); hit=true; break; }
     }
     if(hit) a.life=0;
-    else if(a.life<=dt){ stub(a.x,a.y,Math.atan2(a.vy,a.vx),a.kind==='frost'?'#9ff0e4':'#cfc2a2'); puff(a.x,a.y,.6); }
+    else if(a.life<=dt){ stub(a.x,a.y,Math.atan2(a.vy,a.vx),a.kind==='frost'?'#9ff0e4':(a.kind==='fire'?'#ffb15e':'#cfc2a2')); puff(a.x,a.y,.6); }
     if(a.x<0||a.y<0||a.x>MAP_W||a.y>MAP_H) a.life=0;
   }
   G.arrows=G.arrows.filter(a=>a.life>0);
@@ -355,7 +410,7 @@ function updateQuakes(dt){
     if(Math.random()<dt*50) G.parts.push({x:qx+rand(-20,20),y:qy+rand(-20,20),vx:rand(-40,40),vy:rand(-60,-10),
       life:.6,max:.6,size:rand(5,13),col:'#b9a98c',kind:'dust'});
     for(const o of G.units){
-      if(o.dead||o.side===q.side||q.hits.has(o.id)) continue;
+      if(o.dead||!foe(o.side,q.side)||q.hits.has(o.id)) continue;
       if(Math.hypot(o.x-qx,o.y-qy)<44){
         q.hits.add(o.id);
         const nx=Math.cos(q.ang), ny=Math.sin(q.ang);
@@ -365,7 +420,7 @@ function updateQuakes(dt){
       }
     }
     for(const b of G.buildings){
-      if(b.dead||b.side===q.side||q.hits.has('b'+b.id)) continue;
+      if(b.dead||!foe(b.side,q.side)||q.hits.has('b'+b.id)) continue;
       if(Math.hypot(b.x-qx,b.y-qy)<40+b.r*.6){ q.hits.add('b'+b.id); dealDamage(b,Math.round(q.dmg*1.2),q.side); }
     }
   }
@@ -388,14 +443,14 @@ function updateParticles(dt){
         flash(p.x,p.y,50,'#fff2d4'); crackDecal(p.x,p.y,52);
         for(let i=0;i<20;i++) puff(p.x+rand(-24,24),p.y+rand(-18,18),1.5,'#b9a98c');
         for(const o of G.units){
-          if(o.dead||o.side===p.side) continue;
+          if(o.dead||!foe(o.side,p.side)) continue;
           const d=Math.hypot(o.x-p.x,o.y-p.y);
           if(d>110) continue;
           const fall=1-d/110, nx=d<1?1:(o.x-p.x)/d, ny=d<1?0:(o.y-p.y)/d;
           knockback(o,nx,ny,360+260*fall,170+160*fall,.3*fall);
           dealDamage(o,Math.round(p.dmg*(.5+.7*fall)),p.side,{n:8,power:1.4,dx:nx,dy:ny});
         }
-        for(const b of G.buildings) if(!b.dead&&b.side!==p.side&&Math.hypot(b.x-p.x,b.y-p.y)<110+b.r*.5)
+        for(const b of G.buildings) if(!b.dead&&foe(b.side,p.side)&&Math.hypot(b.x-p.x,b.y-p.y)<110+b.r*.5)
           dealDamage(b,Math.round(p.dmg*1.3),p.side);
       }
       continue;
@@ -406,7 +461,7 @@ function updateParticles(dt){
         p.hit=true; p.life=Math.min(p.life,.25);
         puff(p.x,p.y,.8,'#cfc7ae');
         for(const o of G.units){
-          if(o.dead||o.side===p.side) continue;
+          if(o.dead||!foe(o.side,p.side)) continue;
           if(Math.hypot(o.x-p.x,o.y-p.y)<26){
             dealDamage(o,p.dmg,p.side,{n:4});
             knockback(o,rand(-.4,.4),rand(-.4,.4),50,0);
@@ -414,6 +469,21 @@ function updateParticles(dt){
           }
         }
       }
+      continue;
+    }
+    if(p.kind==='meteor'){
+      p.y+=p.vy*dt; p.x+=p.vx*dt; p.rot=(p.rot||0)+p.vrot*dt;
+      if(Math.random()<dt*50) G.parts.push({x:p.x+rand(-6,6),y:p.y+rand(-10,10),vx:rand(-20,20),vy:rand(-40,10),
+        life:.4,max:.4,size:rand(3,8),col:pick(['#ff9e3d','#ffca6a']),kind:'fire'});
+      if(!p.hit&&p.y>=p.ty){
+        p.hit=true; p.life=0;
+        shake(6); crackDecal(p.x,p.y,44,'rgba(120,40,16,.5)');
+        fireBurst(p.x,p.y,92,p.dmg,p.side,5);
+      }
+      continue;
+    }
+    if(p.kind==='fire'){
+      p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy-=40*dt; p.vx*=.96; p.vy*=.96;
       continue;
     }
     if(p.kind==='gore'||p.kind==='shard'||p.kind==='rock'){
@@ -437,17 +507,24 @@ function updateParticles(dt){
 /* ==========================================================================
    PRZECIWNIK
    ========================================================================== */
-const AI_PLAN=['house','barracks','house','range','forge','house','lair','tower','house','barracks','tower'];
+const AI_PLAN=['house','barracks','house','range','forge','house','lair','unique','tower','house','barracks','tower'];
 function updateAI(dt){
-  const ai=G.ai, side='enemy';
+  for(const side of G.sides){
+    if(side==='player') continue;
+    aiTick(side,G.ais[side],dt);
+  }
+}
+function aiTick(side,ai,dt){
+  if(!ai) return;
+  const fk=sideFaction(side);
   ai.t+=dt;
   // dochód pomocniczy (wrogie osady mają własnych robotników, ale dorzucamy tempo)
-  G.res.enemy.gold+=dt*6; G.res.enemy.wood+=dt*5;
+  G.res[side].gold+=dt*6; G.res[side].wood+=dt*5;
   ai.will+=dt*5;
 
-  const eh=G.units.find(u=>u.side==='enemy'&&!u.dead&&u.type==='hero');
+  const eh=G.units.find(u=>u.side===side&&!u.dead&&u.type==='hero');
   if(eh&&eh.hcd<=0){
-    const near=G.units.filter(u=>u.side==='player'&&!u.dead&&Math.hypot(u.x-eh.x,u.y-eh.y)<170).length;
+    const near=G.units.filter(u=>!u.dead&&foe(u.side,side)&&Math.hypot(u.x-eh.x,u.y-eh.y)<170).length;
     if(near>=2||(near>=1&&eh.hp<eh.maxHp*.6)) heroPower(eh);
   }
   ai.buildTimer-=dt;
@@ -455,8 +532,8 @@ function updateAI(dt){
     ai.buildTimer=6;
     const th=G.buildings.find(b=>b.side===side&&!b.dead&&b.type==='townhall');
     if(th){
-      // budowa kolejnego budynku z planu
-      const next=AI_PLAN[ai.step];
+      let next=AI_PLAN[ai.step];
+      if(next==='unique') next=FBUILD[fk].unique;
       if(next){
         const def=BUILDINGS[next];
         if(canAfford(side,def.cost)){
@@ -473,19 +550,16 @@ function updateAI(dt){
           }
         }
       }
-      // robotnicy
       const workers=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='worker').length;
       if(workers<8) trainUnit(th,'worker');
-      // wrogi bohater po rozkręceniu bazy
-      if(ai.step>=3&&!G.units.some(u=>u.side===side&&!u.dead&&u.type==='hero')&&G.res.enemy.gold>320) trainUnit(th,'hero');
+      if(ai.step>=3&&!G.units.some(u=>u.side===side&&!u.dead&&u.type==='hero')&&G.res[side].gold>320) trainUnit(th,'hero');
     }
-    // przyspieszona budowa u wroga (ma niewidzialnych pomocników)
+    // przyspieszona budowa u AI (ma niewidzialnych pomocników)
     for(const b of G.buildings) if(b.side===side&&!b.dead&&!b.done){
       b.progress=Math.min(1,b.progress+.55);
       b.hp=Math.max(b.hp,b.maxHp*(.2+.8*b.progress));
       if(b.progress>=1){ b.done=true; b.hp=b.maxHp; ring(b.x,b.y,b.r*1.6,'rgba(230,194,115,.7)',.6,4); }
     }
-    // szkolenie wojska
     for(const b of G.buildings){
       if(b.side!==side||b.dead||!b.done) continue;
       const tr=BUILDINGS[b.type].trains;
@@ -493,13 +567,8 @@ function updateAI(dt){
       if(tr[0]==='worker') continue;
       if(b.queue.length<2) trainUnit(b,tr[0]);
     }
-    // ulepszenia
-    if(Math.random()<.5){
-      const t=pick(['warrior','archer','heavy']);
-      tryUpgrade(side,t);
-    }
+    if(Math.random()<.5) tryUpgrade(side,pick(['warrior','archer','heavy']));
   }
-  // robotnicy wroga zbierają
   for(const u of G.units) if(u.side===side&&u.type==='worker'&&!u.order&&!u.dead){
     const nr=nearestRes(u.x,u.y,Math.random()<.5?'gold':'wood',900);
     if(nr) u.order={kind:'gather',res:nr};
@@ -511,17 +580,19 @@ function updateAI(dt){
   const need=Math.min(14,4+ai.wave*2);
   if(ai.attackTimer<=0&&army.length>=Math.min(4,need)){
     ai.wave++; ai.attackTimer=Math.max(45,95-ai.wave*5);
-    const targets=G.buildings.filter(b=>b.side==='player'&&!b.dead);
+    const targets=G.buildings.filter(b=>!b.dead&&foe(b.side,side));
     const tgt=targets.length?pick(targets):null;
     if(tgt){
       for(const u of army) u.order={kind:'attack',target:tgt};
-      if(G.units.some(u=>u.side==='player'&&!u.dead)) G.alert=Math.max(G.alert,2.2);
-      banner('NADCIĄGA WRÓG — FALA '+ai.wave,'#df5b4d');
+      if(G.team[tgt.side]===G.team.player){
+        G.alert=Math.max(G.alert,2.2);
+        banner((SIDE_NAME[side]||'WRÓG')+' ATAKUJE — FALA '+ai.wave,sideCol(side));
+      }
     }
   }
-  // moc krainy wroga
-  if(ai.will>=FACTIONS[G.ef].ability.cost+30&&Math.random()<dt*.15){
-    const foes=G.units.filter(u=>u.side==='player'&&!u.dead).length;
-    if(foes>=3){ ai.will=0; useAbility('enemy'); }
+  // moc krainy AI
+  if(ai.will>=FACTIONS[fk].ability.cost+30&&Math.random()<dt*.15){
+    const foes=G.units.filter(u=>!u.dead&&foe(u.side,side)).length;
+    if(foes>=3){ ai.will=0; useAbility(side); }
   }
 }

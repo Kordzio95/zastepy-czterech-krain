@@ -78,9 +78,86 @@ const FACTIONS={
       hero:'Cios wysysa życie i wzmacnia bohatera'},
     hero:{name:'Kostny Książę', power:'Mroźna Klątwa', cd:25, radius:200,
           desc:'Klątwa zamraża wrogów w promieniu, spowalnia ich o połowę i rani za 70.'}
+  },
+  demony:{
+    name:'Demony', realm:'Otchłań Płonących Pieczęci',
+    desc:'Płoną same i podpalają wszystko wokół.',
+    col:{main:'#b8362c', dark:'#3a1410', light:'#ffd8a8', metal:'#6e5248', gold:'#ff9e3d',
+         accent:'#ff7a2f', skin:'#8e2f26', cloth:'#25100e', roof:'#4a1a15', wall:'#5c3a32'},
+    ability:{name:'Deszcz Siarki', cost:105, cd:23, desc:'Ogniste meteory spadają na wroga i podpalają go.'},
+    gore:'#ff6a2a',
+    tiers:{
+      worker:['Chochlik','Podpalacz','Majster Otchłani'],
+      hero:['Arcydemon Vhar'],
+      warrior:['Pomiot','Piekielnik','Krwawy Diabeł','Rzeźnik Otchłani','Czempion Piekła'],
+      archer:['Miotacz Ognia','Ognisty Kusznik','Siarkowy Strzelec','Mistrz Płomieni','Oko Otchłani'],
+      heavy:['Ognisty Kolos','Balrog','Władca Otchłani']
+    },
+    attackDesc:{warrior:'Każdy cios podpala wroga',archer:'Kula ognia wybucha przy trafieniu',heavy:'Uderzenie zamienia ziemię w morze ognia',
+      hero:'Cios podpala i leczy bohatera'},
+    hero:{name:'Arcydemon Vhar', power:'Pieczęć Zagłady', cd:25, radius:210,
+          desc:'Pieczęć wybucha: 80 obrażeń, odrzuca wrogów i podpala ich na 6s.'}
   }
 };
 const FKEYS=Object.keys(FACTIONS);
+
+/* --- budynki zależne od frakcji: własne nazwy + jeden unikalny budynek --- */
+const FBUILD={
+  ludzie:{unique:'shrine', names:{townhall:'Ratusz',house:'Chata',barracks:'Koszary',range:'Strzelnica',
+    forge:'Kuźnia',lair:'Zagroda Cyklopa',tower:'Wieża Łuczników',shrine:'Kaplica'}},
+  orki:{unique:'totem', names:{townhall:'Warownia Hordy',house:'Jurta',barracks:'Jama Bojowa',range:'Szałas Kuszników',
+    forge:'Kuźnia Kłów',lair:'Legowisko Herszta',tower:'Wieża Czaszek',totem:'Totem Wojny'}},
+  nieumarli:{unique:'crypt', names:{townhall:'Nekropolia',house:'Mogiła',barracks:'Kostnica',range:'Kaplica Strzał',
+    forge:'Warsztat Kości',lair:'Kurhan Kolosa',tower:'Wieża Klątw',crypt:'Krypta'}},
+  demony:{unique:'portal', names:{townhall:'Cytadela Otchłani',house:'Nora Chochlików',barracks:'Arena Krwi',range:'Ołtarz Ognia',
+    forge:'Kuźnia Piekielna',lair:'Czeluść Kolosa',tower:'Wieża Siarki',portal:'Piekielny Portal'}}
+};
+const bLabel=(f,t)=>(FBUILD[f]&&FBUILD[f].names[t])||BUILDINGS[t].label;
+const factionBuilds=f=>BUILD_ORDER.concat([FBUILD[f].unique]);
+
+/* --- kolory i nazwy stron --- */
+const SIDE_COL={player:'#7ec96a', e1:'#df5b4d', e2:'#8fb4ff', e3:'#e0a33c'};
+const SIDE_NAME={player:'Twoja osada', e1:'Wróg I', e2:'Wróg II', e3:'Wróg III'};
+
+/* --- mapy --- */
+const MAPS={
+  rowniny:{name:'Zielone Równiny', w:2600, h:1800, desc:'Otwarte pola i gęste gaje.',
+    theme:{g1:'#5f7042',g2:'#506036',grass:'rgba(126,150,84,.65)',stone:'rgba(138,134,120,.75)',
+      tree:['#3f6b2c','#4d7d33','#5b8c3a'],trunk:'#4a3520',flower:['#d9d06a','#cf7b8c','#cfd9e8'],
+      patch:['rgba(122,140,84,.06)','rgba(88,104,60,.07)','rgba(146,136,88,.05)','rgba(74,96,56,.08)'],
+      groves:16, decor:520}},
+  zima:{name:'Mroźne Pustacie', w:2600, h:1800, desc:'Śnieg, lód i rzadkie świerki.',
+    theme:{g1:'#9aa7b4',g2:'#84929f',grass:'rgba(240,247,255,.6)',stone:'rgba(190,200,210,.8)',
+      tree:['#2f4a3a','#375643','#40624d'],trunk:'#3b342e',flower:['#ffffff','#dbe9f5','#bcd4e8'],
+      patch:['rgba(255,255,255,.10)','rgba(210,226,240,.10)','rgba(150,170,190,.08)','rgba(255,255,255,.06)'],
+      groves:11, decor:420}},
+  pustynia:{name:'Spieczone Piaski', w:2900, h:1900, desc:'Wielka, sucha mapa z oazami.',
+    theme:{g1:'#c8a96a',g2:'#b2935a',grass:'rgba(190,168,104,.7)',stone:'rgba(160,140,104,.8)',
+      tree:['#6d7a3a','#7d8b42','#8c9a4b'],trunk:'#6b5330',flower:['#e8d98a','#d8a06a','#efe3b8'],
+      patch:['rgba(214,186,120,.10)','rgba(170,142,90,.08)','rgba(230,208,150,.07)','rgba(150,124,78,.07)'],
+      groves:9, decor:360}},
+  popioly:{name:'Popielne Pola', w:2600, h:1800, desc:'Spalona ziemia i tlące się szczeliny.',
+    theme:{g1:'#4a423c',g2:'#3a332e',grass:'rgba(120,104,92,.6)',stone:'rgba(120,110,104,.8)',
+      tree:['#4a3a2c','#564634','#60503c'],trunk:'#2e2620',flower:['#ff9e3d','#e0623a','#8a6a54'],
+      patch:['rgba(90,70,58,.12)','rgba(255,120,50,.05)','rgba(60,52,46,.12)','rgba(130,110,92,.07)'],
+      groves:12, decor:430}},
+  cztery:{name:'Krainy Czterech Rzek', w:3200, h:2200, desc:'Największa mapa — cztery osady i środek pełen złota.',
+    theme:{g1:'#5b6d48',g2:'#4c5c3c',grass:'rgba(132,158,92,.65)',stone:'rgba(140,138,124,.75)',
+      tree:['#3a6630','#467637','#52863f'],trunk:'#453320',flower:['#e2d777','#d08c9a','#cfe0ea'],
+      patch:['rgba(122,140,84,.07)','rgba(88,104,60,.07)','rgba(146,136,88,.05)','rgba(74,96,56,.08)'],
+      groves:20, decor:640}}
+};
+const MAP_KEYS=Object.keys(MAPS);
+
+/* --- tryby gry --- */
+const MODES={
+  '1v1':{name:'1 na 1', desc:'Klasyczny pojedynek dwóch osad.',
+    sides:['player','e1'], team:{player:0,e1:1}, spots:[0,1]},
+  '1v1v1':{name:'1 na 1 na 1', desc:'Trzy osady, każdy przeciw każdemu.',
+    sides:['player','e1','e2'], team:{player:0,e1:1,e2:2}, spots:[0,1,2]},
+  '2v2':{name:'2 na 2', desc:'Ty i sojusznik przeciw dwóm wrogom.',
+    sides:['player','e1','e2','e3'], team:{player:0,e1:0,e2:1,e3:1}, spots:[0,3,2,1]}
+};
 
 /* --- jednostki --- */
 const UNITS={
@@ -108,7 +185,20 @@ const BUILDINGS={
   lair:{     label:'Wielka Jama', key:'6', r:40, hp:2000, cost:{gold:260,wood:240},build:34, pop:0,  trains:['heavy'],
              desc:'Wypuszcza kolosa twojej krainy.' },
   tower:{    label:'Wieża',       key:'7', r:20, hp:1200, cost:{gold:90,wood:120}, build:18, pop:0,  trains:[], tower:{range:190,dmg:26,ias:1.5},
-             desc:'Sama strzela do wrogów w zasięgu.' }
+             desc:'Sama strzela do wrogów w zasięgu.' },
+  /* --- unikalne budynki frakcji (klawisz 8) --- */
+  shrine:{   label:'Kaplica',     key:'8', r:26, hp:1400, cost:{gold:160,wood:140}, build:24, pop:2, trains:[],
+             aura:{kind:'heal',range:200,rate:16},
+             desc:'Leczy wszystkie sojusznicze oddziały w pobliżu i daje +2 ludności.' },
+  totem:{    label:'Totem Wojny', key:'8', r:22, hp:1200, cost:{gold:150,wood:130}, build:20, pop:2, trains:[],
+             aura:{kind:'dmg',range:210,mul:1.3},
+             desc:'Sojusznicy w pobliżu zadają o 30% więcej obrażeń.' },
+  crypt:{    label:'Krypta',      key:'8', r:30, hp:1500, cost:{gold:200,wood:150}, build:26, pop:2, trains:[],
+             spawner:{type:'warrior',every:28},
+             desc:'Sama wystawia darmowe szkielety co 28 s.' },
+  portal:{   label:'Piekielny Portal', key:'8', r:28, hp:1400, cost:{gold:220,wood:130}, build:26, pop:2, trains:[],
+             spawner:{type:'warrior',every:30}, aura:{kind:'burn',range:170,dps:10},
+             desc:'Przyzywa chochliki i podpala wrogów, którzy podejdą za blisko.' }
 };
 const BUILD_ORDER=['townhall','house','barracks','range','forge','lair','tower'];
 

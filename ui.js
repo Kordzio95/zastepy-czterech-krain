@@ -13,13 +13,14 @@ let pinch=null, boxMode=false, topBarH=0, addMode=false, lastTap=null, buildPick
 /* ==========================================================================
    START / MENU
    ========================================================================== */
-function startGame(faction){
+let pickF='ludzie', pickMap='rowniny', pickMode='1v1';
+function startGame(faction,mapKey,mode){
   document.getElementById('menu').style.display='none';
   document.getElementById('result').style.display='none';
-  paused=false; buildMenuOpen=false;
-  newGame(faction);
+  paused=false; buildMenuOpen=false; buildPick=null;
+  newGame(faction||pickF,mapKey||pickMap,mode||pickMode);
   if(MOBILE) setZoom(VIEW_H<360?1:(Math.min(VW,VH)<400?1.15:1.25));
-  banner('OBROŃ SWOJĄ OSADĘ','#e6c273');
+  banner(MODES[G.mode].name+' — '+G.world.name,'#e6c273');
 }
 function showResult(win){
   const el=document.getElementById('result');
@@ -237,7 +238,7 @@ function bindInput(){
     if(e.key==='+'||e.key==='='){ setZoom(ZOOM+.2); return; }
     if(e.key==='-'||e.key==='_'){ setZoom(ZOOM-.2); return; }
     if(k>='1'&&k<='7'){
-      if(buildMenuOpen){ const t=BUILD_ORDER[parseInt(k)-1]; if(t) startPlacing(t); return; }
+      if(buildMenuOpen){ const t=factionBuilds(G.pf)[parseInt(k)-1]; if(t) startPlacing(t); return; }
       const idx=parseInt(k)-1, btn=hudBtns.filter(b=>b.hot)[idx];
       if(btn&&btn.action) btn.action();
     }
@@ -376,7 +377,9 @@ function drawHUD(){
   cx.fillText(hro?('Bohater: '+tierName(G.pf,'hero',hro.lvl)):'Bohater: brak (ratusz)',12,y0+88);
   cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.6)';
   cx.fillText(FACTIONS[G.pf].realm,12,y0+106);
-  cx.fillText('vs '+FACTIONS[G.ef].realm,12,y0+121);
+  const foes=foeSides('player').map(sd=>FACTIONS[sideFaction(sd)].name);
+  const ally=G.sides.filter(sd=>sd!=='player'&&allySide(sd,'player')).map(sd=>FACTIONS[sideFaction(sd)].name);
+  cx.fillText('vs '+foes.join(', ')+(ally.length?'  (sojusznik: '+ally.join(', ')+')':''),12,y0+121);
 
   /* --- moc krainy --- */
   const ab=FACTIONS[G.pf].ability;
@@ -396,33 +399,34 @@ function drawHUD(){
   let bx=px, by=py;
   if(G.placing){
     cx.font='600 14px Satoshi,sans-serif'; cx.fillStyle='#e6c273';
-    cx.fillText('Stawianie: '+BUILDINGS[G.placing].label+' — klik na mapie, ESC anuluje',px,py+22);
+    cx.fillText('Stawianie: '+bLabel(G.pf,G.placing)+' — klik na mapie, ESC anuluje',px,py+22);
     cx.font='500 12px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.7)';
     cx.fillText(BUILDINGS[G.placing].desc,px,py+44);
   } else if(buildMenuOpen){
     cx.font='600 13px Satoshi,sans-serif'; cx.fillStyle='#e6c273';
-    cx.fillText('BUDOWA — wybierz budynek (1-7), potem klik na mapie',px,py+13);
+    cx.fillText('BUDOWA — wybierz budynek (1-8), potem klik na mapie',px,py+13);
+    const BL=factionBuilds(G.pf);
     const cw=Math.min(118,Math.floor((pw-24)/4)), ch=42;
-    BUILD_ORDER.forEach((t,i)=>{
+    BL.forEach((t,i)=>{
       const d=BUILDINGS[t], ok=canAfford('player',d.cost);
       const x=px+(i%4)*(cw+6), yy=py+20+Math.floor(i/4)*(ch+6);
       const sub=costStr(d.cost)+(d.pop?' · +'+d.pop+' lud.':'');
-      btn(x,yy,cw,ch,'['+d.key+'] '+d.label,sub,ok,()=>startPlacing(t),true);
+      btn(x,yy,cw,ch,'['+d.key+'] '+bLabel(G.pf,t),sub,ok,()=>startPlacing(t),true);
     });
     const bx2=px+4*(cw+6)+4;
     btn(bx2,py+20,104,42,'Zamknij','ESC',true,()=>{buildMenuOpen=false;G.placing=null;},false);
     const hb=hoverBtn;
     let dtxt='Brakujące surowce wygaszają kafelek. Chata podnosi limit ludności, kuźnia daje ulepszenia.';
     if(hb&&hb.title){
-      const t=BUILD_ORDER.find(k=>hb.title.indexOf(BUILDINGS[k].label)>=0);
-      if(t) dtxt=BUILDINGS[t].label+' — '+BUILDINGS[t].desc+'  ('+costStr(BUILDINGS[t].cost)+', '+BUILDINGS[t].build+'s budowy)';
+      const t=factionBuilds(G.pf).find(k=>hb.title.indexOf(bLabel(G.pf,k))>=0);
+      if(t) dtxt=bLabel(G.pf,t)+' — '+BUILDINGS[t].desc+'  ('+costStr(BUILDINGS[t].cost)+', '+BUILDINGS[t].build+'s budowy)';
     }
     cx.font='500 11.5px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.8)';
     cx.fillText(dtxt,px,py+116);
   } else if(G.selBuilding&&!G.selBuilding.dead){
-    const b=G.selBuilding, d=BUILDINGS[b.type];
+    const b=G.selBuilding, d=BUILDINGS[b.type], dl=bLabel(b.faction,b.type);
     cx.font='700 16px Cinzel,Georgia,serif'; cx.fillStyle='#e6c273';
-    cx.fillText(d.label,px,py+16);
+    cx.fillText(dl,px,py+16);
     cx.font='500 11.5px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.7)';
     cx.fillText(d.desc+'   HP '+Math.max(0,Math.round(b.hp))+'/'+b.maxHp,px,py+34);
     if(!b.done){
@@ -546,20 +550,20 @@ function drawHUDMobile(){
   const items=[];
   let info=null;
   if(G.placing){
-    info='Stawiam: '+BUILDINGS[G.placing].label+' — dotknij mapy. '+BUILDINGS[G.placing].desc;
+    info='Stawiam: '+bLabel(G.pf,G.placing)+' — dotknij mapy. '+BUILDINGS[G.placing].desc;
     items.push({t:'Anuluj',s:'nie stawiaj',ok:true,a:()=>{G.placing=null;}});
   } else if(buildMenuOpen){
-    info=buildPick?(BUILDINGS[buildPick].label+' — '+BUILDINGS[buildPick].desc)
+    info=buildPick?(bLabel(G.pf,buildPick)+' — '+BUILDINGS[buildPick].desc)
                   :'BUDOWA — dotknij budynku, potem miejsca na mapie';
-    for(const t of BUILD_ORDER){
+    for(const t of factionBuilds(G.pf)){
       const d=BUILDINGS[t], ok=canAfford('player',d.cost);
-      items.push({t:d.label,s:costStr(d.cost)+(d.pop?' +'+d.pop+'l':''),ok,
-        a:()=>{ buildPick=t; if(ok) startPlacing(t); else warn('Brakuje surowców na '+d.label); }});
+      items.push({t:bLabel(G.pf,t),s:costStr(d.cost)+(d.pop?' +'+d.pop+'l':''),ok,
+        a:()=>{ buildPick=t; if(ok) startPlacing(t); else warn('Brakuje surowców na '+bLabel(G.pf,t)); }});
     }
     items.push({t:'Zamknij',s:'menu',ok:true,a:()=>{buildMenuOpen=false;G.placing=null;buildPick=null;}});
   } else if(G.selBuilding&&!G.selBuilding.dead){
-    const b=G.selBuilding, d=BUILDINGS[b.type];
-    if(!b.done) info=d.label+' — w budowie '+Math.round(b.progress*100)+'%';
+    const b=G.selBuilding, d=BUILDINGS[b.type], dl=bLabel(b.faction,b.type);
+    if(!b.done) info=dl+' — w budowie '+Math.round(b.progress*100)+'%';
     else if(d.upgrades){
       info='Kuźnia — ulepszenia widoczne na jednostkach';
       for(const t of ['warrior','archer','heavy','worker']){
@@ -568,7 +572,7 @@ function drawHUDMobile(){
           ok:!maxed&&canAfford('player',c),a:()=>tryUpgrade('player',t)});
       }
     } else if(d.trains&&d.trains.length){
-      info=d.label+(b.queue.length?'  ·  kolejka '+b.queue.length+' ('+Math.ceil(b.trainLeft)+'s)':'');
+      info=dl+(b.queue.length?'  ·  kolejka '+b.queue.length+' ('+Math.ceil(b.trainLeft)+'s)':'');
       for(const t of d.trains){
         const du=UNITS[t];
         items.push({t:tierName(G.pf,t,G.lvl.player[t]),s:costStr(du.cost)+' · '+du.pop+' lud.',
@@ -726,13 +730,13 @@ function drawMinimap(){
   }
   for(const b of G.buildings){
     if(b.dead) continue;
-    cx.fillStyle=b.side==='player'?'#9fe07a':'#df5b4d';
+    cx.fillStyle=sideCol(b.side);
     const s=b.type==='townhall'?6:4;
     cx.fillRect(m.x+b.x*sx-s/2,m.y+b.y*sy-s/2,s,s);
   }
   for(const u of G.units){
     if(u.dead) continue;
-    cx.fillStyle=u.side==='player'?(u.type==='worker'?'#cfe7b8':'#7ec96a'):'#e8796c';
+    cx.fillStyle=u.side==='player'&&u.type==='worker'?'#cfe7b8':sideCol(u.side);
     const s=u.type==='heavy'?4:2.4;
     cx.fillRect(m.x+u.x*sx-s/2,m.y+u.y*sy-s/2,s,s);
   }
@@ -830,9 +834,27 @@ window.addEventListener('DOMContentLoaded',()=>{
   bindInput();
   bindTouch();
   // przyciski menu
-  document.querySelectorAll('[data-faction]').forEach(el=>{
-    el.addEventListener('click',()=>startGame(el.getAttribute('data-faction')));
+  const fc=document.querySelectorAll('[data-faction]');
+  const mark=(list,val,attr)=>list.forEach(e=>e.classList.toggle('sel',e.getAttribute(attr)===val));
+  fc.forEach(el=>el.addEventListener('click',()=>{ pickF=el.getAttribute('data-faction'); mark(fc,pickF,'data-faction'); }));
+  mark(fc,pickF,'data-faction');
+  const mw=document.getElementById('mapChips');
+  MAP_KEYS.forEach(k=>{
+    const d=document.createElement('div'); d.className='chip'; d.setAttribute('data-map',k);
+    d.innerHTML=MAPS[k].name+'<small>'+MAPS[k].desc+'</small>'; mw.appendChild(d);
   });
+  const mc=document.querySelectorAll('[data-map]');
+  mc.forEach(el=>el.addEventListener('click',()=>{ pickMap=el.getAttribute('data-map'); mark(mc,pickMap,'data-map'); }));
+  mark(mc,pickMap,'data-map');
+  const ow=document.getElementById('modeChips');
+  Object.keys(MODES).forEach(k=>{
+    const d=document.createElement('div'); d.className='chip'; d.setAttribute('data-mode',k);
+    d.innerHTML=MODES[k].name+'<small>'+MODES[k].desc+'</small>'; ow.appendChild(d);
+  });
+  const oc=document.querySelectorAll('[data-mode]');
+  oc.forEach(el=>el.addEventListener('click',()=>{ pickMode=el.getAttribute('data-mode'); mark(oc,pickMode,'data-mode'); }));
+  mark(oc,pickMode,'data-mode');
+  document.getElementById('startBtn').addEventListener('click',()=>startGame(pickF,pickMap,pickMode));
   document.querySelectorAll('[data-again]').forEach(el=>{
     el.addEventListener('click',()=>{ document.getElementById('result').style.display='none';
       document.getElementById('menu').style.display='flex'; G=null; });
@@ -856,3 +878,4 @@ window.render_game_to_text=()=>JSON.stringify({
 });
 window.setAddMode=v=>{ addMode=!!v; };
 window.getUI=()=>({addMode,boxMode,buildMenuOpen,buildPick,btns:hudBtns.map(b=>b.title)});
+window.startGame=startGame;

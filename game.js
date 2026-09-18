@@ -5,28 +5,46 @@
 
 let G=null, TIME=0;
 
-function newGame(pf){
-  const ef=pick(FKEYS.filter(f=>f!==pf));
+function newGame(pf,mapKey,mode){
+  mapKey=MAPS[mapKey]?mapKey:'rowniny';
+  mode=MODES[mode]?mode:'1v1';
+  const M=MODES[mode], sides=M.sides.slice();
+  const pool=FKEYS.filter(f=>f!==pf);
   const g={
-    phase:'play', t:0, pf, ef, id:1,
-    res:{player:{gold:260,wood:320}, enemy:{gold:260,wood:320}},
-    lvl:{player:{worker:1,warrior:1,archer:1,heavy:1,hero:1}, enemy:{worker:1,warrior:1,archer:1,heavy:1,hero:1}},
+    phase:'play', t:0, pf, id:1, mode, mapKey, sides, team:Object.assign({},M.team),
+    faction:{}, res:{}, lvl:{}, buff:{}, fallen:{}, ais:{},
     units:[], buildings:[], arrows:[], parts:[], texts:[], decals:[], quakes:[],
-    fallen:{player:[],enemy:[]},
     sel:[], selBuilding:null, placing:null,
-    will:40, willMax:150, willRate:6, abilityCd:0, buff:{player:0,enemy:0},
+    will:40, willMax:150, willRate:6, abilityCd:0,
     shake:0, flash:0, flashCol:'#fff', hitstop:0, banner:null,
     stats:{kills:0,losses:0,gold:0,wood:0,built:0,trained:0,slams:0,launched:0,abilities:0},
-    ai:{t:0, step:0, attackTimer:70, wave:0, will:0, buildTimer:2},
     world:null, alert:0
   };
   G=g;
-  g.world=makeWorld();
-  foundSettlement('player',pf,430,430);
-  foundSettlement('enemy',ef,MAP_W-430,MAP_H-430);
-  centerCam(430,430);
+  for(const s of sides){
+    let f=pf;
+    if(s!=='player'){ f=pool.length?pick(pool):pick(FKEYS); pool.splice(pool.indexOf(f),1); }
+    g.faction[s]=f;
+    g.res[s]={gold:260,wood:320};
+    g.lvl[s]={worker:1,warrior:1,archer:1,heavy:1,hero:1};
+    g.buff[s]=0; g.fallen[s]=[];
+    if(s!=='player') g.ais[s]={t:0,step:0,attackTimer:randi(58,95),wave:0,will:0,buildTimer:rand(1,4)};
+  }
+  g.ef=g.faction[sides.find(s=>g.team[s]!==g.team.player)]||pf;
+  g.world=makeWorld(mapKey,mode);
+  const spots=baseSpots(mode);
+  sides.forEach((s,i)=>foundSettlement(s,g.faction[s],spots[i].x,spots[i].y));
+  centerCam(spots[0].x,spots[0].y);
   return g;
 }
+/* --- strony, drużyny, frakcje --- */
+const sideFaction=s=>(G.faction&&G.faction[s])||G.pf;
+function foe(a,b){ return a!==b && G.team[a]!==G.team[b]; }
+const isFoe=(x,y)=>foe(x.side,y.side);
+const allySide=(a,b)=>a===b||G.team[a]===G.team[b];
+function foeSides(side){ return G.sides.filter(s=>foe(s,side)); }
+function teamHasTownhall(team){ return G.buildings.some(b=>!b.dead&&b.type==='townhall'&&G.team[b.side]===team); }
+function sideCol(side){ return SIDE_COL[side]||'#df5b4d'; }
 
 /* ==========================================================================
    EFEKTY
@@ -89,7 +107,7 @@ function unitStats(faction,type,lvl){
     range:b.range, speed:b.speed, ias:b.ias};
 }
 function spawnUnit(side,type,x,y,lvlOpt){
-  const faction=side==='player'?G.pf:G.ef;
+  const faction=sideFaction(side);
   const lvl=lvlOpt||G.lvl[side][type]||1;
   const st=unitStats(faction,type,lvl), def=UNITS[type];
   const u={
@@ -100,6 +118,7 @@ function spawnUnit(side,type,x,y,lvlOpt){
     facing:rand(0,7), state:'idle', order:null, carry:null, gatherAcc:0,
     atk:rand(0,.5), anim:rand(0,6), walk:0, stun:0, slow:0, hitFlash:0,
     windup:0, windupKind:null, volley:0, hcd:0, hbuff:0, avoid:null, stuck:0, lastD:0,
+    burn:0, burnSide:null, burnAcc:0,
     z:0, vz:0, vx:0, vy:0, rot:0, vrot:0,
     dead:false, fade:1, sel:false
   };
@@ -108,7 +127,7 @@ function spawnUnit(side,type,x,y,lvlOpt){
   return u;
 }
 function addBuilding(side,type,x,y,done){
-  const faction=side==='player'?G.pf:G.ef, def=BUILDINGS[type];
+  const faction=sideFaction(side), def=BUILDINGS[type];
   const b={
     id:G.id++, side, faction, type, x, y, r:def.r,
     hp:done?def.hp:Math.round(def.hp*.2), maxHp:def.hp,
@@ -214,8 +233,8 @@ function commandBuildHelp(units,b){
 function issueOrder(units,wx,wy,shift){
   if(!units.length) return;
   const eb=buildingAt(wx,wy), eu=unitAt(wx,wy), rs=resAt(wx,wy);
-  if(eu&&eu.side!=='player'){ commandAttack(units,eu); return; }
-  if(eb&&eb.side!=='player'){ commandAttack(units,eb); return; }
+  if(eu&&foe(eu.side,'player')){ commandAttack(units,eu); return; }
+  if(eb&&foe(eb.side,'player')){ commandAttack(units,eb); return; }
   if(eb&&eb.side==='player'&&!eb.done){ commandBuildHelp(units,eb); return; }
   if(rs){ commandGather(units,rs); return; }
   commandMove(units,wx,wy);
@@ -226,7 +245,7 @@ function issueOrder(units,wx,wy,shift){
    ========================================================================== */
 function startPlacing(type){
   const def=BUILDINGS[type];
-  if(!canAfford('player',def.cost)){ warn('Brakuje surowców na '+def.label); return false; }
+  if(!canAfford('player',def.cost)){ warn('Brakuje surowców na '+bLabel(G.pf,type)); return false; }
   G.placing=type; return true;
 }
 function placeBuilding(wx,wy){
@@ -246,7 +265,7 @@ function placeBuilding(wx,wy){
   }
   G.placing=null;
   buildMenuOpen=true;
-  floatText(b.x,b.y-def.r-10,'Budowa: '+def.label,'#e6c273',13);
+  floatText(b.x,b.y-def.r-10,'Budowa: '+bLabel(G.pf,type),'#e6c273',13);
   return true;
 }
 function trainUnit(b,type){
@@ -274,7 +293,7 @@ function tryUpgrade(side,type){
   if(!hasForge){ if(side==='player') warn('Potrzebna kuźnia'); return false; }
   pay(side,c);
   G.lvl[side][type]++;
-  const nl=G.lvl[side][type], faction=side==='player'?G.pf:G.ef, ns=unitStats(faction,type,nl), L=look(type,nl);
+  const nl=G.lvl[side][type], faction=sideFaction(side), ns=unitStats(faction,type,nl), L=look(type,nl);
   for(const u of G.units) if(u.side===side&&u.type===type&&!u.dead){
     const ratio=u.hp/u.maxHp;
     u.maxHp=ns.hp; u.hp=Math.min(ns.hp,ns.hp*ratio+ns.hp*.15);
@@ -291,7 +310,7 @@ function warn(txt){ warnMsg={txt,life:2.2}; }
 /* ==========================================================================
    WALKA
    ========================================================================== */
-const other=s=>s==='player'?'enemy':'player';
+const other=s=>foeSides(s)[0]||s;
 function dmgMul(side){ return G.buff[side]>0?1.4:1; }
 function unitDmg(u){ return Math.round(u.dmg*dmgMul(u.side)*(u.hbuff>0?1.55:1)); }
 function heroOf(side){ return G.units.find(u=>u.side===side&&!u.dead&&u.type==='hero')||null; }
@@ -304,13 +323,13 @@ function spdMul(u){ return (G.buff[u.side]>0?1.35:1)*(u.slow>0?.55:1); }
 function findEnemy(u,radius){
   let best=null,bd=radius;
   for(const o of G.units){
-    if(o.dead||o.side===u.side) continue;
+    if(o.dead||!isFoe(o,u)) continue;
     const d=Math.hypot(o.x-u.x,o.y-u.y);
     if(d<bd){bd=d;best=o;}
   }
   if(best) return best;
   for(const b of G.buildings){
-    if(b.dead||b.side===u.side) continue;
+    if(b.dead||!isFoe(b,u)) continue;
     const d=Math.hypot(b.x-u.x,b.y-u.y)-b.r;
     if(d<bd){bd=d;best=b;}
   }
@@ -342,12 +361,14 @@ function dealDamage(t,amount,fromSide,opts={}){
     G.fallen[t.side].push({x:t.x,y:t.y,type:t.type,lvl:t.lvl});
     if(G.fallen[t.side].length>30) G.fallen[t.side].shift();
     if(t.side==='player'){ G.stats.losses++; G.alert=Math.max(G.alert,1.5); }
-    else G.stats.kills++;
-    if(fromSide==='player'){
+    else if(fromSide==='player') G.stats.kills++;
+    if(fromSide&&G.res[fromSide]&&foe(fromSide,t.side)){
       const loot=8+(t.type==='heavy'?60:0)+t.lvl*2;
-      G.res.player.gold+=loot;
-      G.will=Math.min(G.willMax,G.will+(t.type==='heavy'?18:3));
-      floatText(t.x,t.y-18,'+'+loot,'#e6c273',13);
+      G.res[fromSide].gold+=loot;
+      if(fromSide==='player'){
+        G.will=Math.min(G.willMax,G.will+(t.type==='heavy'?18:3));
+        floatText(t.x,t.y-18,'+'+loot,'#e6c273',13);
+      }
     }
   }
 }
@@ -361,10 +382,43 @@ function destroyBuilding(b,fromSide){
   decal(b.x,b.y,b.r*.9,'#3a2c1c');
   for(const u of G.units) if(u.side===b.side&&u.order&&u.order.b===b) u.order=null;
   if(b.type==='townhall'){
-    const mine=G.buildings.some(x=>x.side===b.side&&!x.dead&&x.type==='townhall');
-    if(!mine) endGame(b.side==='enemy');
+    if(!teamHasTownhall(G.team[b.side])){
+      if(G.team[b.side]===G.team.player) endGame(false);
+      else {
+        const anyFoe=G.sides.some(s=>foe(s,'player')&&teamHasTownhall(G.team[s]));
+        if(!anyFoe) endGame(true);
+        else banner((SIDE_NAME[b.side]||'Wróg')+' POKONANY','#e6c273');
+      }
+    }
   }
-  if(b.side==='player'){ G.alert=2.2; warn('Straciłeś '+BUILDINGS[b.type].label+'!'); }
+  if(b.side==='player'){ G.alert=2.2; warn('Straciłeś '+bLabel(G.pf,b.type)+'!'); }
+}
+function ignite(t,secs,fromSide){
+  if(!t||t.dead||!UNITS[t.type]) return;
+  t.burn=Math.max(t.burn||0,secs); t.burnSide=fromSide;
+  embers(t.x,t.y,'#ff9e3d',6);
+}
+function fireBurst(x,y,R,dmg,side,burnT){
+  shockRing(x,y,R,'#ff7a2f');
+  ring(x,y,R*.6,'rgba(255,214,120,.8)',.4,5);
+  flash(x,y,R*.5,'#ffd08a');
+  embers(x,y,'#ff9e3d',18);
+  decal(x,y,R*.5,'rgba(90,40,20,.45)');
+  for(let i=0;i<20;i++){const a=rand(0,7),d=rand(6,R*.8);
+    G.parts.push({x:x+Math.cos(a)*d,y:y+Math.sin(a)*d,vx:Math.cos(a)*rand(30,120),vy:Math.sin(a)*rand(30,120)-40,
+      life:rand(.35,.8),max:.8,size:rand(4,10),col:pick(['#ff9e3d','#ffca6a','#e0522a']),kind:'fire'});}
+  for(const o of G.units){
+    if(o.dead||!foe(o.side,side)) continue;
+    const dx=o.x-x, dy=o.y-y, d=Math.hypot(dx,dy);
+    if(d>R) continue;
+    const fall=1-d/R, nx=d<1?1:dx/d, ny=d<1?0:dy/d;
+    dealDamage(o,Math.round(dmg*(.5+.7*fall)),side,{power:1.3,n:7,dx:nx,dy:ny});
+    ignite(o,burnT||4,side);
+  }
+  for(const b of G.buildings){
+    if(b.dead||!foe(b.side,side)) continue;
+    if(Math.hypot(b.x-x,b.y-y)<R+b.r*.6) dealDamage(b,Math.round(dmg*1.2),side);
+  }
 }
 function knockback(o,nx,ny,power,launch,extraStun){
   if(o.dead) return;
@@ -379,7 +433,7 @@ function meleeAttack(u,t){
   const dmg=unitDmg(u);
   const ang=Math.atan2(t.y-u.y,t.x-u.x), nx=Math.cos(ang), ny=Math.sin(ang);
   u.facing=ang;
-  const swCol=u.faction==='nieumarli'?'#cfeee8':(u.faction==='orki'?'#f3c98f':'#eef3ff');
+  const swCol=u.faction==='nieumarli'?'#cfeee8':(u.faction==='orki'?'#f3c98f':(u.faction==='demony'?'#ffb15e':'#eef3ff'));
   slashArc(u.x+nx*(u.r+8),u.y+ny*(u.r+8),ang,u.r*2.4+16,swCol,u.lvl>=3?6:4);
   slashArc(u.x+nx*(u.r+5),u.y+ny*(u.r+5),ang-.18,u.r*2.1+10,hexA('#ffffff',.5),2.5);
   flash(u.x+nx*(u.r+10),u.y+ny*(u.r+10),8,swCol);
@@ -396,10 +450,15 @@ function meleeAttack(u,t){
     if(UNITS[t.type]) knockback(t,nx,ny,100,0);
     let hit=0;
     for(const o of G.units){
-      if(o.dead||o===t||o.side===u.side||hit>=1) continue;
+      if(o.dead||o===t||!isFoe(o,u)||hit>=1) continue;
       if(Math.hypot(o.x-u.x,o.y-u.y)<u.range+u.r+22){ dealDamage(o,Math.round(dmg*.7),u.side,{dx:nx,dy:ny}); knockback(o,nx,ny,80,0); hit++; }
     }
     ring(u.x+nx*16,u.y+ny*16,28,'rgba(216,98,47,.75)',.26,4);
+  } else if(u.faction==='demony'){
+    dealDamage(t,dmg,u.side,{dx:nx,dy:ny});
+    if(UNITS[t.type]){ knockback(t,nx,ny,90,0); ignite(t,4,u.side); }
+    embers(u.x+nx*14,u.y+ny*14,'#ff9e3d',5);
+    G.parts.push({x:u.x+nx*16,y:u.y+ny*16,vx:nx*60,vy:ny*60,life:.3,max:.3,size:8,col:'#ffb15e',kind:'fire'});
   } else {
     dealDamage(t,dmg,u.side,{dx:nx,dy:ny});
     if(UNITS[t.type]) knockback(t,nx,ny,70,0);
@@ -417,12 +476,13 @@ function meleeAttack(u,t){
     spark(t.x,t.y,acc,8,1.2); shake(2.2);
     if(u.faction==='ludzie'){
       for(const a of G.units){
-        if(a.side!==u.side||a.dead||a===u) continue;
+        if(!allySide(a.side,u.side)||a.dead||a===u) continue;
         if(Math.hypot(a.x-u.x,a.y-u.y)>120||a.hp>=a.maxHp) continue;
         a.hp=Math.min(a.maxHp,a.hp+8);
         G.parts.push({x:u.x,y:u.y,vx:(a.x-u.x)*1.4,vy:(a.y-u.y)*1.4,life:.4,max:.4,size:3,col:'#e6c273',kind:'ember'});
       }
     } else if(u.faction==='orki'&&UNITS[t.type]) knockback(t,nx,ny,200,.6);
+    else if(u.faction==='demony'){ ignite(t,6,u.side); u.hp=Math.min(u.maxHp,u.hp+Math.round(dmg*.2)); }
     else if(u.faction==='nieumarli'){ u.hp=Math.min(u.maxHp,u.hp+Math.round(dmg*.25)); u.hbuff=Math.max(u.hbuff,2.5); }
   }
   for(let i=0;i<3;i++) puff((u.x+t.x)/2,(u.y+t.y)/2,.6,'#e7d6b4');
@@ -446,6 +506,7 @@ function archerAttack(u,t){
       floatText(u.x,u.y-u.r-12,'SALWA','#cfdcf8',11); }
     else shootArrow(u,t);
   } else if(u.faction==='orki') shootArrow(u,t,{kind:'bolt',dmgMul:1.15});
+  else if(u.faction==='demony') shootArrow(u,t,{kind:'fire',dmgMul:.9});
   else shootArrow(u,t,{kind:'frost'});
 }
 
@@ -455,7 +516,7 @@ function heavyAttack(u,t){
   u.facing=Math.atan2(t.y-u.y,t.x-u.x);
   if(u.faction==='ludzie'&&d>90&&UNITS[t.type]){ u.windup=.5; u.windupKind='boulder'; u.boulderTarget={x:t.x,y:t.y}; return; }
   u.windup=.42;
-  u.windupKind=u.faction==='orki'?'whirl':(u.faction==='nieumarli'?'quake':'slam');
+  u.windupKind=u.faction==='orki'?'whirl':(u.faction==='nieumarli'?'quake':(u.faction==='demony'?'fire':'slam'));
 }
 function resolveHeavy(u){
   const k=u.windupKind; u.windupKind=null;
@@ -475,6 +536,14 @@ function resolveHeavy(u){
     shockRing(u.x,u.y,120,'#79e0d2'); G.stats.slams++;
     return;
   }
+  if(k==='fire'){
+    const fx=u.x+Math.cos(u.facing)*(u.r+16), fy=u.y+Math.sin(u.facing)*(u.r+16);
+    G.stats.slams++; shake(15); hitstop(.07); G.flash=.16; G.flashCol='#ff9e3d';
+    crackDecal(fx,fy,80,'rgba(120,40,16,.5)');
+    floatText(u.x,u.y-u.r-18,'MORZE OGNIA!','#ff9e3d',16);
+    fireBurst(fx,fy,155,dmg,u.side,6);
+    return;
+  }
   const whirl=k==='whirl';
   const cx=whirl?u.x:u.x+Math.cos(u.facing)*(u.r+14), cy=whirl?u.y:u.y+Math.sin(u.facing)*(u.r+14);
   const R=whirl?150:135;
@@ -490,7 +559,7 @@ function resolveHeavy(u){
   debris(cx,cy,14);
   if(whirl) floatText(u.x,u.y-u.r-18,'MŁYNIEC!','#d8622f',16);
   for(const o of G.units){
-    if(o.dead||o.side===u.side) continue;
+    if(o.dead||!isFoe(o,u)) continue;
     const dx=o.x-cx, dy=o.y-cy, d=Math.hypot(dx,dy);
     if(d>R) continue;
     const fall=1-d/R, nx=d<1?Math.cos(u.facing):dx/d, ny=d<1?Math.sin(u.facing):dy/d;
@@ -498,7 +567,7 @@ function resolveHeavy(u){
     dealDamage(o,Math.round(dmg*(.55+.75*fall)),u.side,{power:1.6,n:9,dx:nx,dy:ny});
   }
   for(const b of G.buildings){
-    if(b.dead||b.side===u.side) continue;
+    if(b.dead||!isFoe(b,u)) continue;
     if(Math.hypot(b.x-cx,b.y-cy)<R+b.r*.6) dealDamage(b,Math.round(dmg*1.5),u.side);
   }
 }
@@ -507,12 +576,12 @@ function resolveHeavy(u){
    MOCE KRAINY
    ========================================================================== */
 function useAbility(side){
-  const f=side==='player'?G.pf:G.ef, ab=FACTIONS[f].ability;
+  const f=sideFaction(side), ab=FACTIONS[f].ability;
   if(side==='player'){
     if(G.abilityCd>0||G.will<ab.cost) return false;
     G.will-=ab.cost; G.abilityCd=ab.cd; G.stats.abilities++;
   }
-  const foes=G.units.filter(u=>u.side===other(side)&&!u.dead);
+  const foes=G.units.filter(u=>!u.dead&&foe(u.side,side));
   if(f==='ludzie'){
     let best=null,bc=-1;
     for(const o of foes){
@@ -531,6 +600,20 @@ function useAbility(side){
     G.buff[side]=9;
     if(side==='player') banner('FURIA KRWI','#e07a3a');
     for(const u of G.units) if(u.side===side&&!u.dead){ ring(u.x,u.y,u.r+18,'rgba(216,98,47,.85)',.5,3); embers(u.x,u.y,'#e07a3a',5); }
+  } else if(f==='demony'){
+    let best=null,bc=-1;
+    for(const o of foes){
+      const c=foes.filter(p=>Math.hypot(p.x-o.x,p.y-o.y)<120).length;
+      if(c>bc){bc=c;best=o;}
+    }
+    if(!best){ if(side==='player'){ G.will+=ab.cost; G.abilityCd=0; warn('Brak celu dla deszczu siarki'); } return false; }
+    if(side==='player') banner('DESZCZ SIARKI','#ff9e3d');
+    for(let i=0;i<9;i++){
+      const tx=best.x+rand(-130,130), ty=best.y+rand(-100,100);
+      G.parts.push({x:tx+rand(-60,60),y:ty-rand(380,560),kind:'meteor',vx:rand(-14,14),vy:rand(700,900),
+        life:1.6,max:1.6,size:14,col:'#ff8a3a',side,dmg:Math.round(34+G.lvl[side].heavy*8),ty,hit:false,rot:rand(0,7),vrot:9});
+    }
+    ring(best.x,best.y,150,'rgba(255,158,61,.85)',.9,4);
   } else {
     if(side==='player') banner('WSKRZESZENIE','#79e0d2');
     const list=G.fallen[side].slice(-8);
@@ -560,15 +643,24 @@ function heroPower(u){
   if(u.side==='player') banner(H.power.toUpperCase(),FACTIONS[u.faction].col.accent);
   if(u.faction==='ludzie'){
     for(const a of G.units){
-      if(a.side!==u.side||a.dead) continue;
+      if(!allySide(a.side,u.side)||a.dead) continue;
       if(Math.hypot(a.x-u.x,a.y-u.y)>R) continue;
       a.hbuff=9; a.hp=Math.min(a.maxHp,a.hp+a.maxHp*.3);
       ring(a.x,a.y,a.r+12,'rgba(230,194,115,.85)',.45,3);
       floatText(a.x,a.y-a.r-8,'+sztandar','#e6c273',11);
     }
+  } else if(u.faction==='demony'){
+    fireBurst(u.x,u.y,R,80,u.side,6);
+    for(const t of G.units){
+      if(t.dead||!isFoe(t,u)) continue;
+      const d=Math.hypot(t.x-u.x,t.y-u.y);
+      if(d>R) continue;
+      const nx=(t.x-u.x)/(d||1), ny=(t.y-u.y)/(d||1);
+      knockback(t,nx,ny,300,1.1); t.stun=Math.max(t.stun,.8);
+    }
   } else if(u.faction==='orki'){
     for(const t of G.units){
-      if(t.side===u.side||t.dead) continue;
+      if(t.dead||!isFoe(t,u)) continue;
       const d=Math.hypot(t.x-u.x,t.y-u.y);
       if(d>R) continue;
       const nx=(t.x-u.x)/(d||1), ny=(t.y-u.y)/(d||1);
@@ -579,7 +671,7 @@ function heroPower(u){
     for(let i=0;i<26;i++) debris(u.x+rand(-40,40),u.y+rand(-30,30),2);
   } else {
     for(const t of G.units){
-      if(t.side===u.side||t.dead) continue;
+      if(t.dead||!isFoe(t,u)) continue;
       if(Math.hypot(t.x-u.x,t.y-u.y)>R) continue;
       dealDamage(t,70,u.side,{n:5,power:1.1});
       t.slow=Math.max(t.slow,6); t.stun=Math.max(t.stun,.5);

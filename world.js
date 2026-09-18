@@ -3,7 +3,9 @@
    ========================================================================== */
 'use strict';
 
-const MAP_W=2600, MAP_H=1800;
+let MAP_W=2600, MAP_H=1800;
+const SPOT_F=[{x:.17,y:.22},{x:.83,y:.78},{x:.83,y:.22},{x:.17,y:.78}];
+function baseSpots(mode){ return MODES[mode].spots.map(i=>({x:SPOT_F[i].x*MAP_W, y:SPOT_F[i].y*MAP_H})); }
 const CAM={x:0,y:0,w:1440,h:820,speed:760};
 let ZOOM=1.4;
 
@@ -16,24 +18,26 @@ const toScreenX=x=>x-CAM.x, toScreenY=y=>y-CAM.y;
 const toWorldX=x=>x/ZOOM+CAM.x, toWorldY=y=>y/ZOOM+CAM.y;
 
 /* ---------- generowanie mapy ---------- */
-function makeWorld(){
-  const w={
-    decor:[],        // kępy trawy, kamienie, kwiaty
-    res:[],          // kopalnie złota i drzewa
-    patches:[]       // plamy innego odcienia ziemi
-  };
-  for(let i=0;i<120;i++){
-    w.patches.push({x:rand(0,MAP_W),y:rand(0,MAP_H),r:rand(50,130),
-      col:pick(['rgba(122,140,84,.06)','rgba(88,104,60,.07)','rgba(146,136,88,.05)','rgba(74,96,56,.08)'])});
+function makeWorld(mapKey,mode){
+  const M=MAPS[mapKey]||MAPS.rowniny, T=M.theme;
+  MAP_W=M.w; MAP_H=M.h;
+  const spots=baseSpots(mode);
+  const w={decor:[],res:[],patches:[],theme:T,name:M.name,key:mapKey};
+  const nearBase=(x,y,d)=>spots.some(s=>Math.hypot(s.x-x,s.y-y)<d);
+  const nP=Math.round(120*(MAP_W*MAP_H)/(2600*1800));
+  for(let i=0;i<nP;i++){
+    w.patches.push({x:rand(0,MAP_W),y:rand(0,MAP_H),r:rand(50,130),col:pick(T.patch)});
   }
-  for(let i=0;i<520;i++){
+  const nD=Math.round(T.decor*(MAP_W*MAP_H)/(2600*1800));
+  for(let i=0;i<nD;i++){
     w.decor.push({x:rand(0,MAP_W),y:rand(0,MAP_H),kind:Math.random()<.72?'grass':(Math.random()<.6?'stone':'flower'),
       s:rand(.7,1.5),a:rand(0,7)});
   }
-  // gaje drzew
-  for(let g=0;g<16;g++){
+  // gaje drzew — nigdy na starcie osady
+  const nG=Math.round(T.groves*(MAP_W*MAP_H)/(2600*1800));
+  for(let g=0;g<nG;g++){
     const cx=rand(160,MAP_W-160), cy=rand(150,MAP_H-150);
-    if(cx<520&&cy<520) continue;
+    if(nearBase(cx,cy,300)) continue;
     const n=randi(7,16);
     for(let i=0;i<n;i++){
       const a=rand(0,7), d=rand(10,120);
@@ -42,12 +46,30 @@ function makeWorld(){
         seed:rand(0,7), s:rand(.85,1.25)});
     }
   }
+  // gaje pod bazami — każdy gracz ma drewno blisko domu
+  for(const s0 of spots){
+    for(let k=0;k<2;k++){
+      const a=rand(0,7), dd=rand(210,280);
+      const cx=clamp(s0.x+Math.cos(a)*dd,80,MAP_W-80), cy=clamp(s0.y+Math.sin(a)*dd*.8,80,MAP_H-80);
+      const n=randi(8,13);
+      for(let i=0;i<n;i++){
+        const a2=rand(0,7), d=rand(10,80);
+        w.res.push({id:'r'+w.res.length, kind:'wood', x:clamp(cx+Math.cos(a2)*d,60,MAP_W-60),
+          y:clamp(cy+Math.sin(a2)*d*.8,60,MAP_H-60), r:15, amount:RES.wood.amount, max:RES.wood.amount,
+          seed:rand(0,7), s:rand(.85,1.25)});
+      }
+    }
+  }
   // kopalnie złota: po dwie przy każdej bazie + kilka na środku
-  const mineSpots=[
-    {x:430,y:300},{x:300,y:520},{x:560,y:620},
-    {x:MAP_W-430,y:MAP_H-300},{x:MAP_W-300,y:MAP_H-520},{x:MAP_W-560,y:MAP_H-620},
-    {x:MAP_W*.5,y:MAP_H*.28},{x:MAP_W*.5,y:MAP_H*.74},{x:MAP_W*.28,y:MAP_H*.8},{x:MAP_W*.74,y:MAP_H*.2}
-  ];
+  const mineSpots=[];
+  for(const s0 of spots){
+    for(let k=0;k<3;k++){
+      const a=rand(0,7), dd=rand(150,240);
+      mineSpots.push({x:clamp(s0.x+Math.cos(a)*dd,120,MAP_W-120), y:clamp(s0.y+Math.sin(a)*dd*.8,120,MAP_H-120)});
+    }
+  }
+  mineSpots.push({x:MAP_W*.5,y:MAP_H*.5},{x:MAP_W*.5,y:MAP_H*.26},{x:MAP_W*.5,y:MAP_H*.76},
+                 {x:MAP_W*.26,y:MAP_H*.5},{x:MAP_W*.74,y:MAP_H*.5});
   for(const m of mineSpots){
     const n=randi(3,5);
     for(let i=0;i<n;i++){
