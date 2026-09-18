@@ -235,13 +235,34 @@ function drawSoldierTop(u,c,L,r,ang,hit){
       cx.lineTo(-face*shW*(.7+i*.18),shY-r*.44); cx.stroke();
     }
   } else if(u.type==='worker'){
-    const a=-1.1+swing*1.9;
-    const hx2=hsx+face*Math.cos(a)*r*.42, hy2=hsy+Math.sin(a)*r*.42;
-    limb(hsx,hsy,hx2,hy2,r*.16,skin,hit);
-    const ta=a-.5;
+    const gold=(u.gatherKind||(u.carry&&u.carry.kind))==='gold';
+    const mining=u.state==='gather', ph=u.chopT||0;
+    // k=1 -> narzedzie w materiale, k=0 -> zamach nad glowa
+    const k=mining?(ph<.62?1-Math.pow(ph/.62,.8):Math.pow((ph-.62)/.38,.55)):0;
+    let a, ta;
+    if(mining&&gold){          // kilof: zamach nad glowa i cios w dol
+      a=-2.25+k*2.7; ta=a-.45;
+    } else if(mining){         // siekiera: szeroki zamach z boku
+      a=-1.7+k*2.0; ta=a+.85;
+    } else {
+      a=-1.1+swing*1.9; ta=a-.5;
+    }
+    const lean=mining?k*r*.1:0;
+    const hsx2=hsx+face*lean, hsy2=hsy+lean*.4;
+    const hx2=hsx2+face*Math.cos(a)*r*.44, hy2=hsy2+Math.sin(a)*r*.44;
+    limb(hsx2,hsy2,hx2,hy2,r*.16,skin,hit);
     const tipx=hx2+face*Math.cos(ta)*r*.72, tipy=hy2+Math.sin(ta)*r*.72;
+    // smuga zamachu
+    if(mining&&k>.55){
+      cx.strokeStyle='rgba(255,255,255,'+((k-.55)*.55).toFixed(2)+')'; cx.lineWidth=r*.2; cx.lineCap='round';
+      cx.beginPath(); cx.arc(hsx2,hsy2,r*1.1,Math.atan2(Math.sin(a-.9),face*Math.cos(a-.9)),
+        Math.atan2(Math.sin(a),face*Math.cos(a)),face<0); cx.stroke();
+    }
     limb(hx2,hy2,tipx,tipy,r*.11,'#8a6636',hit);
-    const gold=u.carry&&u.carry.kind==='gold'||u.gatherKind==='gold';
+    if(mining&&k>.93){        // blysk uderzenia
+      cx.fillStyle='rgba(255,246,214,.75)';
+      cx.beginPath(); cx.ellipse(tipx+face*r*.1,tipy+r*.05,r*.26,r*.16,0,0,7); cx.fill();
+    }
     cx.fillStyle=hit?'#fff':c.metal;
     if(gold){   // kilof
       cx.beginPath();

@@ -852,38 +852,7 @@ function drawHoverHints(){
   const mx=mouse.x/ZOOM, my=mouse.y/ZOOM;
   const rs=resAt(wx,wy);
   const hb=buildingAt(wx,wy), hu=unitAt(wx,wy);
-  const mine=G.sel.filter(u=>!u.dead);
   const hostile=(hu&&isFoe(hu.side,'player')&&!hu.dead)||(hb&&isFoe(hb.side,'player')&&!hb.dead);
-
-  /* --- sciezka marszu wybranych jednostek --- */
-  if(mine.length&&!hostile){
-    let cxx=0,cyy=0;
-    for(const u of mine){ cxx+=u.x; cyy+=u.y; }
-    cxx/=mine.length; cyy/=mine.length;
-    const ax=toScreenX(cxx)/ZOOM, ay=toScreenY(cyy)/ZOOM;
-    const tx=rs?toScreenX(rs.x)/ZOOM:mx, ty=rs?toScreenY(rs.y)/ZOOM:my;
-    const col=rs?(rs.kind==='gold'?'#e6c273':'#9ccf6a'):'#9fe07a';
-    cx.save();
-    cx.strokeStyle=hexA(col,.35); cx.lineWidth=3; cx.setLineDash([10,8]);
-    cx.lineDashOffset=-(TIME*26)%18;
-    cx.beginPath(); cx.moveTo(ax,ay); cx.lineTo(tx,ty); cx.stroke();
-    cx.setLineDash([]);
-    // slady butow po drodze
-    const d=Math.hypot(tx-ax,ty-ay), n=Math.min(9,Math.floor(d/34));
-    const na=Math.atan2(ty-ay,tx-ax);
-    for(let i=1;i<=n;i++){
-      const t=i/(n+1);
-      iconBoots(ax+(tx-ax)*t,ay+(ty-ay)*t,5.5);
-    }
-    // grot strzalki
-    cx.fillStyle=hexA(col,.8);
-    cx.beginPath();
-    cx.moveTo(tx,ty);
-    cx.lineTo(tx-Math.cos(na-.42)*13,ty-Math.sin(na-.42)*13);
-    cx.lineTo(tx-Math.cos(na+.42)*13,ty-Math.sin(na+.42)*13);
-    cx.closePath(); cx.fill();
-    cx.restore();
-  }
 
   /* --- ikona nad celem --- */
   if(rs){

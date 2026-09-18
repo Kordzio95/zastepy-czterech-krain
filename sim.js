@@ -198,6 +198,28 @@ function doGather(u,dt){
   if(d>r.r+u.r+3){ moveTo(u,r.x,r.y,dt); u.state='move'; return; }
   u.facing=Math.atan2(r.y-u.y,r.x-u.x);
   u.state='gather'; u.walk+=dt*6;
+  /* --- rytm uderzen: kilof w kamien / siekiera w drewno --- */
+  u.gatherKind=r.kind;
+  const cyc=(r.kind==='wood'?2.5:2.9)*(1+.12*(u.lvl-1));
+  u.chopT=(u.chopT||0)+dt*cyc;
+  if(u.chopT>=1){
+    u.chopT-=1;
+    const a2=Math.atan2(r.y-u.y,r.x-u.x);
+    const ix=u.x+Math.cos(a2)*(u.r+7), iy=u.y+Math.sin(a2)*(u.r+5)-4;
+    if(r.kind==='wood'){
+      for(let i=0;i<5;i++) G.parts.push({x:ix,y:iy,vx:rand(-70,70),vy:rand(-95,-25),
+        life:.55,max:.55,size:rand(2,4.4),col:i%2?'#9a7442':'#6f5228',kind:'rock',rot:rand(0,6),vrot:rand(-11,11)});
+      puff(ix,iy+3,.5,'#8f7a52');
+      G.parts.push({x:ix,y:iy,vx:0,vy:0,life:.16,max:.16,size:7,col:'rgba(255,240,200,.8)',kind:'dust'});
+    } else {
+      spark(ix,iy,'#ffe9a8',5,.8);
+      for(let i=0;i<4;i++) G.parts.push({x:ix,y:iy,vx:rand(-85,85),vy:rand(-105,-30),
+        life:.5,max:.5,size:rand(1.8,3.8),col:i%2?'#b9b2a2':'#e6c273',kind:'rock',rot:rand(0,6),vrot:rand(-13,13)});
+      puff(ix,iy+3,.45,'#c9c0ad');
+      shockRing(ix,iy,13,'rgba(255,235,180,.55)');
+    }
+    if(Math.random()<.22) decal(ix,iy+4,5,r.kind==='wood'?'rgba(80,60,34,.3)':'rgba(120,112,96,.3)');
+  }
   const rate=RES[r.kind].rate*(1+.25*(u.lvl-1));
   u.gatherAcc+=dt*rate;
   if(!u.carry) u.carry={kind:r.kind,amount:0};
