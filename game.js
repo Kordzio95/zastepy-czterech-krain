@@ -10,7 +10,7 @@ function newGame(pf){
   const g={
     phase:'play', t:0, pf, ef, id:1,
     res:{player:{gold:260,wood:320}, enemy:{gold:260,wood:320}},
-    lvl:{player:{worker:1,warrior:1,archer:1,heavy:1}, enemy:{worker:1,warrior:1,archer:1,heavy:1}},
+    lvl:{player:{worker:1,warrior:1,archer:1,heavy:1,hero:1}, enemy:{worker:1,warrior:1,archer:1,heavy:1,hero:1}},
     units:[], buildings:[], arrows:[], parts:[], texts:[], decals:[], quakes:[],
     fallen:{player:[],enemy:[]},
     sel:[], selBuilding:null, placing:null,
@@ -84,13 +84,13 @@ function embers(x,y,col,n=10){
    TWORZENIE
    ========================================================================== */
 function unitStats(faction,type,lvl){
-  const b=UNITS[type], u=UPG[type];
+  const b=UNITS[type], u=UPG[type]||{hp:0,dmg:0};
   return {hp:Math.round(b.hp*(1+u.hp*(lvl-1))), dmg:Math.round(b.dmg*(1+u.dmg*(lvl-1))),
     range:b.range, speed:b.speed, ias:b.ias};
 }
 function spawnUnit(side,type,x,y,lvlOpt){
   const faction=side==='player'?G.pf:G.ef;
-  const lvl=lvlOpt||G.lvl[side][type];
+  const lvl=lvlOpt||G.lvl[side][type]||1;
   const st=unitStats(faction,type,lvl), def=UNITS[type];
   const u={
     id:G.id++, side, faction, type, lvl,
@@ -99,7 +99,7 @@ function spawnUnit(side,type,x,y,lvlOpt){
     hp:st.hp, maxHp:st.hp, dmg:st.dmg, range:st.range, speed:st.speed, ias:st.ias,
     facing:rand(0,7), state:'idle', order:null, carry:null, gatherAcc:0,
     atk:rand(0,.5), anim:rand(0,6), walk:0, stun:0, slow:0, hitFlash:0,
-    windup:0, windupKind:null, volley:0,
+    windup:0, windupKind:null, volley:0, hcd:0, hbuff:0,
     z:0, vz:0, vx:0, vy:0, rot:0, vrot:0,
     dead:false, fade:1, sel:false
   };
@@ -167,6 +167,26 @@ function commandGather(units,res){
   }
   ring(res.x,res.y,26,res.kind==='gold'?'rgba(230,194,115,.9)':'rgba(140,190,90,.9)',.5,3);
 }
+function assignGather(units,kind){
+  const workers=units.filter(u=>!u.dead&&UNITS[u.type].gather);
+  if(!workers.length){ warn('Zaznacz robotników'); return false; }
+  let any=false;
+  for(const u of workers){
+    const nodes=G.world.res.filter(r=>r.amount>0&&r.kind===kind)
+      .sort((a,b)=>Math.hypot(a.x-u.x,a.y-u.y)-Math.hypot(b.x-u.x,b.y-u.y)).slice(0,3);
+    if(!nodes.length) continue;
+    const r=pick(nodes);
+    u.order={kind:'gather',res:r}; u.state='move'; any=true;
+    ring(r.x,r.y,24,kind==='gold'?'rgba(230,194,115,.9)':'rgba(140,190,90,.9)',.45,3);
+  }
+  if(!any) warn(kind==='gold'?'Nie ma już złota w pobliżu':'Nie ma już drzew w pobliżu');
+  return any;
+}
+function autoGather(u){
+  const kind=gatherCount(u.side,'wood')<gatherCount(u.side,'gold')?'wood':'gold';
+  const r=nearestRes(u.x,u.y,kind,900)||nearestRes(u.x,u.y,null,900);
+  if(r){ u.order={kind:'gather',res:r}; u.state='move'; }
+}
 function commandBuildHelp(units,b){
   for(const u of units){
     if(!UNITS[u.type].build){ u.order={kind:'move',x:b.x+rand(-40,40),y:b.y+b.r+24}; u.state='move'; continue; }
@@ -208,12 +228,18 @@ function placeBuilding(wx,wy){
     commandBuildHelp(w,b);
   }
   G.placing=null;
+  buildMenuOpen=true;
   floatText(b.x,b.y-def.r-10,'Budowa: '+def.label,'#e6c273',13);
   return true;
 }
 function trainUnit(b,type){
   if(!b.done||b.dead) return false;
   const side=b.side, def=UNITS[type];
+  if(type==='hero'){
+    const have=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='hero').length
+      +G.buildings.filter(x=>x.side===side&&!x.dead).reduce((n,x)=>n+x.queue.filter(q=>q==='hero').length,0);
+    if(have>=HERO_LIMIT){ if(side==='player') warn('Masz już bohatera'); return false; }
+  }
   if(b.queue.length>=5) return false;
   if(popUsed(side)+def.pop>popMax(side)){ if(side==='player') warn('Limit ludności — postaw chatę'); return false; }
   if(!canAfford(side,def.cost)){ if(side==='player') warn('Brakuje surowców na '+def.label); return false; }
@@ -250,6 +276,12 @@ function warn(txt){ warnMsg={txt,life:2.2}; }
    ========================================================================== */
 const other=s=>s==='player'?'enemy':'player';
 function dmgMul(side){ return G.buff[side]>0?1.4:1; }
+function unitDmg(u){ return Math.round(u.dmg*dmgMul(u.side)*(u.hbuff>0?1.55:1)); }
+function heroOf(side){ return G.units.find(u=>u.side===side&&!u.dead&&u.type==='hero')||null; }
+function gatherCount(side,kind){
+  return G.units.filter(u=>u.side===side&&!u.dead&&u.type==='worker'&&
+    u.order&&u.order.kind==='gather'&&u.order.res&&u.order.res.kind===kind).length;
+}
 function spdMul(u){ return (G.buff[u.side]>0?1.35:1)*(u.slow>0?.55:1); }
 
 function findEnemy(u,radius){
@@ -327,7 +359,7 @@ function knockback(o,nx,ny,power,launch,extraStun){
 
 /* --- unikalne ataki wręcz --- */
 function meleeAttack(u,t){
-  const dmg=Math.round(u.dmg*dmgMul(u.side));
+  const dmg=unitDmg(u);
   const ang=Math.atan2(t.y-u.y,t.x-u.x), nx=Math.cos(ang), ny=Math.sin(ang);
   u.facing=ang;
   const swCol=u.faction==='nieumarli'?'#cfeee8':(u.faction==='orki'?'#f3c98f':'#eef3ff');
@@ -361,6 +393,21 @@ function meleeAttack(u,t){
       for(let i=0;i<5;i++) G.parts.push({x:t.x,y:t.y,vx:(u.x-t.x)*1.5,vy:(u.y-t.y)*1.5,life:.45,max:.45,size:3,col:'#79e0d2',kind:'ember'});
     }
   }
+  if(u.type==='hero'&&!t.dead){
+    const acc=FACTIONS[u.faction].col.accent;
+    slashArc(u.x+nx*(u.r+12),u.y+ny*(u.r+12),ang+.22,u.r*2.8+22,acc,5);
+    ring(t.x,t.y,t.r+18,hexA(acc,.7),.28,3);
+    spark(t.x,t.y,acc,8,1.2); shake(2.2);
+    if(u.faction==='ludzie'){
+      for(const a of G.units){
+        if(a.side!==u.side||a.dead||a===u) continue;
+        if(Math.hypot(a.x-u.x,a.y-u.y)>120||a.hp>=a.maxHp) continue;
+        a.hp=Math.min(a.maxHp,a.hp+8);
+        G.parts.push({x:u.x,y:u.y,vx:(a.x-u.x)*1.4,vy:(a.y-u.y)*1.4,life:.4,max:.4,size:3,col:'#e6c273',kind:'ember'});
+      }
+    } else if(u.faction==='orki'&&UNITS[t.type]) knockback(t,nx,ny,200,.6);
+    else if(u.faction==='nieumarli'){ u.hp=Math.min(u.maxHp,u.hp+Math.round(dmg*.25)); u.hbuff=Math.max(u.hbuff,2.5); }
+  }
   for(let i=0;i<3;i++) puff((u.x+t.x)/2,(u.y+t.y)/2,.6,'#e7d6b4');
 }
 
@@ -372,7 +419,7 @@ function shootArrow(u,t,opts={}){
   const a=ang+spread;
   G.arrows.push({x:u.x+Math.cos(ang)*(u.r+4),y:u.y+Math.sin(ang)*(u.r+4),
     vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:1.6, side:u.side, faction:u.faction,
-    dmg:Math.round(u.dmg*dmgMul(u.side)*(opts.dmgMul||1)), kind:opts.kind||'normal', trail:[]});
+    dmg:Math.round(unitDmg(u)*(opts.dmgMul||1)), kind:opts.kind||'normal', trail:[]});
   spark(u.x+Math.cos(ang)*(u.r+6),u.y+Math.sin(ang)*(u.r+6),'#f0e4c4',3,.5);
 }
 function archerAttack(u,t){
@@ -395,7 +442,7 @@ function heavyAttack(u,t){
 }
 function resolveHeavy(u){
   const k=u.windupKind; u.windupKind=null;
-  const dmg=Math.round(u.dmg*dmgMul(u.side));
+  const dmg=unitDmg(u);
   const acc=FACTIONS[u.faction].col.accent;
   if(k==='boulder'){
     const t=u.boulderTarget||{x:u.x+80,y:u.y};
@@ -483,6 +530,48 @@ function useAbility(side){
   return true;
 }
 
+function heroPower(u){
+  if(!u||u.dead||u.type!=='hero') return false;
+  const H=FACTIONS[u.faction].hero;
+  if(u.hcd>0){ if(u.side==='player') warn(H.power+' — jeszcze '+Math.ceil(u.hcd)+'s'); return false; }
+  u.hcd=H.cd;
+  const R=H.radius;
+  shockRing(u.x,u.y,R,FACTIONS[u.faction].col.accent);
+  ring(u.x,u.y,R*.6,'rgba(255,255,255,.7)',.45,4);
+  flash(u.x,u.y,R*.4,hexA(FACTIONS[u.faction].col.accent,.9));
+  shake(7); hitstop(.07);
+  if(u.side==='player') banner(H.power.toUpperCase(),FACTIONS[u.faction].col.accent);
+  if(u.faction==='ludzie'){
+    for(const a of G.units){
+      if(a.side!==u.side||a.dead) continue;
+      if(Math.hypot(a.x-u.x,a.y-u.y)>R) continue;
+      a.hbuff=9; a.hp=Math.min(a.maxHp,a.hp+a.maxHp*.3);
+      ring(a.x,a.y,a.r+12,'rgba(230,194,115,.85)',.45,3);
+      floatText(a.x,a.y-a.r-8,'+sztandar','#e6c273',11);
+    }
+  } else if(u.faction==='orki'){
+    for(const t of G.units){
+      if(t.side===u.side||t.dead) continue;
+      const d=Math.hypot(t.x-u.x,t.y-u.y);
+      if(d>R) continue;
+      const nx=(t.x-u.x)/(d||1), ny=(t.y-u.y)/(d||1);
+      dealDamage(t,90,u.side,{n:7,power:1.4,dx:nx,dy:ny});
+      knockback(t,nx,ny,340,1.5);
+      t.stun=Math.max(t.stun,1.5);
+    }
+    for(let i=0;i<26;i++) debris(u.x+rand(-40,40),u.y+rand(-30,30),2);
+  } else {
+    for(const t of G.units){
+      if(t.side===u.side||t.dead) continue;
+      if(Math.hypot(t.x-u.x,t.y-u.y)>R) continue;
+      dealDamage(t,70,u.side,{n:5,power:1.1});
+      t.slow=Math.max(t.slow,6); t.stun=Math.max(t.stun,.5);
+      ring(t.x,t.y,t.r+10,'rgba(121,224,210,.8)',.5,2);
+      embers(t.x,t.y,'#79e0d2',5);
+    }
+  }
+  return true;
+}
 function endGame(win){
   if(!G||G.phase==='over') return;
   G.phase='over';

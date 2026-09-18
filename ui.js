@@ -8,7 +8,7 @@ let mouse={x:-99,y:-99,down:false,dragX:0,dragY:0,drag:false,inWorld:false,seen:
 let hudBtns=[], mmRect={x:0,y:0,w:0,h:0}, buildMenuOpen=false, hoverBtn=null;
 let paused=false, last=0;
 let touch={id:null,x:0,y:0,sx:0,sy:0,moved:false,box:false,camX:0,camY:0};
-let pinch=null, boxMode=false, topBarH=0;
+let pinch=null, boxMode=false, topBarH=0, addMode=false, lastTap=null, buildPick=null;
 
 /* ==========================================================================
    START / MENU
@@ -50,9 +50,16 @@ function selectUnits(list,add){
 function selectArmy(){
   selectUnits(G.units.filter(u=>u.side==='player'&&!u.dead&&u.type!=='worker'),false);
 }
-function selectAllOfType(type){
-  selectUnits(G.units.filter(u=>u.side==='player'&&!u.dead&&u.type===type),false);
+function selectAllOfType(type,add){
+  selectUnits(G.units.filter(u=>u.side==='player'&&!u.dead&&u.type===type),!!add);
 }
+function selectHero(){
+  const h=heroOf('player');
+  if(!h){ warn('Nie masz bohatera — wyszkol go w ratuszu'); return false; }
+  selectUnits([h],false); centerCam(h.x,h.y); return true;
+}
+function selWorkers(){ return G.sel.filter(u=>!u.dead&&UNITS[u.type].gather); }
+function selHero(){ return G.sel.find(u=>!u.dead&&u.type==='hero')||null; }
 
 function selectInBox(ax,ay,bx,by,add){
   const x0=Math.min(ax,bx), x1=Math.max(ax,bx), y0=Math.min(ay,by), y1=Math.max(ay,by);
@@ -76,12 +83,20 @@ function homeView(){
 function tapWorld(px,py){
   const wx=toWorldX(px), wy=toWorldY(py);
   if(G.placing){ placeBuilding(wx,wy); G.placing=null; return; }
-  const u=unitAt(wx,wy,'player');
-  if(u){ selectUnits([u],false); buildMenuOpen=false; return; }
+  const pad=18/ZOOM;
+  const u=unitAt(wx,wy,'player',pad);
+  const now=performance.now();
+  const dbl=lastTap&&now-lastTap.t<340&&Math.hypot(px-lastTap.x,py-lastTap.y)<34;
+  lastTap={t:now,x:px,y:py};
+  if(u){
+    if(dbl){ selectAllOfType(u.type,false); warn('Zaznaczono wszystkich: '+tierName(G.pf,u.type,u.lvl)); }
+    else selectUnits([u],addMode);
+    buildMenuOpen=false; return;
+  }
   const b=buildingAt(wx,wy);
   if(b&&b.side==='player'){ clearSel(); G.selBuilding=b; buildMenuOpen=false; return; }
-  if(G.sel.length){ issueOrder(G.sel.filter(x=>!x.dead),wx,wy); return; }
-  clearSel();
+  if(G.sel.length){ issueOrder(G.sel.filter(x=>!x.dead),wx,wy,addMode); return; }
+  if(!addMode) clearSel();
 }
 function bindTouch(){
   cv.addEventListener('touchstart',e=>{
@@ -96,10 +111,21 @@ function bindTouch(){
     const hb=hitBtn(p.x,p.y);
     if(hb){ if(hb.action) hb.action(); touch.id=null; return; }
     if(p.y>VIEW_H){ handleHudClick(p.x,p.y,0); touch.id=null; return; }
+    if(touch.lp) clearTimeout(touch.lp);
     touch={id:t.identifier,x:p.x,y:p.y,sx:p.x,sy:p.y,moved:false,box:boxMode&&!G.placing,
-           camX:CAM.x,camY:CAM.y};
+           camX:CAM.x,camY:CAM.y,lp:null};
     mouse.x=p.x; mouse.y=p.y; mouse.inWorld=true;
     if(touch.box){ mouse.down=true; mouse.drag=false; mouse.dragX=p.x; mouse.dragY=p.y; }
+    else if(!G.placing){
+      // przytrzymanie palca = ramka zaznaczania bez wchodzenia w menu
+      const sx=p.x, sy=p.y;
+      touch.lp=setTimeout(()=>{
+        if(touch.id===null||touch.moved||touch.box) return;
+        touch.box=true; touch.longPress=true;
+        mouse.down=true; mouse.drag=true; mouse.dragX=sx; mouse.dragY=sy;
+        warn('Ramka — przeciągnij i puść');
+      },330);
+    }
   },{passive:false});
   cv.addEventListener('touchmove',e=>{
     if(!G||G.phase!=='play') return;
@@ -117,7 +143,7 @@ function bindTouch(){
     if(!t) return;
     const p=localPos(t);
     touch.x=p.x; touch.y=p.y; mouse.x=p.x; mouse.y=p.y;
-    if(Math.hypot(p.x-touch.sx,p.y-touch.sy)>11) touch.moved=true;
+    if(Math.hypot(p.x-touch.sx,p.y-touch.sy)>11){ touch.moved=true; if(touch.lp&&!touch.box){ clearTimeout(touch.lp); touch.lp=null; } }
     if(touch.box){ if(touch.moved) mouse.drag=true; return; }
     if(touch.moved){
       CAM.x=touch.camX-(p.x-touch.sx)/ZOOM;
@@ -129,9 +155,11 @@ function bindTouch(){
     if(e.touches.length<2) pinch=null;
     if(!G||G.phase!=='play'){ touch.id=null; return; }
     if(touch.id===null) return;
+    if(touch.lp){ clearTimeout(touch.lp); touch.lp=null; }
     if(touch.box&&mouse.drag){
-      selectInBox(touch.sx,touch.sy,touch.x,touch.y,false);
-      boxMode=false;
+      if(Math.hypot(touch.x-touch.sx,touch.y-touch.sy)>14) selectInBox(touch.sx,touch.sy,touch.x,touch.y,addMode);
+      else if(!touch.longPress) tapWorld(touch.x,touch.y);
+      boxMode=false; touch.longPress=false;
     } else if(!touch.moved){
       tapWorld(touch.x,touch.y);
     }
@@ -202,6 +230,10 @@ function bindInput(){
     if(k==='a'){ selectArmy(); return; }
     if(k==='h'){ homeView(); return; }
     if(k==='r'){ useAbility('player'); return; }
+    if(k==='q'){ const h=selHero()||heroOf('player'); if(h) heroPower(h); else warn('Nie masz bohatera — wyszkol go w ratuszu'); return; }
+    if(k==='z'){ assignGather(selWorkers().length?selWorkers():G.units.filter(u=>u.side==='player'&&!u.dead&&u.type==='worker'),'gold'); return; }
+    if(k==='x'){ assignGather(selWorkers().length?selWorkers():G.units.filter(u=>u.side==='player'&&!u.dead&&u.type==='worker'),'wood'); return; }
+    if(k==='e'){ selectHero(); return; }
     if(e.key==='+'||e.key==='='){ setZoom(ZOOM+.2); return; }
     if(e.key==='-'||e.key==='_'){ setZoom(ZOOM-.2); return; }
     if(k>='1'&&k<='7'){
@@ -267,7 +299,13 @@ function btn(x,y,w,h,title,sub,ok,action,hot){
   cx.strokeRect(x+.5,y+.5,w-1,h-1);
   cx.textAlign='left';
   cx.fillStyle=ok?'#f1e2bf':'#8f8674';
-  const f1=Math.round(12*US), f2=Math.round(10.5*US);
+  const fitFont=(t,maxw,start,min)=>{
+    let f=start;
+    while(f>min){ cx.font='600 '+f+'px Satoshi,system-ui,sans-serif'; if(cx.measureText(t).width<=maxw) break; f-=.5; }
+    return f;
+  };
+  const f1=fitFont(title,w-(h<38&&sub?58:12),Math.round(12*US),8);
+  const f2=Math.max(8,Math.min(Math.round(10.5*US),Math.round(f1*.85)));
   if(h<38){                                   // jeden wiersz — tytuł + koszt w prawo
     cx.font='600 '+f1+'px Satoshi,system-ui,sans-serif';
     if(title.length<=3){ cx.textAlign='center'; cx.fillText(title,x+w/2,y+h/2+f1*.36); cx.textAlign='left'; }
@@ -282,10 +320,11 @@ function btn(x,y,w,h,title,sub,ok,action,hot){
     return b;
   }
   cx.font='600 '+f1+'px Satoshi,system-ui,sans-serif';
-  cx.fillText(fitText(title,w-12),x+7,y+f1+5);
+  cx.fillText(fitText(title,w-10),x+6,y+f1+5);
   if(sub){ cx.fillStyle=ok?'rgba(230,214,180,.75)':'rgba(140,132,116,.7)';
-    cx.font='500 '+f2+'px Satoshi,system-ui,sans-serif';
-    cx.fillText(fitText(sub,w-12),x+7,y+h-7); }
+    const sf=Math.max(8,fitFont(sub,w-10,f2,8));
+    cx.font='500 '+sf+'px Satoshi,system-ui,sans-serif';
+    cx.fillText(fitText(sub,w-10),x+6,y+h-6); }
   return b;
 }
 function fitText(t,maxw){
@@ -293,6 +332,25 @@ function fitText(t,maxw){
   if(cx.measureText(t).width<=maxw) return t;
   while(t.length>1&&cx.measureText(t+'…').width>maxw) t=t.slice(0,-1);
   return t+'…';
+}
+function resBox(x,y,w,h,kind,val,workers){
+  const gold=kind==='gold';
+  cx.fillStyle=gold?'rgba(230,194,115,.10)':'rgba(143,174,88,.10)';
+  cx.fillRect(x,y,w,h);
+  cx.strokeStyle=gold?'rgba(230,194,115,.5)':'rgba(143,174,88,.5)'; cx.lineWidth=1;
+  cx.strokeRect(x+.5,y+.5,w-1,h-1);
+  if(gold){
+    cx.fillStyle='#e6c273'; cx.beginPath(); cx.arc(x+14,y+15,7,0,7); cx.fill();
+    cx.strokeStyle='rgba(120,94,40,.9)'; cx.lineWidth=1; cx.stroke();
+  } else {
+    cx.fillStyle='#8a6a3f'; cx.fillRect(x+7,y+10,13,10);
+    cx.fillStyle='#c6a877'; cx.beginPath(); cx.ellipse(x+20,y+15,3,5,0,0,7); cx.fill();
+  }
+  cx.textAlign='left';
+  cx.font='700 16px Cinzel,Georgia,serif'; cx.fillStyle=gold?'#f0d79b':'#b8dc84';
+  cx.fillText(String(val),x+26,y+21);
+  cx.font='500 10px Satoshi,sans-serif'; cx.fillStyle='rgba(225,215,195,.65)';
+  cx.fillText((gold?'złoto':'drewno')+' · '+workers+(workers===1?' robotnik':' robotn.'),x+7,y+h-6);
 }
 function costStr(c){ return (c.gold?c.gold+'z ':'')+(c.wood?c.wood+'d':''); }
 
@@ -304,21 +362,21 @@ function drawHUD(){
   panel(0,y0,VW,HUD_H,.95);
   cx.fillStyle='rgba(230,194,115,.5)'; cx.fillRect(0,y0,VW,1);
 
-  /* --- lewa kolumna: surowce --- */
+  /* --- lewa kolumna: osobny panel dla zlota i osobny dla drewna --- */
   const r=G.res.player;
   cx.textAlign='left';
-  cx.font='700 17px Cinzel,Georgia,serif'; cx.fillStyle='#e6c273';
-  cx.fillText(Math.floor(r.gold),44,y0+28);
-  cx.fillStyle='#e6c273'; cx.beginPath(); cx.arc(28,y0+22,8,0,7); cx.fill();
-  cx.fillStyle='#8fae58'; cx.fillRect(21,y0+40,14,12);
-  cx.fillStyle='#a9d16a'; cx.font='700 17px Cinzel,Georgia,serif';
-  cx.fillText(Math.floor(r.wood),44,y0+52);
+  resBox(10,y0+8,86,40,'gold',Math.floor(r.gold),gatherCount('player','gold'));
+  resBox(100,y0+8,86,40,'wood',Math.floor(r.wood),gatherCount('player','wood'));
   const pu=popUsed('player'), pm=popMax('player');
-  cx.fillStyle=pu>=pm?'#df5b4d':'#cfdcf8'; cx.font='700 15px Cinzel,Georgia,serif';
-  cx.fillText('Ludność '+pu+'/'+pm,20,y0+76);
-  cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.65)';
-  cx.fillText(FACTIONS[G.pf].realm,20,y0+96);
-  cx.fillText('vs '+FACTIONS[G.ef].realm,20,y0+112);
+  cx.fillStyle=pu>=pm?'#df5b4d':'#cfdcf8'; cx.font='700 14px Cinzel,Georgia,serif';
+  cx.fillText('Ludność '+pu+'/'+pm,12,y0+68);
+  const hro=heroOf('player');
+  cx.font='600 12px Satoshi,sans-serif';
+  cx.fillStyle=hro?'#e6c273':'rgba(200,190,170,.5)';
+  cx.fillText(hro?('Bohater: '+tierName(G.pf,'hero',hro.lvl)):'Bohater: brak (ratusz)',12,y0+88);
+  cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.6)';
+  cx.fillText(FACTIONS[G.pf].realm,12,y0+106);
+  cx.fillText('vs '+FACTIONS[G.ef].realm,12,y0+121);
 
   /* --- moc krainy --- */
   const ab=FACTIONS[G.pf].ability;
@@ -330,8 +388,8 @@ function drawHUD(){
   cx.fillStyle='rgba(0,0,0,.5)'; cx.fillRect(abx,aby+54,168,8);
   cx.fillStyle='#8fd0ff'; cx.fillRect(abx,aby+54,168*clamp(G.will/G.willMax,0,1),8);
   cx.font='500 10.5px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.6)';
-  cx.fillText('B budowa · A armia · H ratusz · SPACJA pauza',abx,aby+84);
-  cx.fillText('PPM rozkaz · LPM zaznacz · WASD kamera · kółko przybliża',abx,aby+102);
+  cx.fillText('B budowa · A armia · E bohater · Q moc bohatera · H ratusz',abx,aby+84);
+  cx.fillText('PPM rozkaz · LPM/ramka zaznacz · Z do złota · X do drewna · SPACJA pauza',abx,aby+102);
 
   /* --- panel kontekstowy --- */
   const px=392, pw=VW-392-270, py=y0+10;
@@ -343,16 +401,24 @@ function drawHUD(){
     cx.fillText(BUILDINGS[G.placing].desc,px,py+44);
   } else if(buildMenuOpen){
     cx.font='600 13px Satoshi,sans-serif'; cx.fillStyle='#e6c273';
-    cx.fillText('BUDOWA (klawisze 1-7)',px,py+13);
+    cx.fillText('BUDOWA — wybierz budynek (1-7), potem klik na mapie',px,py+13);
+    const cw=Math.min(118,Math.floor((pw-24)/4)), ch=42;
     BUILD_ORDER.forEach((t,i)=>{
       const d=BUILDINGS[t], ok=canAfford('player',d.cost);
-      const x=px+i*112, yy=py+22;
-      btn(x,yy,106,46,'['+d.key+'] '+d.label,costStr(d.cost),ok,()=>startPlacing(t),true);
+      const x=px+(i%4)*(cw+6), yy=py+20+Math.floor(i/4)*(ch+6);
+      const sub=costStr(d.cost)+(d.pop?' · +'+d.pop+' lud.':'');
+      btn(x,yy,cw,ch,'['+d.key+'] '+d.label,sub,ok,()=>startPlacing(t),true);
     });
+    const bx2=px+4*(cw+6)+4;
+    btn(bx2,py+20,104,42,'Zamknij','ESC',true,()=>{buildMenuOpen=false;G.placing=null;},false);
     const hb=hoverBtn;
-    if(hb&&hb.title){ cx.font='500 11.5px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.75)';
+    let dtxt='Brakujące surowce wygaszają kafelek. Chata podnosi limit ludności, kuźnia daje ulepszenia.';
+    if(hb&&hb.title){
       const t=BUILD_ORDER.find(k=>hb.title.indexOf(BUILDINGS[k].label)>=0);
-      if(t) cx.fillText(BUILDINGS[t].desc,px,py+88); }
+      if(t) dtxt=BUILDINGS[t].label+' — '+BUILDINGS[t].desc+'  ('+costStr(BUILDINGS[t].cost)+', '+BUILDINGS[t].build+'s budowy)';
+    }
+    cx.font='500 11.5px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.8)';
+    cx.fillText(dtxt,px,py+116);
   } else if(G.selBuilding&&!G.selBuilding.dead){
     const b=G.selBuilding, d=BUILDINGS[b.type];
     cx.font='700 16px Cinzel,Georgia,serif'; cx.fillStyle='#e6c273';
@@ -397,15 +463,31 @@ function drawHUD(){
       wrapText(dd||'Buduje i wydobywa surowce.',px+i*180,py+56,168,13);
       i++;
     }
-    const hasW=G.sel.some(u=>UNITS[u.type].build);
-    if(hasW) btn(px+560,py+70,130,44,'Budowa [B]','postaw budynek',true,()=>{buildMenuOpen=true;},false);
+    const sw=selWorkers(), hh=selHero();
+    let bx3=px, by3=py+82;
+    if(sw.length){
+      btn(bx3,by3,124,40,'Do złota [Z]',sw.length+' robotn.',true,()=>assignGather(sw,'gold'),false); bx3+=130;
+      btn(bx3,by3,124,40,'Do drewna [X]',sw.length+' robotn.',true,()=>assignGather(sw,'wood'),false); bx3+=130;
+      btn(bx3,by3,124,40,'Budowa [B]','postaw budynek',true,()=>{buildMenuOpen=true;},false); bx3+=130;
+    }
+    if(hh){
+      const H=FACTIONS[G.pf].hero;
+      btn(bx3,by3,180,40,H.power+' [Q]',hh.hcd>0?('odnowienie '+Math.ceil(hh.hcd)+'s'):'gotowe',hh.hcd<=0,()=>heroPower(hh),false);
+      bx3+=186;
+      cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.7)';
+      cx.fillText(H.desc,px,py+74);
+    }
+    btn(bx3,by3,110,40,'Postój','zatrzymaj',true,()=>{ for(const u of G.sel){ u.order=null; u.target=null; u.state='idle'; } },false);
   } else {
     cx.font='600 13px Satoshi,sans-serif'; cx.fillStyle='rgba(230,194,115,.85)';
     cx.fillText('Zaznacz jednostki myszką (przeciągnij ramkę), prawym przyciskiem wydaj rozkaz.',px,py+20);
     cx.font='500 12px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.7)';
-    cx.fillText('Robotnicy: klik na drzewo lub kopalnię = zbieranie. [B] otwiera budowę.',px,py+42);
-    cx.fillText('Kuźnia daje ulepszenia — na maksymalnym poziomie jednostki wyglądają potężnie.',px,py+62);
-    btn(px+430,py+78,140,40,'Budowa [B]','7 budynków',true,()=>{buildMenuOpen=true;},false);
+    cx.fillText('Robotnicy: klik na drzewo = drewno, klik na kopalnię = złoto. Z / X wysyła ich od razu.',px,py+42);
+    cx.fillText('Ratusz szkoli bohatera z własną mocą (Q). Kuźnia daje widoczne ulepszenia.',px,py+62);
+    btn(px,py+78,130,40,'Budowa [B]','7 budynków',true,()=>{buildMenuOpen=true;},false);
+    btn(px+136,py+78,130,40,'Armia [A]','wojownicy',true,()=>selectArmy(),false);
+    btn(px+272,py+78,130,40,'Robotnicy','zbieracze',true,()=>selectAllOfType('worker'),false);
+    btn(px+408,py+78,130,40,'Bohater [E]',heroOf('player')?'na mapie':'brak',!!heroOf('player'),()=>selectHero(),false);
   }
 
   /* --- minimapa --- */
@@ -464,13 +546,17 @@ function drawHUDMobile(){
   const items=[];
   let info=null;
   if(G.placing){
-    info='Stawiam: '+BUILDINGS[G.placing].label+' — dotknij mapy';
+    info='Stawiam: '+BUILDINGS[G.placing].label+' — dotknij mapy. '+BUILDINGS[G.placing].desc;
     items.push({t:'Anuluj',s:'nie stawiaj',ok:true,a:()=>{G.placing=null;}});
   } else if(buildMenuOpen){
+    info=buildPick?(BUILDINGS[buildPick].label+' — '+BUILDINGS[buildPick].desc)
+                  :'BUDOWA — dotknij budynku, potem miejsca na mapie';
     for(const t of BUILD_ORDER){
-      const d=BUILDINGS[t];
-      items.push({t:d.label,s:costStr(d.cost),ok:canAfford('player',d.cost),a:()=>startPlacing(t)});
+      const d=BUILDINGS[t], ok=canAfford('player',d.cost);
+      items.push({t:d.label,s:costStr(d.cost)+(d.pop?' +'+d.pop+'l':''),ok,
+        a:()=>{ buildPick=t; if(ok) startPlacing(t); else warn('Brakuje surowców na '+d.label); }});
     }
+    items.push({t:'Zamknij',s:'menu',ok:true,a:()=>{buildMenuOpen=false;G.placing=null;buildPick=null;}});
   } else if(G.selBuilding&&!G.selBuilding.dead){
     const b=G.selBuilding, d=BUILDINGS[b.type];
     if(!b.done) info=d.label+' — w budowie '+Math.round(b.progress*100)+'%';
@@ -498,12 +584,23 @@ function drawHUDMobile(){
       parts.push(counts[t]+'× '+tierName(G.pf,t,u.lvl));
     }
     info='Zaznaczono: '+parts.join(' · ');
-    if(G.sel.some(u=>UNITS[u.type].build)) items.push({t:'Budowa',s:'postaw budynek',ok:true,a:()=>{buildMenuOpen=true;}});
-    items.push({t:'Postój',s:'zatrzymaj',ok:true,a:()=>{ for(const u of G.sel){ u.order=null; u.target=null; u.state='idle'; } }});
+    const sw=selWorkers(), hh=selHero();
+    if(hh){
+      const H=FACTIONS[G.pf].hero;
+      info=H.power+(hh.hcd>0?' — '+Math.ceil(hh.hcd)+'s':' — gotowe')+'  ·  '+H.desc;
+      items.push({t:H.power,s:hh.hcd>0?Math.ceil(hh.hcd)+'s':'użyj mocy',ok:hh.hcd<=0,a:()=>heroPower(hh)});
+    }
+    if(sw.length){
+      items.push({t:'Do złota',s:sw.length+' robotn.',ok:true,a:()=>assignGather(sw,'gold')});
+      items.push({t:'Do drewna',s:sw.length+' robotn.',ok:true,a:()=>assignGather(sw,'wood')});
+      items.push({t:'Budowa',s:'postaw',ok:true,a:()=>{buildMenuOpen=true;}});
+    }
+    items.push({t:'Postój',s:'stój',ok:true,a:()=>{ for(const u of G.sel){ u.order=null; u.target=null; u.state='idle'; } }});
   } else {
-    info='Dotknij jednostki, potem dotknij mapy — pójdzie tam i zaatakuje wroga.';
+    info='Dotknij jednostki · dwa razy = wszyscy tego typu · przytrzymaj = ramka.';
     items.push({t:'Armia',s:'wojownicy',ok:true,a:()=>selectArmy()});
     items.push({t:'Robotnicy',s:'zbieracze',ok:true,a:()=>selectAllOfType('worker')});
+    items.push({t:'Bohater',s:heroOf('player')?'pokaż':'brak',ok:!!heroOf('player'),a:()=>selectHero()});
     items.push({t:'Budowa',s:'7 budynków',ok:true,a:()=>{buildMenuOpen=true;}});
   }
 
@@ -518,7 +615,7 @@ function drawHUDMobile(){
     const areaH=fixedY-top-5;
     const per=items.length>4?4:items.length;
     const rows=Math.ceil(items.length/per);
-    const bh=Math.max(30,Math.floor((areaH-(rows-1)*4)/rows));
+    const bh=Math.max(30,Math.min(56,Math.floor((areaH-(rows-1)*4)/rows)));
     const bw=Math.floor((avail-(per-1)*5)/per);
     items.forEach((it,i)=>{
       const rx=L+(i%per)*(bw+5), ry=top+Math.floor(i/per)*(bh+4);
@@ -529,35 +626,53 @@ function drawHUDMobile(){
   /* --- stały rząd sterowania --- */
   const ab=FACTIONS[G.pf].ability;
   const abReady=G.abilityCd<=0&&G.will>=ab.cost;
+  const hero=heroOf('player');
   const fixed=[
-    {t:boxMode?'RAMKA ✓':'RAMKA',s:boxMode?'przeciągnij':'grupa',ok:true,a:()=>{boxMode=!boxMode;}},
-    {t:'ARMIA',s:'wszyscy',ok:true,a:()=>selectArmy()},
-    {t:buildMenuOpen?'ZAMKNIJ':'BUDOWA',s:buildMenuOpen?'menu':'stawiaj',ok:true,
-      a:()=>{buildMenuOpen=!buildMenuOpen; G.placing=null;}},
+    {t:boxMode?'RAMKA ✓':'RAMKA',s:boxMode?'ciągnij':'grupa',ok:true,a:()=>{boxMode=!boxMode;}},
+    {t:addMode?'DODAJ ✓':'DODAJ',s:addMode?'dokładaj':'do grupy',ok:true,a:()=>{addMode=!addMode;}},
+    {t:'ARMIA',s:'armia',ok:true,a:()=>selectArmy()},
+    {t:buildMenuOpen?'✕':'BUDUJ',s:buildMenuOpen?'zamknij':'menu',ok:true,
+      a:()=>{buildMenuOpen=!buildMenuOpen; G.placing=null; buildPick=null;}},
     {t:'MOC',s:G.abilityCd>0?Math.ceil(G.abilityCd)+'s':Math.min(Math.floor(G.will),G.willMax)+'/'+ab.cost,
       ok:abReady,a:()=>useAbility('player')}
   ];
-  const fw=Math.floor((avail-15)/4);
-  fixed.forEach((it,i)=>btn(L+i*(fw+5),fixedY,fw,fixedH,it.t,it.s,it.ok,it.a,false));
+  if(hero) fixed.push({t:'★',s:hero.hcd>0?Math.ceil(hero.hcd)+'s':'moc',ok:hero.hcd<=0,a:()=>{selectUnits([hero],false); heroPower(hero);}});
+  const fn=fixed.length, fw=Math.floor((avail-(fn-1)*4)/fn);
+  fixed.forEach((it,i)=>btn(L+i*(fw+4),fixedY,fw,fixedH,it.t,it.s,it.ok,it.a,false));
 
   /* --- górny pasek: surowce i szybkie przyciski --- */
   topBarH=Math.round(clamp(30*US,28,40));
   cx.fillStyle='rgba(16,14,11,.72)'; cx.fillRect(0,0,VW,topBarH);
   cx.fillStyle='rgba(230,194,115,.35)'; cx.fillRect(0,topBarH,VW,1);
-  const fy=Math.round(topBarH*.66), fs=Math.round(13*US);
+  const fy=Math.round(topBarH*.62), fs=Math.round(12.5*US);
+  const sub=Math.round(8.5*US), bh2=topBarH-6;
   cx.textAlign='left';
-  cx.fillStyle='#e6c273'; cx.beginPath(); cx.arc(14,topBarH/2,6,0,7); cx.fill();
-  cx.font='700 '+fs+'px Cinzel,Georgia,serif';
-  cx.fillText(Math.floor(G.res.player.gold),25,fy);
-  const gw=cx.measureText(Math.floor(G.res.player.gold)+'').width;
-  cx.fillStyle='#8fae58'; cx.fillRect(34+gw,topBarH/2-5,11,10);
-  cx.fillStyle='#a9d16a';
-  cx.fillText(Math.floor(G.res.player.wood),50+gw,fy);
-  const ww=cx.measureText(Math.floor(G.res.player.wood)+'').width;
+  const drawRes=(bx,kind,val,workers)=>{
+    const gold=kind==='gold', bw2=Math.round(clamp(VW*.19,62,96));
+    cx.fillStyle=gold?'rgba(230,194,115,.13)':'rgba(143,174,88,.13)';
+    cx.fillRect(bx,3,bw2,bh2);
+    cx.strokeStyle=gold?'rgba(230,194,115,.45)':'rgba(143,174,88,.45)'; cx.lineWidth=1;
+    cx.strokeRect(bx+.5,3.5,bw2-1,bh2-1);
+    if(gold){ cx.fillStyle='#e6c273'; cx.beginPath(); cx.arc(bx+11,topBarH/2-1,5.5,0,7); cx.fill(); }
+    else { cx.fillStyle='#8a6a3f'; cx.fillRect(bx+5,topBarH/2-5,11,9);
+           cx.fillStyle='#c6a877'; cx.beginPath(); cx.ellipse(bx+16,topBarH/2-.5,2.6,4.5,0,0,7); cx.fill(); }
+    cx.font='700 '+fs+'px Cinzel,Georgia,serif'; cx.fillStyle=gold?'#f0d79b':'#b8dc84';
+    cx.fillText(String(val),bx+21,fy);
+    const wx2=bx+bw2-Math.round(16*US);
+    cx.fillStyle='rgba(225,215,195,.55)';
+    cx.beginPath(); cx.arc(wx2+2,topBarH/2-3,2.2,0,7); cx.fill();
+    cx.fillRect(wx2,topBarH/2-.5,4.4,5);
+    cx.font='600 '+sub+'px Satoshi,sans-serif'; cx.fillStyle='rgba(225,215,195,.75)';
+    cx.fillText(String(workers),wx2+7,fy);
+    return bx+bw2+5;
+  };
+  let rx2=6;
+  rx2=drawRes(rx2,'gold',Math.floor(G.res.player.gold),gatherCount('player','gold'));
+  rx2=drawRes(rx2,'wood',Math.floor(G.res.player.wood),gatherCount('player','wood'));
   const pu=popUsed('player'), pm=popMax('player');
   cx.fillStyle=pu>=pm?'#df5b4d':'#cfdcf8';
-  cx.font='700 '+Math.round(12*US)+'px Cinzel,Georgia,serif';
-  cx.fillText('Lud. '+pu+'/'+pm,60+gw+ww,fy);
+  cx.font='700 '+Math.round(11*US)+'px Cinzel,Georgia,serif';
+  cx.fillText(pu+'/'+pm,rx2+2,fy);
   const qh=topBarH-8, qw=Math.round(qh*1.5);
   btn(VW-qw*3-16,4,qw,qh,'⌂','',true,()=>homeView(),false);
   btn(VW-qw*2-10,4,qw,qh,paused?'▶':'❚❚','',true,()=>{paused=!paused;},false);
@@ -739,3 +854,5 @@ window.render_game_to_text=()=>JSON.stringify({
   buildings:G?G.buildings.filter(b=>!b.dead).map(b=>b.side+':'+b.type+(b.done?'':':bud')):[],
   lvl:G?G.lvl.player:null, sel:G?G.sel.length:0, stats:G?G.stats:null
 });
+window.setAddMode=v=>{ addMode=!!v; };
+window.getUI=()=>({addMode,boxMode,buildMenuOpen,buildPick,btns:hudBtns.map(b=>b.title)});

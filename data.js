@@ -31,11 +31,15 @@ const FACTIONS={
     gore:'#b3241c',
     tiers:{
       worker:['Osadnik','Cieśla','Mistrz Cechu'],
+      hero:['Lord Astlandu'],
       warrior:['Rekrut','Piechur','Zbrojny','Rycerz','Czempion Astlandu'],
       archer:['Strzelec','Łucznik','Łowca','Mistrz Łuku','Sokole Oko'],
       heavy:['Cyklop','Cyklop Zbrojny','Cyklop Pogromca']
     },
-    attackDesc:{warrior:'Uderzenie tarczą — szansa na ogłuszenie',archer:'Co trzeci strzał to salwa trzech strzał',heavy:'Ciska głazem, a z bliska wali maczugą w ziemię'}
+    attackDesc:{warrior:'Uderzenie tarczą — szansa na ogłuszenie',archer:'Co trzeci strzał to salwa trzech strzał',heavy:'Ciska głazem, a z bliska wali maczugą w ziemię',
+      hero:'Święty cios leczy pobliskich sojuszników'},
+    hero:{name:'Lord Astlandu', power:'Sztandar Króla', cd:26, radius:200,
+          desc:'Wbija sztandar: sojusznicy w pobliżu dostają +55% obrażeń na 9s i leczą 30% życia.'}
   },
   orki:{
     name:'Orki', realm:'Hordy Krwawego Kła',
@@ -46,11 +50,15 @@ const FACTIONS={
     gore:'#4e7c26',
     tiers:{
       worker:['Podrzynacz','Łupieżca','Nadzorca Jamy'],
+      hero:['Wataha Krwawego Kła'],
       warrior:['Kłownik','Rębacz','Berserker','Krwawy Rzeźnik','Kieł Wojny'],
       archer:['Kusznik','Strzelec Kłów','Zatruty Kusznik','Mistrz Kuszy','Czarna Strzała'],
       heavy:['Wielki Herszt','Herszt Krwi','Władca Hordy']
     },
-    attackDesc:{warrior:'Zamach tnie dwóch wrogów naraz',archer:'Ciężki bełt odrzuca trafionego',heavy:'Młyniec toporem odrzuca wszystko wokół'}
+    attackDesc:{warrior:'Zamach tnie dwóch wrogów naraz',archer:'Ciężki bełt odrzuca trafionego',heavy:'Młyniec toporem odrzuca wszystko wokół',
+      hero:'Każdy cios odrzuca wroga'},
+    hero:{name:'Wataha Krwawego Kła', power:'Ryk Wojenny', cd:24, radius:190,
+          desc:'Ryk odrzuca i ogłusza wszystkich wrogów wokół oraz rani ich za 90.'}
   },
   nieumarli:{
     name:'Nieumarli', realm:'Legion Zimnego Snu',
@@ -61,11 +69,15 @@ const FACTIONS={
     gore:'#7fd8cc',
     tiers:{
       worker:['Pachołek','Grabarz','Kościany Majster'],
+      hero:['Kostny Książę'],
       warrior:['Szkielet','Kościany Wojak','Upiór','Rycerz Śmierci','Czempion Zimnego Snu'],
       archer:['Kościany Łucznik','Mroźny Strzelec','Widmowy Łucznik','Żniwiarz Strzał','Cień Zimy'],
       heavy:['Kościotrup','Gigantyczny Kościotrup','Kostny Kolos']
     },
-    attackDesc:{warrior:'Wysysa życie — leczy się przy każdym ciosie',archer:'Mroźna strzała spowalnia wroga',heavy:'Wstrząs ziemi biegnie falą i miota szeregami'}
+    attackDesc:{warrior:'Wysysa życie — leczy się przy każdym ciosie',archer:'Mroźna strzała spowalnia wroga',heavy:'Wstrząs ziemi biegnie falą i miota szeregami',
+      hero:'Cios wysysa życie i wzmacnia bohatera'},
+    hero:{name:'Kostny Książę', power:'Mroźna Klątwa', cd:25, radius:200,
+          desc:'Klątwa zamraża wrogów w promieniu, spowalnia ich o połowę i rani za 70.'}
   }
 };
 const FKEYS=Object.keys(FACTIONS);
@@ -75,14 +87,16 @@ const UNITS={
   worker:{ label:'Robotnik', r:11,  hp:70,  dmg:5,  range:16, speed:66, ias:1.2, cost:{gold:50,wood:0},   time:6,  pop:1, build:true, gather:true },
   warrior:{label:'Wojownik',r:14, hp:150, dmg:16, range:18, speed:58, ias:1.0, cost:{gold:60,wood:20},  time:8,  pop:1 },
   archer:{ label:'Łucznik', r:13, hp:95,  dmg:17, range:150,speed:56, ias:1.4, cost:{gold:70,wood:45},  time:10, pop:1 },
-  heavy:{  label:'Kolos',   r:28, hp:1250,dmg:80, range:44, speed:40, ias:2.0, cost:{gold:340,wood:160},time:26, pop:4, mass:8 }
+  heavy:{  label:'Kolos',   r:28, hp:1250,dmg:80, range:44, speed:40, ias:2.0, cost:{gold:340,wood:160},time:26, pop:4, mass:8 },
+  hero:{   label:'Bohater', r:25, hp:1100,dmg:58, range:26, speed:72, ias:.85,cost:{gold:250,wood:120},time:22, pop:3, mass:3, hero:true }
 };
-const UNIT_KEYS=['worker','warrior','archer','heavy'];
+const UNIT_KEYS=['worker','warrior','archer','heavy','hero'];
+const HERO_LIMIT=1;
 
 /* --- budynki --- */
 const BUILDINGS={
-  townhall:{ label:'Ratusz',      key:'1', r:46, hp:3000, cost:{gold:0,wood:300},  build:34, pop:10, trains:['worker'], drop:true,
-             desc:'Serce osady. Przyjmuje złoto i drewno, daje 10 ludności.' },
+  townhall:{ label:'Ratusz',      key:'1', r:46, hp:3000, cost:{gold:0,wood:300},  build:34, pop:10, trains:['worker','hero'], drop:true,
+             desc:'Serce osady. Przyjmuje złoto i drewno, daje 10 ludności i wystawia bohatera.' },
   house:{    label:'Chata',       key:'2', r:22, hp:600,  cost:{gold:0,wood:90},   build:12, pop:6,  trains:[],
              desc:'Podnosi limit ludności o 6.' },
   barracks:{ label:'Koszary',     key:'3', r:32, hp:1500, cost:{gold:60,wood:180}, build:22, pop:0,  trains:['warrior'],
@@ -113,6 +127,8 @@ const tierName=(f,t,l)=>FACTIONS[f].tiers[t][Math.min(l,FACTIONS[f].tiers[t].len
 
 /* wygląd zależny od poziomu — to sprawia, że ulepszenia widać */
 function look(type,lvl){
+  if(type==='hero') return {scale:1+(lvl-1)*.04, helmet:true, pauldrons:true, cape:true,
+    bigWeapon:true, plate:true, plume:true, weaponGlow:true, banner:true, aura:true, hero:true};
   if(type==='heavy') return {scale:1+(lvl-1)*.09, armor:lvl>=2, trophies:lvl>=2, aura:lvl>=3, crown:lvl>=3, weaponGlow:lvl>=3};
   if(type==='worker') return {scale:1+(lvl-1)*.06, helmet:lvl>=2, plate:lvl>=3, aura:false, weaponGlow:false};
   return {
@@ -126,6 +142,6 @@ function look(type,lvl){
 
 /* --- surowce na mapie --- */
 const RES={
-  gold:{label:'Kopalnia złota', amount:1400, rate:7,  carry:12, col:'#e6c273'},
-  wood:{label:'Drzewo',         amount:260,  rate:6,  carry:12, col:'#6f8f4a'}
+  gold:{label:'Kopalnia złota', amount:1600, rate:9,  carry:16, col:'#e6c273', icon:'moneta', short:'złoto'},
+  wood:{label:'Drzewo',         amount:320,  rate:8,  carry:16, col:'#6f8f4a', icon:'kłoda',  short:'drewno'}
 };

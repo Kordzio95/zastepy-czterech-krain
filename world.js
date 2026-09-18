@@ -87,13 +87,13 @@ function buildingAt(x,y){
   }
   return null;
 }
-function unitAt(x,y,side){
+function unitAt(x,y,side,pad){
   let best=null,bd=1e9;
   for(const u of G.units){
     if(u.dead) continue;
     if(side&&u.side!==side) continue;
     const d=Math.hypot(u.x-x,(u.y-y)/.8);
-    if(d<u.r+9&&d<bd){bd=d;best=u;}
+    if(d<u.r+9+(pad||0)&&d<bd){bd=d;best=u;}
   }
   return best;
 }

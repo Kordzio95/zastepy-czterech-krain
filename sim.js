@@ -35,6 +35,8 @@ function updateUnits(dt){
     u.anim+=dt;
     u.hitFlash=Math.max(0,u.hitFlash-dt);
     if(u.slow>0) u.slow-=dt;
+    if(u.hcd>0) u.hcd-=dt;
+    if(u.hbuff>0) u.hbuff-=dt;
 
     // lot po odrzuceniu
     if(u.z>0||u.vz>0){
@@ -130,7 +132,7 @@ function attackTarget(u,t,dt,keepOrder){
   u.atk=u.ias/(G.buff[u.side]>0?1.25:1);
   if(u.type==='archer') archerAttack(u,t);
   else if(u.type==='heavy') heavyAttack(u,t);
-  else if(u.type==='worker'){ dealDamage(t,Math.round(u.dmg*dmgMul(u.side)),u.side,{n:3});
+  else if(u.type==='worker'){ dealDamage(t,unitDmg(u),u.side,{n:3});
     slashArc(u.x+Math.cos(u.facing)*12,u.y+Math.sin(u.facing)*12,u.facing,20,'#e8dcc0',3); }
   else meleeAttack(u,t);
 }
@@ -257,8 +259,7 @@ function updateBuildings(dt){
         if(b.side==='player'){ G.stats.trained++; floatText(b.x,b.y-b.r-6,tierName(b.faction,type,u.lvl),'#cfe7b8',12); }
         // nowy robotnik od razu rusza do najbliższego surowca
         if(type==='worker'){
-          const nr=nearestRes(u.x,u.y,Math.random()<.5?'gold':'wood',800);
-          if(nr) u.order={kind:'gather',res:nr};
+          autoGather(u);
         } else if(b.side==='enemy'){
           u.order=null;
         }
@@ -418,6 +419,11 @@ function updateAI(dt){
   G.res.enemy.gold+=dt*6; G.res.enemy.wood+=dt*5;
   ai.will+=dt*5;
 
+  const eh=G.units.find(u=>u.side==='enemy'&&!u.dead&&u.type==='hero');
+  if(eh&&eh.hcd<=0){
+    const near=G.units.filter(u=>u.side==='player'&&!u.dead&&Math.hypot(u.x-eh.x,u.y-eh.y)<170).length;
+    if(near>=2||(near>=1&&eh.hp<eh.maxHp*.6)) heroPower(eh);
+  }
   ai.buildTimer-=dt;
   if(ai.buildTimer<=0){
     ai.buildTimer=6;
@@ -444,6 +450,8 @@ function updateAI(dt){
       // robotnicy
       const workers=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='worker').length;
       if(workers<8) trainUnit(th,'worker');
+      // wrogi bohater po rozkręceniu bazy
+      if(ai.step>=3&&!G.units.some(u=>u.side===side&&!u.dead&&u.type==='hero')&&G.res.enemy.gold>320) trainUnit(th,'hero');
     }
     // przyspieszona budowa u wroga (ma niewidzialnych pomocników)
     for(const b of G.buildings) if(b.side===side&&!b.dead&&!b.done){
