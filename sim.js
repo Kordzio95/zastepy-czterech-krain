@@ -14,6 +14,14 @@ function update(dt){
   if(G.banner){ G.banner.life-=dt; if(G.banner.life<=0) G.banner=null; }
   if(warnMsg){ warnMsg.life-=dt; if(warnMsg.life<=0) warnMsg=null; }
 
+  if(G.peace>0){
+    G.peace=Math.max(0,G.peace-dt);
+    if(G.peace<=0&&!G.peaceDone){
+      G.peaceDone=true;
+      banner('ROZEJM ZAKOŃCZONY — WROGIE ARMIE RUSZAJĄ','#df5b4d');
+      G.alert=Math.max(G.alert,2.5);
+    }
+  }
   updateUnits(dt);
   updateBuildings(dt);
   updateArrows(dt);
@@ -75,7 +83,7 @@ function updateUnits(dt){
 
     if(u.stun>0){ u.stun-=dt; continue; }
     u.atk=Math.max(-.05,u.atk-dt);
-    if(u.windup>0){ u.windup-=dt; if(u.windup<=0) resolveHeavy(u); continue; }
+    if(u.windup>0){ u.windup-=dt; if(u.windup<=0){ if(u.windupKind==='siege'){ u.windupKind=null; launchSiege(u); } else resolveHeavy(u); } continue; }
 
     const o=u.order;
     if(o&&o.kind==='gather'){ doGather(u,dt); continue; }
@@ -108,6 +116,18 @@ function updateUnits(dt){
       if(e&&UNITS[e.type]) attackTarget(u,e,dt);
       continue;
     }
+    if(UNITS[u.type].siege){
+      const S=UNITS[u.type].siege;
+      let best=null,bd=1e9;
+      for(const b of G.buildings){
+        if(b.dead||!foe(b.side,u.side)) continue;
+        const dd=Math.hypot(b.x-u.x,b.y-u.y);
+        if(dd<u.range+b.r&&dd<bd){ bd=dd; best=b; }
+      }
+      if(!best) best=findEnemy(u,u.range);
+      if(best){ attackTarget(u,best,dt); u.state='fight'; } else u.state='idle';
+      continue;
+    }
     const aggro=u.type==='archer'?u.range+90:(u.type==='heavy'?200:160);
     const e=findEnemy(u,aggro);
     if(e){ attackTarget(u,e,dt); u.state='fight'; }
@@ -125,7 +145,7 @@ function moveTo(u,tx,ty,dt,ignore){
     // omijaj tylko budynek, ktory faktycznie stoi na drodze do celu
     let bb=null, bd=1e9;
     for(const b of G.buildings){
-      if(b.dead) continue;
+      if(b.dead||passable(b,u)) continue;
       const d=Math.hypot(b.x-u.x,b.y-u.y);
       const R=b.r+u.r+10;
       if(d>R+70||d<.1) continue;
@@ -164,6 +184,15 @@ function attackTarget(u,t,dt,keepOrder){
   u.state='fight';
   if(u.atk>0) return;
   u.atk=u.ias/(G.buff[u.side]>0?1.25:1);
+  if(UNITS[u.type].siege){
+    const S=UNITS[u.type].siege;
+    if(d<S.min){ // za blisko - maszyna cofa sie
+      const away=Math.atan2(u.y-t.y,u.x-t.x);
+      moveTo(u,u.x+Math.cos(away)*70,u.y+Math.sin(away)*70,dt,true);
+      u.atk=0; return;
+    }
+    siegeAttack(u,t); return;
+  }
   if(u.type==='archer') archerAttack(u,t);
   else if(u.type==='heavy') heavyAttack(u,t);
   else if(u.type==='worker'){ dealDamage(t,unitDmg(u),u.side,{n:3});
@@ -270,6 +299,9 @@ function doBuild(u,dt){
 }
 
 /* ---------- rozpychanie ---------- */
+function passable(b,u){
+  return BUILDINGS[b.type].gate && allySide(b.side,u.side);
+}
 function separate(dt){
   const list=G.units.filter(u=>!u.dead&&u.z<=0);
   for(let i=0;i<list.length;i++){
@@ -284,7 +316,7 @@ function separate(dt){
       }
     }
     for(const b of G.buildings){
-      if(b.dead) continue;
+      if(b.dead||passable(b,a)) continue;
       const dx=a.x-b.x, dy=a.y-b.y, min=b.r+a.r*.8, d=Math.hypot(dx,dy);
       if(d<min&&d>.01){ a.x=b.x+dx/d*min; a.y=b.y+dy/d*min; }
     }
@@ -453,6 +485,16 @@ function updateParticles(dt){
     p.life-=dt;
     if(p.kind==='ring'||p.kind==='shock'){ p.r=lerp(p.r,p.maxR,1-Math.pow(.02,dt)); continue; }
     if(p.kind==='slash'||p.kind==='flash'||p.kind==='stub') continue;
+    if(p.kind==='siege'){
+      p.prog=Math.min(1,p.prog+dt*p.sp);
+      p.x=lerp(p.sx,p.tx,p.prog); p.y=lerp(p.sy,p.ty,p.prog);
+      p.rot+=p.vrot*dt;
+      p.arc=Math.sin(p.prog*Math.PI)*p.arcH;
+      if(p.fire&&Math.random()<dt*30) G.parts.push({x:p.x+rand(-4,4),y:p.y-p.arc+rand(-4,4),vx:rand(-16,16),vy:rand(-26,-6),
+        life:.45,max:.45,size:rand(3,6),col:'#8a7f74',kind:'dust'});
+      if(p.prog>=1&&!p.done){ p.done=true; p.life=0; siegeHit(p); }
+      continue;
+    }
     if(p.kind==='boulder'){
       p.prog=Math.min(1,p.prog+dt*p.sp);
       p.x=lerp(p.sx,p.tx,p.prog); p.y=lerp(p.sy,p.ty,p.prog);
@@ -529,7 +571,7 @@ function updateParticles(dt){
 /* ==========================================================================
    PRZECIWNIK
    ========================================================================== */
-const AI_PLAN=['house','barracks','house','range','forge','house','lair','unique','tower','house','barracks','tower'];
+const AI_PLAN=['house','barracks','house','range','forge','house','tower','lair','unique','house','workshop','barracks','tower','house','range','tower','workshop'];
 function updateAI(dt){
   for(const side of G.sides){
     if(side==='player') continue;
@@ -541,8 +583,8 @@ function aiTick(side,ai,dt){
   const fk=sideFaction(side);
   ai.t+=dt;
   // dochód pomocniczy (wrogie osady mają własnych robotników, ale dorzucamy tempo)
-  G.res[side].gold+=dt*6; G.res[side].wood+=dt*5;
-  ai.will+=dt*5;
+  G.res[side].gold+=dt*3.2; G.res[side].wood+=dt*2.8;
+  ai.will+=dt*3.4;
 
   const eh=G.units.find(u=>u.side===side&&!u.dead&&u.type==='hero');
   if(eh&&eh.hcd<=0){
@@ -573,12 +615,12 @@ function aiTick(side,ai,dt){
         }
       }
       const workers=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='worker').length;
-      if(workers<8) trainUnit(th,'worker');
+      if(workers<10) trainUnit(th,'worker');
       if(ai.step>=3&&!G.units.some(u=>u.side===side&&!u.dead&&u.type==='hero')&&G.res[side].gold>320) trainUnit(th,'hero');
     }
     // przyspieszona budowa u AI (ma niewidzialnych pomocników)
     for(const b of G.buildings) if(b.side===side&&!b.dead&&!b.done){
-      b.progress=Math.min(1,b.progress+.55);
+      b.progress=Math.min(1,b.progress+.34);
       b.hp=Math.max(b.hp,b.maxHp*(.2+.8*b.progress));
       if(b.progress>=1){ b.done=true; b.hp=b.maxHp; ring(b.x,b.y,b.r*1.6,'rgba(230,194,115,.7)',.6,4); }
     }
@@ -589,7 +631,7 @@ function aiTick(side,ai,dt){
       if(tr[0]==='worker') continue;
       if(b.queue.length<2) trainUnit(b,tr[0]);
     }
-    if(Math.random()<.5) tryUpgrade(side,pick(['warrior','archer','heavy']));
+    if(Math.random()<.5) tryUpgrade(side,pick(['warrior','archer','heavy','siege']));
   }
   for(const u of G.units) if(u.side===side&&u.type==='worker'&&!u.order&&!u.dead){
     const nr=nearestRes(u.x,u.y,Math.random()<.5?'gold':'wood',900);
@@ -597,11 +639,15 @@ function aiTick(side,ai,dt){
   }
 
   // atak
+  if(G.peace>0){
+    // faza rozejmu: AI tylko rozbudowuje osadę
+    return;
+  }
   ai.attackTimer-=dt;
   const army=G.units.filter(u=>u.side===side&&!u.dead&&u.type!=='worker'&&(!u.order||u.order.kind!=='attack'));
-  const need=Math.min(14,4+ai.wave*2);
-  if(ai.attackTimer<=0&&army.length>=Math.min(4,need)){
-    ai.wave++; ai.attackTimer=Math.max(45,95-ai.wave*5);
+  const need=Math.min(22,6+ai.wave*2);
+  if(ai.attackTimer<=0&&army.length>=Math.min(7,need)){
+    ai.wave++; ai.attackTimer=Math.max(70,150-ai.wave*6);
     const targets=G.buildings.filter(b=>!b.dead&&foe(b.side,side));
     const tgt=targets.length?pick(targets):null;
     if(tgt){

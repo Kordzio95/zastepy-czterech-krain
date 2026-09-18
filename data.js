@@ -34,7 +34,12 @@ const FACTIONS={
       hero:['Lord Astlandu'],
       warrior:['Rekrut','Piechur','Zbrojny','Rycerz','Czempion Astlandu'],
       archer:['Strzelec','Łucznik','Łowca','Mistrz Łuku','Sokole Oko'],
-      heavy:['Cyklop','Cyklop Zbrojny','Cyklop Pogromca']
+      heavy:['Cyklop','Cyklop Zbrojny','Cyklop Pogromca'],
+      catapult:['Katapulta','Katapulta Oblężnicza','Wielka Katapulta'],
+      ballista:['Wielka Kusza','Balista','Balista Królewska'],
+      trebuchet:['Trebusz','Trebusz Ciężki','Trebusz Zagłady'],
+      cannon:['Działo','Ciężkie Działo','Bombarda'],
+      sling:['Wielka Proca','Wyrzutnia Kłów','Miotacz Skał']
     },
     attackDesc:{warrior:'Uderzenie tarczą — szansa na ogłuszenie',archer:'Co trzeci strzał to salwa trzech strzał',heavy:'Ciska głazem, a z bliska wali maczugą w ziemię',
       hero:'Święty cios leczy pobliskich sojuszników'},
@@ -53,7 +58,12 @@ const FACTIONS={
       hero:['Wataha Krwawego Kła'],
       warrior:['Kłownik','Rębacz','Berserker','Krwawy Rzeźnik','Kieł Wojny'],
       archer:['Kusznik','Strzelec Kłów','Zatruty Kusznik','Mistrz Kuszy','Czarna Strzała'],
-      heavy:['Wielki Herszt','Herszt Krwi','Władca Hordy']
+      heavy:['Wielki Herszt','Herszt Krwi','Władca Hordy'],
+      catapult:['Katapulta','Katapulta Oblężnicza','Wielka Katapulta'],
+      ballista:['Wielka Kusza','Balista','Balista Ciężka'],
+      trebuchet:['Trebusz','Trebusz Ciężki','Trebusz Zagłady'],
+      cannon:['Działo','Ciężkie Działo','Bombarda'],
+      sling:['Wielka Proca','Wyrzutnia Kłów','Miotacz Skał']
     },
     attackDesc:{warrior:'Zamach tnie dwóch wrogów naraz',archer:'Ciężki bełt odrzuca trafionego',heavy:'Młyniec toporem odrzuca wszystko wokół',
       hero:'Każdy cios odrzuca wroga'},
@@ -72,7 +82,12 @@ const FACTIONS={
       hero:['Kostny Książę'],
       warrior:['Szkielet','Kościany Wojak','Upiór','Rycerz Śmierci','Czempion Zimnego Snu'],
       archer:['Kościany Łucznik','Mroźny Strzelec','Widmowy Łucznik','Żniwiarz Strzał','Cień Zimy'],
-      heavy:['Kościotrup','Gigantyczny Kościotrup','Kostny Kolos']
+      heavy:['Kościotrup','Gigantyczny Kościotrup','Kostny Kolos'],
+      catapult:['Katapulta','Katapulta Oblężnicza','Wielka Katapulta'],
+      ballista:['Wielka Kusza','Balista','Balista Ciężka'],
+      trebuchet:['Trebusz','Trebusz Ciężki','Trebusz Zagłady'],
+      cannon:['Działo','Ciężkie Działo','Bombarda'],
+      sling:['Wielka Proca','Wyrzutnia Kłów','Miotacz Skał']
     },
     attackDesc:{warrior:'Wysysa życie — leczy się przy każdym ciosie',archer:'Mroźna strzała spowalnia wroga',heavy:'Wstrząs ziemi biegnie falą i miota szeregami',
       hero:'Cios wysysa życie i wzmacnia bohatera'},
@@ -91,7 +106,12 @@ const FACTIONS={
       hero:['Arcydemon Vhar'],
       warrior:['Pomiot','Piekielnik','Krwawy Diabeł','Rzeźnik Otchłani','Czempion Piekła'],
       archer:['Miotacz Ognia','Ognisty Kusznik','Siarkowy Strzelec','Mistrz Płomieni','Oko Otchłani'],
-      heavy:['Ognisty Kolos','Balrog','Władca Otchłani']
+      heavy:['Ognisty Kolos','Balrog','Władca Otchłani'],
+      catapult:['Katapulta','Katapulta Oblężnicza','Wielka Katapulta'],
+      ballista:['Wielka Kusza','Balista','Balista Ciężka'],
+      trebuchet:['Trebusz','Trebusz Ciężki','Trebusz Zagłady'],
+      cannon:['Działo','Ciężkie Działo','Bombarda'],
+      sling:['Wielka Proca','Wyrzutnia Kłów','Miotacz Skał']
     },
     attackDesc:{warrior:'Każdy cios podpala wroga',archer:'Kula ognia wybucha przy trafieniu',heavy:'Uderzenie zamienia ziemię w morze ognia',
       hero:'Cios podpala i leczy bohatera'},
@@ -104,14 +124,26 @@ const FKEYS=Object.keys(FACTIONS);
 /* --- budynki zależne od frakcji: własne nazwy + jeden unikalny budynek --- */
 const FBUILD={
   ludzie:{unique:'shrine', names:{townhall:'Ratusz',house:'Chata',barracks:'Koszary',range:'Strzelnica',
-    forge:'Kuźnia',lair:'Zagroda Cyklopa',tower:'Wieża Łuczników',shrine:'Kaplica'}},
+    forge:'Kuźnia',lair:'Zagroda Cyklopa',tower:'Wieża Łuczników',shrine:'Kaplica',
+    wall:'Mur Kamienny',gate:'Brama Warowna',workshop:'Warsztat Oblężniczy'}},
   orki:{unique:'totem', names:{townhall:'Warownia Hordy',house:'Jurta',barracks:'Jama Bojowa',range:'Szałas Kuszników',
-    forge:'Kuźnia Kłów',lair:'Legowisko Herszta',tower:'Wieża Czaszek',totem:'Totem Wojny'}},
+    forge:'Kuźnia Kłów',lair:'Legowisko Herszta',tower:'Wieża Czaszek',totem:'Totem Wojny',
+    wall:'Palisada Kłów',gate:'Wrota Hordy',workshop:'Wyrzutnia Orków'}},
   nieumarli:{unique:'crypt', names:{townhall:'Nekropolia',house:'Mogiła',barracks:'Kostnica',range:'Kaplica Strzał',
-    forge:'Warsztat Kości',lair:'Kurhan Kolosa',tower:'Wieża Klątw',crypt:'Krypta'}},
+    forge:'Warsztat Kości',lair:'Kurhan Kolosa',tower:'Wieża Klątw',crypt:'Krypta',
+    wall:'Wał Kostny',gate:'Brama Kości',workshop:'Kuźnia Oblężnicza'}},
   demony:{unique:'portal', names:{townhall:'Cytadela Otchłani',house:'Nora Chochlików',barracks:'Arena Krwi',range:'Ołtarz Ognia',
-    forge:'Kuźnia Piekielna',lair:'Czeluść Kolosa',tower:'Wieża Siarki',portal:'Piekielny Portal'}}
+    forge:'Kuźnia Piekielna',lair:'Czeluść Kolosa',tower:'Wieża Siarki',portal:'Piekielny Portal',
+    wall:'Mur Obsydianowy',gate:'Wrota Otchłani',workshop:'Ludwisarnia Otchłani'}}
 };
+/* --- maszyny oblegnicze frakcji --- */
+const FSIEGE={
+  ludzie:['catapult','ballista'],
+  orki:['sling','cannon'],
+  nieumarli:['trebuchet','ballista'],
+  demony:['cannon','trebuchet']
+};
+const siegeOf=f=>FSIEGE[f]||['catapult'];
 const bLabel=(f,t)=>(FBUILD[f]&&FBUILD[f].names[t])||BUILDINGS[t].label;
 const factionBuilds=f=>BUILD_ORDER.concat([FBUILD[f].unique]);
 
@@ -165,49 +197,69 @@ const UNITS={
   warrior:{label:'Wojownik',r:14, hp:150, dmg:16, range:18, speed:58, ias:1.0, cost:{gold:60,wood:20},  time:8,  pop:1 },
   archer:{ label:'Łucznik', r:13, hp:95,  dmg:17, range:150,speed:56, ias:1.4, cost:{gold:70,wood:45},  time:10, pop:1 },
   heavy:{  label:'Kolos',   r:28, hp:1250,dmg:80, range:44, speed:40, ias:2.0, cost:{gold:340,wood:160},time:26, pop:4, mass:8 },
-  hero:{   label:'Bohater', r:25, hp:1100,dmg:58, range:26, speed:72, ias:.85,cost:{gold:250,wood:120},time:22, pop:3, mass:3, hero:true }
+  hero:{   label:'Bohater', r:25, hp:1300,dmg:58, range:26, speed:72, ias:.85,cost:{gold:250,wood:120},time:22, pop:3, mass:3, hero:true },
+  /* --- maszyny oblegnicze: wolne, kruche w zwarciu, niszczycielskie z daleka --- */
+  catapult:{ label:'Katapulta',    r:24, hp:520, dmg:95,  range:330, speed:30, ias:5.0, cost:{gold:220,wood:260}, time:26, pop:3, mass:6,
+             siege:{splash:118, bld:2.6, min:95, arc:96, shot:'rock'} },
+  ballista:{ label:'Wielka Kusza', r:22, hp:470, dmg:120, range:400, speed:32, ias:4.2, cost:{gold:250,wood:230}, time:24, pop:3, mass:5,
+             siege:{splash:56, bld:2.2, min:80, arc:26, shot:'bolt', pierce:true} },
+  trebuchet:{label:'Trebusz',      r:27, hp:600, dmg:150, range:470, speed:24, ias:6.4, cost:{gold:320,wood:340}, time:32, pop:4, mass:7,
+             siege:{splash:140, bld:3.4, min:150, arc:150, shot:'rock'} },
+  cannon:{   label:'Działo',       r:23, hp:540, dmg:130, range:360, speed:28, ias:5.2, cost:{gold:340,wood:200}, time:30, pop:3, mass:6,
+             siege:{splash:96, bld:2.8, min:90, arc:34, shot:'ball', fire:true} },
+  sling:{    label:'Wielka Proca', r:25, hp:560, dmg:105, range:350, speed:34, ias:4.6, cost:{gold:200,wood:240}, time:24, pop:3, mass:6,
+             siege:{splash:126, bld:2.4, min:100, arc:110, shot:'rock', knock:1.4} }
 };
-const UNIT_KEYS=['worker','warrior','archer','heavy','hero'];
+const SIEGE_KEYS=['catapult','ballista','trebuchet','cannon','sling'];
+const UNIT_KEYS=['worker','warrior','archer','heavy','hero'].concat(SIEGE_KEYS);
 const HERO_LIMIT=1;
 
 /* --- budynki --- */
 const BUILDINGS={
-  townhall:{ label:'Ratusz',      key:'1', r:46, hp:3000, cost:{gold:0,wood:300},  build:34, pop:10, trains:['worker','hero'], drop:true,
+  townhall:{ label:'Ratusz',      key:'1', r:46, hp:6200, cost:{gold:0,wood:300},  build:34, pop:10, trains:['worker','hero'], drop:true,
              desc:'Serce osady. Przyjmuje złoto i drewno, daje 10 ludności i wystawia bohatera.' },
-  house:{    label:'Chata',       key:'2', r:22, hp:600,  cost:{gold:0,wood:90},   build:12, pop:6,  trains:[],
+  house:{    label:'Chata',       key:'2', r:22, hp:900,  cost:{gold:0,wood:90},   build:12, pop:6,  trains:[],
              desc:'Podnosi limit ludności o 6.' },
-  barracks:{ label:'Koszary',     key:'3', r:32, hp:1500, cost:{gold:60,wood:180}, build:22, pop:0,  trains:['warrior'],
+  barracks:{ label:'Koszary',     key:'3', r:32, hp:2300, cost:{gold:60,wood:180}, build:22, pop:0,  trains:['warrior'],
              desc:'Szkoli wojowników walki wręcz.' },
-  range:{    label:'Strzelnica',  key:'4', r:30, hp:1300, cost:{gold:90,wood:200}, build:24, pop:0,  trains:['archer'],
+  range:{    label:'Strzelnia',  key:'4', r:30, hp:2000, cost:{gold:90,wood:200}, build:24, pop:0,  trains:['archer'],
              desc:'Szkoli łuczników i kuszników.' },
-  forge:{    label:'Kuźnia',      key:'5', r:30, hp:1400, cost:{gold:140,wood:160},build:26, pop:0,  trains:[], upgrades:true,
+  forge:{    label:'Kuźnia',      key:'5', r:30, hp:2100, cost:{gold:140,wood:160},build:26, pop:0,  trains:[], upgrades:true,
              desc:'Ulepsza oddziały — zmienia ich wygląd i siłę.' },
-  lair:{     label:'Wielka Jama', key:'6', r:40, hp:2000, cost:{gold:260,wood:240},build:34, pop:0,  trains:['heavy'],
+  lair:{     label:'Wielka Jama', key:'6', r:40, hp:3000, cost:{gold:260,wood:240},build:34, pop:0,  trains:['heavy'],
              desc:'Wypuszcza kolosa twojej krainy.' },
-  tower:{    label:'Wieża',       key:'7', r:20, hp:1200, cost:{gold:90,wood:120}, build:18, pop:0,  trains:[], tower:{range:190,dmg:26,ias:1.5},
+  tower:{    label:'Wieża',       key:'7', r:20, hp:1900, cost:{gold:90,wood:120}, build:18, pop:0,  trains:[], tower:{range:190,dmg:26,ias:1.5},
              desc:'Sama strzela do wrogów w zasięgu.' },
-  /* --- unikalne budynki frakcji (klawisz 8) --- */
-  shrine:{   label:'Kaplica',     key:'8', r:26, hp:1400, cost:{gold:160,wood:140}, build:24, pop:2, trains:[],
+  workshop:{label:'Warsztat', key:'8', r:34, hp:2200, cost:{gold:200,wood:300}, build:30, pop:0, trains:'siege',
+             desc:'Buduje maszyny oblężnicze twojej krainy — miotają pociski daleko poza mury.' },
+  wall:{     label:'Mur',         key:'9', r:16, hp:1800, cost:{gold:10,wood:55},  build:5,  pop:0, trains:[], solid:true, wallSeg:true,
+             desc:'Odcinek muru. Kliknij początek i koniec — postawi całą linię. Wrogowie muszą go zburzyć.' },
+  gate:{     label:'Brama',       key:'0', r:20, hp:2400, cost:{gold:40,wood:110}, build:10, pop:0, trains:[], solid:true, gate:true,
+             desc:'Twoje oddziały przechodzą, wrogie muszą wyrąbać drogę.' },
+  /* --- unikalne budynki frakcji (klawisz U) --- */
+  shrine:{   label:'Kaplica',     key:'U', r:26, hp:1400, cost:{gold:160,wood:140}, build:24, pop:2, trains:[],
              aura:{kind:'heal',range:200,rate:16},
              desc:'Leczy wszystkie sojusznicze oddziały w pobliżu i daje +2 ludności.' },
-  totem:{    label:'Totem Wojny', key:'8', r:22, hp:1200, cost:{gold:150,wood:130}, build:20, pop:2, trains:[],
+  totem:{    label:'Totem Wojny', key:'U', r:22, hp:1200, cost:{gold:150,wood:130}, build:20, pop:2, trains:[],
              aura:{kind:'dmg',range:210,mul:1.3},
              desc:'Sojusznicy w pobliżu zadają o 30% więcej obrażeń.' },
-  crypt:{    label:'Krypta',      key:'8', r:30, hp:1500, cost:{gold:200,wood:150}, build:26, pop:2, trains:[],
+  crypt:{    label:'Krypta',      key:'U', r:30, hp:1500, cost:{gold:200,wood:150}, build:26, pop:2, trains:[],
              spawner:{type:'warrior',every:28},
              desc:'Sama wystawia darmowe szkielety co 28 s.' },
-  portal:{   label:'Piekielny Portal', key:'8', r:28, hp:1400, cost:{gold:220,wood:130}, build:26, pop:2, trains:[],
+  portal:{   label:'Piekielny Portal', key:'U', r:28, hp:1400, cost:{gold:220,wood:130}, build:26, pop:2, trains:[],
              spawner:{type:'warrior',every:30}, aura:{kind:'burn',range:170,dps:10},
              desc:'Przyzywa chochliki i podpala wrogów, którzy podejdą za blisko.' }
 };
-const BUILD_ORDER=['townhall','house','barracks','range','forge','lair','tower'];
+const BUILD_ORDER=['townhall','house','barracks','range','forge','lair','tower','workshop','wall','gate'];
+const WALL_SPACING=27;
 
 /* --- ulepszenia (kuźnia) --- */
 const UPG={
   warrior:{label:'Zbrojownia',  baseCost:{gold:120,wood:80},  step:1.6, hp:.24, dmg:.22, max:5},
   archer:{ label:'Łucznictwo',  baseCost:{gold:140,wood:90},  step:1.6, hp:.20, dmg:.26, max:5},
   heavy:{  label:'Kult Kolosa', baseCost:{gold:320,wood:220}, step:1.8, hp:.22, dmg:.22, max:3},
-  worker:{ label:'Rzemiosło',   baseCost:{gold:90,wood:60},   step:1.7, hp:.25, dmg:.1,  max:3}
+  worker:{ label:'Rzemiosło',   baseCost:{gold:90,wood:60},   step:1.7, hp:.25, dmg:.1,  max:3},
+  siege:{  label:'Inżynieria',  baseCost:{gold:260,wood:240}, step:1.75,hp:.2,  dmg:.25, max:3}
 };
 function upgCost(type,lvl){
   const b=UPG[type].baseCost, m=Math.pow(UPG[type].step,lvl-1);
@@ -230,8 +282,17 @@ function look(type,lvl){
   };
 }
 
+/* --- awanse: jednostki rosna w boju --- */
+const VET=[
+  {xp:0,   name:'',            hp:0,   dmg:0},
+  {xp:3,   name:'Weteran',     hp:.14, dmg:.12},
+  {xp:8,   name:'Zaprawiony',  hp:.30, dmg:.26},
+  {xp:16,  name:'Legenda',     hp:.50, dmg:.44}
+];
+const vetOf=xp=>{let i=0; for(let k=1;k<VET.length;k++) if(xp>=VET[k].xp) i=k; return i;};
+
 /* --- surowce na mapie --- */
 const RES={
-  gold:{label:'Kopalnia złota', amount:1600, rate:9,  carry:16, col:'#e6c273', icon:'moneta', short:'złoto'},
-  wood:{label:'Drzewo',         amount:320,  rate:8,  carry:16, col:'#6f8f4a', icon:'kłoda',  short:'drewno'}
+  gold:{label:'Kopalnia złota', amount:3200, rate:8,  carry:16, col:'#e6c273', icon:'moneta', short:'złoto'},
+  wood:{label:'Drzewo',         amount:520,  rate:7,  carry:16, col:'#6f8f4a', icon:'kłoda',  short:'drewno'}
 };

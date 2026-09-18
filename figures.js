@@ -6,14 +6,27 @@
    ========================================================================== */
 'use strict';
 
-const OUT='rgba(12,10,8,.85)';
+const OUT='rgba(12,10,8,.8)';
 
+/* kończyna: kontur, cieniowany walec, światło od góry-lewej i staw */
 function limb(x1,y1,x2,y2,w,col,hit){
   cx.lineCap='round';
-  cx.strokeStyle=OUT; cx.lineWidth=w+2.2;
+  cx.strokeStyle=OUT; cx.lineWidth=w+2;
   cx.beginPath(); cx.moveTo(x1,y1); cx.lineTo(x2,y2); cx.stroke();
-  cx.strokeStyle=hit?'#fff':col; cx.lineWidth=w;
-  cx.beginPath(); cx.moveTo(x1,y1); cx.lineTo(x2,y2); cx.stroke();
+  if(hit){ cx.strokeStyle='#fff'; cx.lineWidth=w; cx.beginPath(); cx.moveTo(x1,y1); cx.lineTo(x2,y2); cx.stroke(); }
+  else {
+    const dx=x2-x1, dy=y2-y1, d=Math.hypot(dx,dy)||1;
+    const nx=-dy/d*w*.5, ny=dx/d*w*.5;
+    const g=cx.createLinearGradient(x1-nx,y1-ny,x1+nx,y1+ny);
+    g.addColorStop(0,shade(col,.24)); g.addColorStop(.5,col); g.addColorStop(1,shade(col,-.32));
+    cx.strokeStyle=g; cx.lineWidth=w;
+    cx.beginPath(); cx.moveTo(x1,y1); cx.lineTo(x2,y2); cx.stroke();
+    cx.strokeStyle='rgba(255,255,255,.16)'; cx.lineWidth=Math.max(.9,w*.26);
+    cx.beginPath(); cx.moveTo(x1-nx*.5,y1-ny*.5); cx.lineTo(x2-nx*.5,y2-ny*.5); cx.stroke();
+  }
+  // staw
+  cx.fillStyle=hit?'#fff':shade(col,-.12);
+  cx.beginPath(); cx.arc(x2,y2,w*.48,0,7); cx.fill();
 }
 function blob(x,y,rx,ry,col,hit,rot){
   cx.fillStyle=hit?'#fff':lit3d(x,y,Math.max(rx,ry),col);
@@ -94,6 +107,19 @@ function drawSoldierTop(u,c,L,r,ang,hit){
   cx.closePath(); cx.fill();
   cx.strokeStyle=OUT; cx.lineWidth=1.8; cx.stroke();
   hi3d(-torW*.25,torY-r*.06,torW*1.1,torH*.8,.16);
+  // szyja
+  cx.fillStyle=hit?'#fff':shade(skin,-.18);
+  cx.beginPath(); cx.rect(face*r*.01-r*.07,shY-r*.1,r*.14,r*.13); cx.fill();
+  cx.strokeStyle=OUT; cx.lineWidth=1.2; cx.stroke();
+  // mięśnie barków
+  for(const sd of [-1,1]){
+    cx.fillStyle=hit?'#fff':shade(cloth,sd===face?.14:-.16);
+    cx.beginPath(); cx.ellipse(sd*shW*.78,shY+r*.04,r*.13,r*.11,0,0,7); cx.fill();
+    cx.strokeStyle=hexA('#0c0a08',.5); cx.lineWidth=1; cx.stroke();
+  }
+  // klatka / cieniowanie boczne
+  cx.fillStyle='rgba(0,0,0,.16)';
+  cx.beginPath(); cx.ellipse(-face*torW*.72,torY+r*.02,torW*.4,torH*.46,0,0,7); cx.fill();
   // pas
   cx.fillStyle=hexA(shade(c.dark,.05),.9);
   cx.fillRect(-torW*1.02,hipY-r*.07,torW*2.04,r*.09);

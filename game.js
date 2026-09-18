@@ -16,6 +16,7 @@ function newGame(pf,mapKey,mode){
     units:[], buildings:[], arrows:[], parts:[], texts:[], decals:[], quakes:[],
     sel:[], selBuilding:null, placing:null,
     will:40, willMax:150, willRate:6, abilityCd:0,
+    peace:300, peaceDone:false, wallStart:null,
     shake:0, flash:0, flashCol:'#fff', hitstop:0, banner:null,
     stats:{kills:0,losses:0,gold:0,wood:0,built:0,trained:0,slams:0,launched:0,abilities:0},
     world:null, alert:0
@@ -25,10 +26,10 @@ function newGame(pf,mapKey,mode){
     let f=pf;
     if(s!=='player'){ f=pool.length?pick(pool):pick(FKEYS); pool.splice(pool.indexOf(f),1); }
     g.faction[s]=f;
-    g.res[s]={gold:260,wood:320};
-    g.lvl[s]={worker:1,warrior:1,archer:1,heavy:1,hero:1};
+    g.res[s]={gold:320,wood:380};
+    g.lvl[s]={worker:1,warrior:1,archer:1,heavy:1,hero:1,siege:1};
     g.buff[s]=0; g.fallen[s]=[];
-    if(s!=='player') g.ais[s]={t:0,step:0,attackTimer:randi(58,95),wave:0,will:0,buildTimer:rand(1,4)};
+    if(s!=='player') g.ais[s]={t:0,step:0,attackTimer:300+randi(20,70),wave:0,will:0,buildTimer:rand(1,4)};
   }
   g.ef=g.faction[sides.find(s=>g.team[s]!==g.team.player)]||pf;
   g.world=makeWorld(mapKey,mode);
@@ -101,8 +102,9 @@ function embers(x,y,col,n=10){
 /* ==========================================================================
    TWORZENIE
    ========================================================================== */
+function upgKeyOf(type){ return SIEGE_KEYS.indexOf(type)>=0?'siege':type; }
 function unitStats(faction,type,lvl){
-  const b=UNITS[type], u=UPG[type]||{hp:0,dmg:0};
+  const b=UNITS[type], u=UPG[upgKeyOf(type)]||{hp:0,dmg:0};
   return {hp:Math.round(b.hp*(1+u.hp*(lvl-1))), dmg:Math.round(b.dmg*(1+u.dmg*(lvl-1))),
     range:b.range, speed:b.speed, ias:b.ias};
 }
@@ -122,9 +124,27 @@ function spawnUnit(side,type,x,y,lvlOpt){
     z:0, vz:0, vx:0, vy:0, rot:0, vrot:0,
     dead:false, fade:1, sel:false
   };
+  u.xp=0; u.vet=0; u.baseHp=st.hp; u.baseDmg=st.dmg;
   G.units.push(u);
   for(let i=0;i<5;i++) puff(u.x,u.y,.8);
   return u;
+}
+/* --- stawianie muru linia --- */
+function buildWallLine(side,x1,y1,x2,y2){
+  const d=Math.hypot(x2-x1,y2-y1);
+  const n=Math.max(1,Math.round(d/WALL_SPACING));
+  const def=BUILDINGS.wall;
+  let placed=0;
+  for(let i=0;i<=n;i++){
+    const x=lerp(x1,x2,i/n), y=lerp(y1,y2,i/n);
+    if(!canPlace('wall',x,y)) continue;
+    if(!canAfford(side,def.cost)) break;
+    pay(side,def.cost);
+    addBuilding(side,'wall',x,y,false);
+    placed++;
+  }
+  if(placed) G.stats.built+=placed;
+  return placed;
 }
 function addBuilding(side,type,x,y,done){
   const faction=sideFaction(side), def=BUILDINGS[type];
@@ -243,6 +263,10 @@ function issueOrder(units,wx,wy,shift){
 /* ==========================================================================
    PLACEMENT / PRODUKCJA / ULEPSZENIA
    ========================================================================== */
+function trainsOf(def,faction){
+  if(def.trains==='siege') return siegeOf(faction);
+  return def.trains||[];
+}
 function startPlacing(type){
   const def=BUILDINGS[type];
   if(!canAfford('player',def.cost)){ warn('Brakuje surowców na '+bLabel(G.pf,type)); return false; }
@@ -250,6 +274,19 @@ function startPlacing(type){
 }
 function placeBuilding(wx,wy){
   const type=G.placing; if(!type) return false;
+  if(BUILDINGS[type].wallSeg){
+    if(!G.wallStart){
+      if(!canPlace(type,wx,wy)){ warn('Tu nie da się budować'); return false; }
+      G.wallStart={x:wx,y:wy};
+      floatText(wx,wy-20,'Początek muru — kliknij koniec','#e6c273',12);
+      return false;
+    }
+    const st=G.wallStart; G.wallStart=null;
+    const n=buildWallLine('player',st.x,st.y,wx,wy);
+    if(!n){ warn('Nie da się tu postawić muru'); return false; }
+    floatText(wx,wy-20,'Mur: '+n+' odcinków','#e6c273',13);
+    return true;
+  }
   const def=BUILDINGS[type];
   if(!canPlace(type,wx,wy)){ warn('Tu nie da się budować'); return false; }
   if(!canAfford('player',def.cost)){ warn('Brakuje surowców'); return false; }
@@ -263,7 +300,7 @@ function placeBuilding(wx,wy){
       .sort((a,c)=>dist(a,b)-dist(c,b)).slice(0,2);
     commandBuildHelp(w,b);
   }
-  G.placing=null;
+  G.placing=null; G.wallStart=null;
   buildMenuOpen=true;
   floatText(b.x,b.y-def.r-10,'Budowa: '+bLabel(G.pf,type),'#e6c273',13);
   return true;
@@ -312,6 +349,29 @@ function warn(txt){ warnMsg={txt,life:2.2}; }
    ========================================================================== */
 const other=s=>foeSides(s)[0]||s;
 function dmgMul(side){ return G.buff[side]>0?1.4:1; }
+/* --- awanse w boju --- */
+function awardXp(victim,side){
+  const worth=victim.type==='heavy'||victim.type==='hero'?4:(SIEGE_KEYS.indexOf(victim.type)>=0?2:1);
+  const near=G.units.filter(u=>!u.dead&&u.side===side&&u.type!=='worker'&&Math.hypot(u.x-victim.x,u.y-victim.y)<170);
+  if(!near.length) return;
+  for(const u of near){
+    u.xp=(u.xp||0)+worth/Math.max(1,Math.min(4,near.length))*(u.type==='hero'?1.6:1);
+    const nv=vetOf(u.xp);
+    if(nv>(u.vet||0)){
+      u.vet=nv;
+      const V=VET[nv];
+      const bh=u.baseHp||u.maxHp, bd=u.baseDmg||u.dmg;
+      const frac=u.hp/u.maxHp;
+      u.maxHp=Math.round(bh*(1+V.hp)); u.hp=Math.round(u.maxHp*Math.min(1,frac+.15));
+      u.dmg=Math.round(bd*(1+V.dmg));
+      if(u.side===G.pf||u.side==='player'){}
+      floatText(u.x,u.y-u.r-18,V.name.toUpperCase()+'!',u.side==='player'?'#9fe07a':'#e8d9b0',13);
+      ring(u.x,u.y,u.r*2.2,hexA(FACTIONS[u.faction].col.accent,.8),.5,3);
+      for(let i=0;i<10;i++) G.parts.push({x:u.x,y:u.y,vx:rand(-60,60),vy:rand(-90,-20),
+        life:.7,max:.7,size:rand(2,4),col:'#ffe9a8',kind:'ember'});
+    }
+  }
+}
 function unitDmg(u){ return Math.round(u.dmg*dmgMul(u.side)*(u.hbuff>0?1.55:1)); }
 function heroOf(side){ return G.units.find(u=>u.side===side&&!u.dead&&u.type==='hero')||null; }
 function gatherCount(side,kind){
@@ -351,6 +411,7 @@ function dealDamage(t,amount,fromSide,opts={}){
   if(Math.random()<.4) decal(t.x+rand(-7,7),t.y+rand(-5,5),rand(4,9),FACTIONS[t.faction].gore);
   if(t.hp<=0){
     t.dead=true; t.rot=rand(-1.4,1.4);
+    awardXp(t,fromSide);
     gore(t.x,t.y,t.faction,t.type==='heavy'?30:14,t.type==='heavy'?1.5:1,opts.dx||0,opts.dy||0);
     decal(t.x,t.y,t.type==='heavy'?30:rand(10,16),FACTIONS[t.faction].gore);
     if(t.faction==='nieumarli') embers(t.x,t.y,'#79e0d2',t.type==='heavy'?18:8);
@@ -508,6 +569,48 @@ function archerAttack(u,t){
   } else if(u.faction==='orki') shootArrow(u,t,{kind:'bolt',dmgMul:1.15});
   else if(u.faction==='demony') shootArrow(u,t,{kind:'fire',dmgMul:.9});
   else shootArrow(u,t,{kind:'frost'});
+}
+
+/* --- maszyny oblegnicze --- */
+function siegeAttack(u,t){
+  const S=UNITS[u.type].siege;
+  u.facing=Math.atan2(t.y-u.y,t.x-u.x);
+  u.windup=.55; u.windupKind='siege';
+  u.siegeTgt={x:t.x,y:t.y};
+}
+function launchSiege(u){
+  const S=UNITS[u.type].siege, t=u.siegeTgt||{x:u.x+120,y:u.y};
+  const d=Math.max(40,Math.hypot(t.x-u.x,t.y-u.y));
+  G.stats.launched++;
+  G.parts.push({kind:'siege',x:u.x,y:u.y-14,sx:u.x,sy:u.y-14,tx:t.x,ty:t.y,prog:0,
+    sp:1/Math.max(.45,d/(S.shot==='bolt'?720:300)),arcH:S.arc,rot:rand(0,6),vrot:S.shot==='bolt'?0:7,
+    life:4,max:4,size:S.shot==='bolt'?9:(S.shot==='ball'?12:15),shot:S.shot,
+    col:S.shot==='ball'?'#3a3430':(S.shot==='bolt'?'#8a6636':'#8d7f68'),
+    side:u.side,dmg:Math.round(unitDmg(u)),splash:S.splash,bld:S.bld,fire:!!S.fire,knock:S.knock||1,pierce:!!S.pierce});
+  const fx=u.x+Math.cos(u.facing)*(u.r+8), fy=u.y+Math.sin(u.facing)*(u.r+8);
+  if(S.fire){ flash(fx,fy,34,'#ffd6a0'); for(let i=0;i<14;i++) puff(fx+rand(-8,8),fy+rand(-8,8),1.3,'#6b6258'); shake(6); }
+  else { puff(fx,fy,1.1,'#cdbfa6'); shake(3); }
+  spark(fx,fy,'#f0e4c4',5,.7);
+}
+function siegeHit(p){
+  const R=p.splash;
+  shake(p.shot==='bolt'?5:10); hitstop(.04);
+  if(p.fire){ fireBurst(p.x,p.y,R,Math.round(p.dmg*.8),p.side,5); flash(p.x,p.y,R*.7,'#ffbf72'); crackDecal(p.x,p.y,R*.6,'rgba(120,50,18,.5)'); }
+  else { shockRing(p.x,p.y,R,'#d9c9a4'); debris(p.x,p.y,p.shot==='bolt'?5:16); flash(p.x,p.y,R*.55,'#fff2d4'); crackDecal(p.x,p.y,R*.55); }
+  for(let i=0;i<(p.shot==='bolt'?6:18);i++) puff(p.x+rand(-R*.3,R*.3),p.y+rand(-R*.25,R*.25),1.4,'#b9a98c');
+  for(const o of G.units){
+    if(o.dead||!foe(o.side,p.side)) continue;
+    const d=Math.hypot(o.x-p.x,o.y-p.y);
+    if(d>R) continue;
+    const fall=1-d/R, nx=d<1?1:(o.x-p.x)/d, ny=d<1?0:(o.y-p.y)/d;
+    knockback(o,nx,ny,(180+240*fall)*p.knock,(90+140*fall)*p.knock,.25*fall);
+    dealDamage(o,Math.round(p.dmg*(.55+.75*fall)),p.side,{n:8,power:1.4,dx:nx,dy:ny});
+    if(p.fire) ignite(o,5,p.side);
+  }
+  for(const b of G.buildings){
+    if(b.dead||!foe(b.side,p.side)) continue;
+    if(Math.hypot(b.x-p.x,b.y-p.y)<R+b.r*.6) dealDamage(b,Math.round(p.dmg*p.bld),p.side);
+  }
 }
 
 /* --- kolosy --- */

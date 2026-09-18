@@ -131,9 +131,11 @@ function resAt(x,y){
 function canPlace(type,x,y){
   const def=BUILDINGS[type];
   if(x<def.r+20||y<def.r+20||x>MAP_W-def.r-20||y>MAP_H-def.r-20) return false;
+  const fort=!!def.solid;
   for(const b of G.buildings){
     if(b.dead) continue;
-    if(Math.hypot(b.x-x,b.y-y)<b.r+def.r+16) return false;
+    const pad=(fort&&BUILDINGS[b.type].solid)?-5:16;
+    if(Math.hypot(b.x-x,b.y-y)<b.r+def.r+pad) return false;
   }
   for(const r of G.world.res){
     if(r.amount<=0) continue;
