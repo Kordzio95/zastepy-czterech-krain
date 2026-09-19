@@ -107,7 +107,7 @@ function cRibs(x,y,w,h,n,col,hit){
    GLOWNY RYSUNEK
    ========================================================================== */
 function drawHeavyTop(u,c,L,r,ang,hit){
-  const lvl=Math.max(1,Math.min(3,u.lvl||1));
+  const lvl=u.type==='beast'?1:Math.max(1,Math.min(3,u.lvl||1));
   const dx=Math.cos(ang), dy=Math.sin(ang);
   const face=dx>=0?1:-1, prof=Math.min(1,Math.abs(dx));
   const f=u.faction;
@@ -1104,9 +1104,9 @@ function colDog(P){
   const eyeC= lvl>=3?'#ff8a1e':(lvl===2?'#e9c15a':'#d8b25a');
   const FIRE= lvl>=3;
   // pies jest niski i dlugi — cale cialo nizej niz humanoid
-  const BY  = hipY+r*.12;                  // linia grzbietu
-  const BL  = r*(.94+ (lvl-1)*.06)*(0.52+0.48*prof);   // polowa dlugosci ciala
-  const BH  = r*(.46+(lvl-1)*.04)*bulk;   // polowa wysokosci ciala
+  const BY  = hipY-r*.10;                  // linia grzbietu (wysoko na nogach)
+  const BL  = r*(1.16+ (lvl-1)*.05)*(0.52+0.48*prof);   // polowa dlugosci ciala
+  const BH  = r*(.37+(lvl-1)*.03)*bulk;   // polowa wysokosci ciala
   const fwd = face;                        // kierunek pyska
   const bite= stance;                      // 0..1 faza ugryzienia
   const bounce = moving?Math.sin(u.walk*1.2)*r*.04:Math.sin(u.anim*1.1+seed)*r*.012;
@@ -1114,21 +1114,25 @@ function colDog(P){
   baseShadow(0,GY+r*.05,BL*1.25,r*.26,0,.34);
 
   /* --- ogon --- */
-  const tx=-fwd*BL*1.05, ty=BY-BH*.55+bounce;
-  const wag=Math.sin(t*(moving?9:3.4)+seed)*r*.2;
-  cx.strokeStyle=OUT; cx.lineWidth=r*.2+3; cx.lineCap='round';
+  const tx=-fwd*BL*1.02, ty=BY-BH*.5+bounce;
+  const wag=Math.sin(t*(moving?9:3.4)+seed)*r*.26;
+  const tex=tx-fwd*r*.78+wag*.5, tey=ty-r*.06+Math.abs(wag)*.1;
+  cx.strokeStyle=OUT; cx.lineWidth=r*.26+3; cx.lineCap='round';
   cx.beginPath(); cx.moveTo(tx,ty);
-  cx.quadraticCurveTo(tx-fwd*r*.4,ty-r*.5,tx-fwd*r*.28+wag,ty-r*.86); cx.stroke();
-  cx.strokeStyle=hit?'#fff':fur2; cx.lineWidth=r*.2;
+  cx.quadraticCurveTo(tx-fwd*r*.5,ty-r*.34,tex,tey); cx.stroke();
+  cx.strokeStyle=hit?'#fff':fur2; cx.lineWidth=r*.24;
   cx.beginPath(); cx.moveTo(tx,ty);
-  cx.quadraticCurveTo(tx-fwd*r*.4,ty-r*.5,tx-fwd*r*.28+wag,ty-r*.86); cx.stroke();
+  cx.quadraticCurveTo(tx-fwd*r*.5,ty-r*.34,tex,tey); cx.stroke();
+  // kita na koncu ogona
+  cx.fillStyle=hit?'#fff':shade(fur2,-.12);
+  cx.beginPath(); cx.ellipse(tex,tey,r*.16,r*.11,Math.atan2(tey-ty,tex-tx),0,7); cx.fill();
   cx.lineCap='butt';
 
   /* --- tylne nogi --- */
   for(const sd of [-1,1]){
     const sw=(moving?Math.sin(u.walk+(sd>0?0:2.1)):0)*r*.22;
     const ox=-fwd*BL*.62+sd*r*.12*(1-prof*.5);
-    const kx=ox-fwd*r*.14+sw*.5, ky=BY+r*.18;
+    const kx=ox-fwd*r*.16+sw*.5, ky=BY+r*.34;
     const px=ox+sw, py=GY;
     limb(ox,BY-BH*.1,kx,ky,r*.22*bulk,sd>0?fur:fur2,hit);
     limb(kx,ky,px,py,r*.17*bulk,fur2,hit);
@@ -1151,10 +1155,11 @@ function colDog(P){
   /* --- tuluw --- */
   cx.fillStyle=hit?'#fff':lit3d(0,BY-BH*.3,BL*1.4,fur);
   cx.beginPath();
-  cx.moveTo(-fwd*BL,BY-BH*.2);
-  cx.quadraticCurveTo(-fwd*BL*.5,BY-BH*1.5+bounce, fwd*BL*.6,BY-BH*1.25+bounce);
-  cx.quadraticCurveTo(fwd*BL*1.05,BY-BH*.7, fwd*BL*.86,BY+BH*.2);
-  cx.quadraticCurveTo(0,BY+BH*.62, -fwd*BL*.92,BY+BH*.1);
+  cx.moveTo(-fwd*BL*.96,BY-BH*.5);
+  cx.quadraticCurveTo(-fwd*BL*.5,BY-BH*1.45+bounce, fwd*BL*.62,BY-BH*1.3+bounce);
+  cx.quadraticCurveTo(fwd*BL*1.08,BY-BH*.9, fwd*BL*.94,BY+BH*.5);
+  cx.quadraticCurveTo(fwd*BL*.2,BY+BH*.2, -fwd*BL*.3,BY+BH*.5);
+  cx.quadraticCurveTo(-fwd*BL*.8,BY+BH*.6, -fwd*BL*.96,BY-BH*.5);
   cx.closePath(); cx.fill();
   cx.strokeStyle=OUT; cx.lineWidth=2.1; cx.stroke();
   hi3d(-fwd*BL*.2,BY-BH*.9,BL*.8,BH*.7,.18);
@@ -1223,7 +1228,7 @@ function colDog(P){
   for(const sd of [-1,1]){
     const sw=(moving?Math.sin(u.walk+(sd>0?1.05:3.15)):0)*r*.24;
     const ox=fwd*BL*.66+sd*r*.1*(1-prof*.5);
-    const kx=ox+fwd*r*.06+sw*.5, ky=BY+r*.2;
+    const kx=ox+fwd*r*.05+sw*.5, ky=BY+r*.36;
     const px=ox+sw+fwd*bite*r*.1, py=GY;
     limb(ox,BY-BH*.3,kx,ky,r*.22*bulk,sd>0?fur:fur2,hit);
     limb(kx,ky,px,py,r*.17*bulk,sd>0?fur:fur2,hit);
@@ -1244,9 +1249,9 @@ function colDog(P){
 
   /* --- kark, obroza i glowa --- */
   const nx0=fwd*BL*.84, ny0=BY-BH*1.1+bounce;
-  const hx=fwd*(BL*1.12+bite*r*.14), hy=ny0-r*.3+bite*r*.06;
-  const hr2=r*(.36+(lvl-1)*.03)*bulk;
-  limb(nx0-fwd*r*.05,ny0,hx,hy,r*.3*bulk,fur,hit);
+  const hx=fwd*(BL*1.18+bite*r*.14), hy=ny0-r*.34+bite*r*.06;
+  const hr2=r*(.42+(lvl-1)*.03)*bulk;
+  limb(nx0-fwd*r*.12,ny0+r*.08,hx-fwd*r*.06,hy+r*.06,r*.4*bulk,fur,hit);
   // grzywa
   cx.fillStyle=hit?'#fff':fur2;
   cx.beginPath();
@@ -1273,34 +1278,51 @@ function colDog(P){
   }
   // czaszka
   cx.fillStyle=hit?'#fff':lit3d(hx,hy,hr2*1.6,fur);
-  cx.beginPath(); cx.ellipse(hx,hy,hr2*1.02,hr2*.86,0,0,7); cx.fill();
+  cx.beginPath(); cx.ellipse(hx,hy,hr2*.94,hr2*.8,fwd*.12,0,7); cx.fill();
   cx.strokeStyle=OUT; cx.lineWidth=1.9; cx.stroke();
+  // policzki / obwisle fafle psa
+  cx.fillStyle=hit?'#fff':shade(fur,-.1);
+  cx.beginPath(); cx.ellipse(hx+fwd*hr2*.34,hy+hr2*.42,hr2*.5,hr2*.3,fwd*.2,0,7); cx.fill();
+  cx.strokeStyle=OUT; cx.lineWidth=1.3; cx.stroke();
   // uszy
   for(const sd of [-1,1]){
-    const ex=hx-fwd*hr2*.4, ey=hy-hr2*.62+sd*hr2*.2*(1-prof*.4);
-    cx.fillStyle=hit?'#fff':(sd>0?fur2:shade(fur2,-.12));
+    const flap=Math.sin(t*(moving?7.5:2.2)+seed+(sd>0?0:1.2))*hr2*.1;
+    const ex=hx-fwd*hr2*.3+sd*hr2*.1*(1-prof*.5);
+    const ey=hy-hr2*.52;
+    cx.fillStyle=hit?'#fff':(sd>0?fur2:shade(fur2,-.14));
     cx.beginPath();
-    cx.moveTo(ex,ey+hr2*.2);
-    cx.quadraticCurveTo(ex+fwd*hr2*.1,ey-hr2*.9,ex+fwd*hr2*.5,ey-hr2*.5);
-    cx.quadraticCurveTo(ex+fwd*hr2*.3,ey-hr2*.05,ex,ey+hr2*.2);
+    cx.moveTo(ex,ey);
+    cx.quadraticCurveTo(ex-fwd*hr2*.62,ey+hr2*.1+flap, ex-fwd*hr2*.52+flap*.6,ey+hr2*.95+flap);
+    cx.quadraticCurveTo(ex-fwd*hr2*.1,ey+hr2*.82, ex+fwd*hr2*.06,ey+hr2*.12);
     cx.closePath(); cx.fill();
-    cx.strokeStyle=OUT; cx.lineWidth=1.2; cx.stroke();
+    cx.strokeStyle=OUT; cx.lineWidth=1.3; cx.stroke();
+    cx.fillStyle=hexA(shade(fur2,-.3),.5);
+    cx.beginPath(); cx.ellipse(ex-fwd*hr2*.3,ey+hr2*.5+flap*.6,hr2*.14,hr2*.3,fwd*.25,0,7); cx.fill();
     if(lvl>=3){ cx.fillStyle=hexA(gold,.85);
-      cx.beginPath(); cx.arc(ex+fwd*hr2*.3,ey-hr2*.34,hr2*.09,0,7); cx.fill(); }
+      cx.beginPath(); cx.arc(ex-fwd*hr2*.42,ey+hr2*.86+flap,hr2*.1,0,7); cx.fill(); }
   }
   // pysk + paszcza (otwiera sie przy ugryzieniu)
   const jaw=bite;
-  const mx=hx+fwd*hr2*.92, my=hy+hr2*.2;
+  const mx=hx+fwd*hr2*1.36, my=hy+hr2*.18;
   cx.fillStyle=hit?'#fff':shade(fur,.06);
-  cx.beginPath(); cx.ellipse(hx+fwd*hr2*.66,hy+hr2*.14,hr2*.6,hr2*.4,0,0,7); cx.fill();
+  cx.beginPath();
+  cx.moveTo(hx+fwd*hr2*.42,hy-hr2*.24);
+  cx.quadraticCurveTo(hx+fwd*hr2*1.1,hy-hr2*.24, mx+fwd*hr2*.1,hy-hr2*.02);
+  cx.quadraticCurveTo(mx+fwd*hr2*.12,hy+hr2*.34, hx+fwd*hr2*.9,hy+hr2*.42);
+  cx.quadraticCurveTo(hx+fwd*hr2*.55,hy+hr2*.46, hx+fwd*hr2*.42,hy+hr2*.2);
+  cx.closePath(); cx.fill();
   cx.strokeStyle=OUT; cx.lineWidth=1.6; cx.stroke();
+  // grzbiet kufy — jasniejsze pasmo
+  cx.strokeStyle=hexA(furL,.3); cx.lineWidth=Math.max(1,hr2*.1);
+  cx.beginPath(); cx.moveTo(hx+fwd*hr2*.5,hy-hr2*.16);
+  cx.quadraticCurveTo(hx+fwd*hr2*1.0,hy-hr2*.18, mx,hy-hr2*.02); cx.stroke();
   // wnetrze paszczy
   if(jaw>.05){
     cx.fillStyle=hexA('#5c1a1a',.95);
     cx.beginPath();
-    cx.moveTo(hx+fwd*hr2*.2,hy+hr2*.06);
-    cx.lineTo(mx+fwd*hr2*.12,hy-hr2*.1-jaw*hr2*.5);
-    cx.lineTo(mx+fwd*hr2*.12,hy+hr2*.4+jaw*hr2*.5);
+    cx.moveTo(hx+fwd*hr2*.42,hy+hr2*.06);
+    cx.lineTo(mx+fwd*hr2*.1,hy-hr2*.06-jaw*hr2*.55);
+    cx.lineTo(mx+fwd*hr2*.1,hy+hr2*.34+jaw*hr2*.55);
     cx.closePath(); cx.fill();
     cx.strokeStyle=OUT; cx.lineWidth=1.3; cx.stroke();
     // jezyk
@@ -1311,7 +1333,7 @@ function colDog(P){
   cx.fillStyle=hit?'#fff':'#fdf6e0';
   if(jaw>.05){
     for(let i=0;i<3;i++){
-      const tx2=hx+fwd*hr2*(.5+i*.22), up=hy-hr2*.04-jaw*hr2*.34;
+      const tx2=hx+fwd*hr2*(.62+i*.3), up=hy-hr2*.02-jaw*hr2*.38;
       cx.beginPath(); cx.moveTo(tx2-hr2*.07,up); cx.lineTo(tx2,up+hr2*.34); cx.lineTo(tx2+hr2*.07,up); cx.closePath(); cx.fill();
       const dn=hy+hr2*.36+jaw*hr2*.4;
       cx.beginPath(); cx.moveTo(tx2-hr2*.06,dn); cx.lineTo(tx2,dn-hr2*.28); cx.lineTo(tx2+hr2*.06,dn); cx.closePath(); cx.fill();
@@ -1319,18 +1341,19 @@ function colDog(P){
   } else {
     // zamknieta paszcza: tylko dwa wystajace kly
     for(const i of [0,1]){
-      const tx2=hx+fwd*hr2*(.62+i*.28), yy=hy+hr2*.3;
+      const tx2=hx+fwd*hr2*(.78+i*.34), yy=hy+hr2*.28;
       cx.beginPath(); cx.moveTo(tx2-hr2*.055,yy-hr2*.04); cx.lineTo(tx2,yy+hr2*.2); cx.lineTo(tx2+hr2*.055,yy-hr2*.04); cx.closePath(); cx.fill();
     }
     cx.strokeStyle=hexA(shade(fur,-.4),.8); cx.lineWidth=1.4;
-    cx.beginPath(); cx.moveTo(hx+fwd*hr2*.28,hy+hr2*.26); cx.lineTo(hx+fwd*hr2*1.08,hy+hr2*.18); cx.stroke();
+    cx.beginPath(); cx.moveTo(hx+fwd*hr2*.46,hy+hr2*.26); cx.lineTo(mx+fwd*hr2*.04,hy+hr2*.16); cx.stroke();
   }
   // nos
   cx.fillStyle=hit?'#fff':'#241a14';
-  cx.beginPath(); cx.ellipse(hx+fwd*hr2*1.2,hy+hr2*.02,hr2*.16,hr2*.13,0,0,7); cx.fill();
+  cx.beginPath(); cx.ellipse(mx+fwd*hr2*.1,hy-hr2*.02,hr2*.19,hr2*.15,fwd*.2,0,7); cx.fill();
+  cx.strokeStyle=OUT; cx.lineWidth=1.1; cx.stroke();
   // slepia
   for(const sd of [-1,1]){
-    const ex=hx+fwd*hr2*.26, ey=hy-hr2*.28+sd*hr2*.26*(1-prof*.45);
+    const ex=hx+fwd*hr2*.2, ey=hy-hr2*.34+sd*hr2*.26*(1-prof*.45);
     if(prof>.8&&sd===-1) continue;
     cx.fillStyle=hexA(eyeC,.95);
     cx.beginPath(); cx.ellipse(ex,ey,hr2*.17,hr2*.13,0,0,7); cx.fill();

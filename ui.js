@@ -474,7 +474,8 @@ function drawHUD(){
     cx.font='500 11.5px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.8)';
     cx.fillText(dtxt,px,py+112);
   } else if(G.selBuilding&&!G.selBuilding.dead){
-    const b=G.selBuilding, d=BUILDINGS[b.type], dl=bLabel(b.faction,b.type);
+    const b=G.selBuilding, d=BUILDINGS[b.type];
+    const dl=bLabel(b.faction,b.type)+((b.lvl||1)>=2?' II':'');
     cx.font='700 16px Cinzel,Georgia,serif'; cx.fillStyle='#e6c273';
     cx.fillText(dl,px,py+16);
     cx.font='500 11.5px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.7)';
@@ -511,12 +512,28 @@ function drawHUD(){
     }
     if(b.done){
       if(b.type==='townhall'){
-        if(!G.keep.player) btn(px+pw-272,py+34,134,50,'Ulepsz Twierdzę','kolosy · '+costStr(KEEP_COST),canAfford('player',KEEP_COST),()=>upgradeKeep('player'),true);
-        else {
+        const kp=G.keep.player||0;
+        if(kp<2){
+          const KC=keepCost('player');
+          btn(px+pw-272,py+34,134,50,kp?'Ratusz poziom 3':'Ulepsz Twierdzę',
+            (kp?'kuźnia II · ':'Wielka Jama · ')+costStr(KC),canAfford('player',KC),()=>upgradeKeep('player'),true);
+        } else {
           cx.font='600 12px Satoshi,sans-serif'; cx.fillStyle='rgba(230,194,115,.85)';
-          cx.fillText(keepName(G.pf),px+pw-272,py+56);
+          cx.fillText(keepName3(G.pf),px+pw-272,py+56);
           cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.6)';
-          cx.fillText('kolosy dostępne',px+pw-272,py+72);
+          cx.fillText('można ulepszyć kuźnię',px+pw-272,py+72);
+        }
+      } else if(bMaxLvl(b.type)>1){
+        const lvl=b.lvl||1, block=bUpgBlock('player',b), c=bUpgCost(b.type,lvl);
+        if(lvl<bMaxLvl(b.type)){
+          btn(px+pw-272,py+34,134,50,'Ulepsz budynek',
+            block?block.slice(0,26):(BLVL_GAIN[b.type]||'mocniejszy')+' · '+costStr(c),
+            !block&&canAfford('player',c),()=>upgradeBuilding('player',b),true);
+        } else {
+          cx.font='600 12px Satoshi,sans-serif'; cx.fillStyle='rgba(230,194,115,.85)';
+          cx.fillText(BLVL_NAME[b.type]||'Ulepszony',px+pw-272,py+56);
+          cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.6)';
+          cx.fillText('poziom 2 / 2',px+pw-272,py+72);
         }
       }
       const cf=demolishPending(b);
@@ -670,8 +687,14 @@ function drawHUDMobile(){
       }
     } else info=d.label+'  ·  HP '+Math.max(0,Math.round(b.hp))+'/'+b.maxHp;
     if(b.done){
-      if(b.type==='townhall'&&!G.keep.player)
-        items.push({t:'Twierdza',s:'kolosy',ok:canAfford('player',KEEP_COST),a:()=>upgradeKeep('player')});
+      if(b.type==='townhall'&&(G.keep.player||0)<2)
+        items.push({t:G.keep.player?'Ratusz III':'Twierdza',s:costStr(keepCost('player')),
+          ok:canAfford('player',keepCost('player')),a:()=>upgradeKeep('player')});
+      if(b.type!=='townhall'&&bMaxLvl(b.type)>1&&(b.lvl||1)<bMaxLvl(b.type)){
+        const bl=bUpgBlock('player',b), cc=bUpgCost(b.type,b.lvl||1);
+        items.push({t:'Ulepsz',s:bl?'brak warunku':costStr(cc),ok:!bl&&canAfford('player',cc),
+          a:()=>upgradeBuilding('player',b)});
+      }
       const cf=demolishPending(b);
       items.push({t:cf?'Potwierdź':'Rozbierz',s:cf?'zburz teraz':'zwrot 50%',ok:true,a:()=>demolishBtnAction(b)});
     }

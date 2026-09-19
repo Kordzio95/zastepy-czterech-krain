@@ -399,7 +399,7 @@ function updateBuildings(dt){
     }
     // produkcja
     if(b.queue.length){
-      b.trainLeft-=dt;
+      b.trainLeft-=dt*(typeof trainSpeedMul==='function'?trainSpeedMul(b):1);
       if(b.trainLeft<=0){
         const type=b.queue.shift();
         const a=rand(0,7);
@@ -416,7 +416,13 @@ function updateBuildings(dt){
       }
     }
     // unikalny budynek frakcji: aura / przyzywanie
-    const auraDef=BUILDINGS[b.type].aura;
+    let auraDef=BUILDINGS[b.type].aura;
+    if(auraDef&&(b.lvl||1)>=2){
+      auraDef={...auraDef, range:auraDef.range*1.18,
+        rate:auraDef.rate?auraDef.rate*1.5:auraDef.rate,
+        mul:auraDef.mul?auraDef.mul+.12:auraDef.mul,
+        dps:auraDef.dps?auraDef.dps*1.5:auraDef.dps};
+    }
     if(auraDef){
       b.aura=(b.aura||0)+dt;
       if(auraDef.kind==='heal'&&b.aura>=1){
@@ -449,7 +455,7 @@ function updateBuildings(dt){
     const spw=BUILDINGS[b.type].spawner;
     if(spw){
       b.spawnT=(b.spawnT||0)+dt;
-      if(b.spawnT>=spw.every){
+      if(b.spawnT>=spw.every*((b.lvl||1)>=2?.72:1)){
         b.spawnT=0;
         if(popUsed(b.side)+UNITS[spw.type].pop<=popMax(b.side)){
           const a=rand(0,7);
@@ -461,7 +467,8 @@ function updateBuildings(dt){
       }
     }
     // wieża strzela
-    const tw=BUILDINGS[b.type].tower;
+    let tw=BUILDINGS[b.type].tower;
+    if(tw&&(b.lvl||1)>=2) tw={range:tw.range*1.22, dmg:Math.round(tw.dmg*1.4), ias:tw.ias*.88};
     if(tw){
       b.atk-=dt;
       if(b.atk<=0){
@@ -704,6 +711,7 @@ function aiTick(side,ai,dt){
       if(workers<10) trainUnit(th,'worker');
       if(ai.step>=3&&!G.units.some(u=>u.side===side&&!u.dead&&u.type==='hero')&&G.res[side].gold>320) trainUnit(th,'hero');
       if(!G.keep[side]&&ai.step>=3&&canAfford(side,KEEP_COST)) upgradeKeep(side);
+      else if(G.keep[side]===1&&ai.step>=8&&canAfford(side,KEEP_COST2)&&Math.random()<.5) upgradeKeep(side);
     }
     // przyspieszona budowa u AI (ma niewidzialnych pomocników)
     for(const b of G.buildings) if(b.side===side&&!b.dead&&!b.done){
@@ -723,6 +731,17 @@ function aiTick(side,ai,dt){
       if(b.queue.length<2) trainUnit(b,want);
     }
     if(Math.random()<.5&&!saving) tryUpgrade(side,pick(['warrior','guard','archer','crossbow','heavy','siege']));
+    // AI ulepsza budynki: najpierw jame (kolosy), potem kuznie i reszte
+    if(!saving&&typeof upgradeBuilding==='function'){
+      const mine=G.buildings.filter(b=>b.side===side&&!b.dead&&b.done&&(b.lvl||1)<bMaxLvl(b.type)&&b.type!=='townhall');
+      const pri=['lair','forge','barracks','range','tower','house','workshop'];
+      mine.sort((a,c)=>(pri.indexOf(a.type)+9)%99-(pri.indexOf(c.type)+9)%99);
+      for(const b of mine){
+        if(bUpgBlock(side,b)) continue;
+        if(!canAfford(side,bUpgCost(b.type,b.lvl||1))) continue;
+        upgradeBuilding(side,b); break;
+      }
+    }
     if(saving&&canAfford(side,KEEP_COST)) upgradeKeep(side);
   }
   for(const u of G.units) if(u.side===side&&u.type==='worker'&&!u.order&&!u.dead){

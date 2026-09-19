@@ -302,10 +302,12 @@ const UNITS={
   sling:{    label:'Wielka Proca', r:25, hp:560, dmg:105, range:350, speed:34, ias:4.6, cost:{gold:200,wood:240}, time:24, pop:3, mass:6,
              siege:{splash:126, bld:2.4, min:100, arc:110, shot:'rock', knock:1.4} },
   /* --- boss neutralny: smok strzegacy srodka mapy (4x wiekszy od kolosa) --- */
+  beast:{ label:'Bestia', r:19, hp:560, dmg:44, range:32, speed:54, ias:1.5,
+          cost:{gold:160,wood:100}, time:15, pop:2, mass:5, armor:3 },
   dragon:{ label:'Smok', r:112, hp:9000, dmg:210, range:96, speed:34, ias:2.6, pop:0, mass:40, armor:16, boss:true }
 };
 const SIEGE_KEYS=['catapult','ballista','trebuchet','cannon','sling'];
-const UNIT_KEYS=['worker','warrior','guard','archer','crossbow','flamer','heavy','hero'].concat(SIEGE_KEYS);
+const UNIT_KEYS=['worker','warrior','guard','archer','crossbow','flamer','beast','heavy','hero'].concat(SIEGE_KEYS);
 const HERO_LIMIT=1;
 
 /* --- budynki --- */
@@ -320,8 +322,8 @@ const BUILDINGS={
              desc:'Szkoli łuczników i kuszników — u demonów także miotacze ognia.' },
   forge:{    label:'Kuźnia',      key:'5', r:30, hp:2100, cost:{gold:140,wood:160},build:26, pop:0,  trains:[], upgrades:true,
              desc:'Ulepsza oddziały — zmienia ich wygląd i siłę.' },
-  lair:{     label:'Wielka Jama', key:'6', r:40, hp:3000, cost:{gold:260,wood:240},build:34, pop:0,  trains:['heavy'],
-             desc:'Wypuszcza kolosa twojej krainy.' },
+  lair:{     label:'Wielka Jama', key:'6', r:40, hp:3000, cost:{gold:260,wood:240},build:34, pop:0,  trains:['beast','heavy'],
+             desc:'Wypuszcza pomniejsze bestie krainy. Po ulepszeniu jamy wychodzi z niej kolos.' },
   tower:{    label:'Wieża',       key:'7', r:20, hp:1900, cost:{gold:90,wood:120}, build:18, pop:0,  trains:[], tower:{range:190,dmg:26,ias:1.5},
              desc:'Sama strzela do wrogów w zasięgu.' },
   workshop:{label:'Warsztat', key:'8', r:34, hp:2200, cost:{gold:200,wood:300}, build:30, pop:0, trains:'siege',
@@ -353,6 +355,24 @@ const BUILDINGS={
 const BUILD_ORDER=['townhall','house','barracks','range','forge','lair','tower','workshop','wall','gate'];
 const WALL_SPACING=27;
 
+/* --- ulepszenia budynkow --- */
+const BLVL_MAX={ townhall:1, wall:1, gate:1, house:2, barracks:2, range:2, forge:2,
+                 lair:2, tower:2, workshop:2, shrine:2, totem:2, crypt:2, portal:2, grove:2, kennel:2 };
+function bMaxLvl(type){ return BLVL_MAX[type]===undefined?2:BLVL_MAX[type]; }
+function bUpgCost(type,lvl){
+  const c=BUILDINGS[type].cost, m=Math.pow(1.7,Math.max(0,lvl-1));
+  return { gold:Math.round((c.gold*.9+70)*m), wood:Math.round((c.wood*.8+60)*m) };
+}
+const BLVL_NAME={ house:'Dwór', barracks:'Wielkie Koszary', range:'Wieża Strzelnicza',
+  forge:'Wielka Kuźnia', lair:'Legowisko Kolosa', tower:'Warowna Wieża',
+  workshop:'Wielki Warsztat', shrine:'Świątynia', totem:'Wielki Totem',
+  crypt:'Katakumby', portal:'Wielki Portal', grove:'Starodrzew', kennel:'Wielka Psiarnia' };
+const BLVL_GAIN={ house:'+4 ludności', barracks:'szkoli o 30% szybciej',
+  range:'szkoli o 30% szybciej', forge:'otwiera Kult Kolosa', lair:'wypuszcza kolosa',
+  tower:'+40% obrażeń i większy zasięg', workshop:'szkoli o 30% szybciej',
+  shrine:'mocniejsze leczenie', totem:'mocniejsza aura', crypt:'częstsze szkielety',
+  portal:'częstsze chochliki', grove:'mocniejsze leczenie', kennel:'mocniejsza aura' };
+
 /* --- ulepszenia (kuźnia) --- */
 const UPG={
   warrior:{label:'Zbrojownia',  baseCost:{gold:120,wood:80},  step:1.6, hp:.24, dmg:.22, max:5},
@@ -367,12 +387,27 @@ function upgCost(type,lvl){
   const b=UPG[type].baseCost, m=Math.pow(UPG[type].step,lvl-1);
   return {gold:Math.round(b.gold*m), wood:Math.round(b.wood*m)};
 }
-const tierName=(f,t,l)=>FACTIONS[f].tiers[t][Math.min(l,FACTIONS[f].tiers[t].length)-1];
+const BEAST_NAMES={ludzie:'Młody Cyklop',orki:'Ogrzyk',nieumarli:'Kościany Ghul',
+  demony:'Czart Otchłani',elfy:'Młody Ent',raclaw:'Szczenię Zory'};
+const BEAST_DESC={ludzie:'Niewyrośnięty cyklop — ciska kamieniami i bije pięścią.',
+  orki:'Ogrzyk z Hordy — mały, wściekły i bardzo szybki.',
+  nieumarli:'Ghul z kości — rozszarpuje wszystko, co ciepłe.',
+  demony:'Czart z Otchłani — parzy pazurami.',
+  elfy:'Młody ent — bije konarami jak młody dąb.',
+  raclaw:'Szczenię Zory — gryzie nogi i nie puszcza.'};
+const tierName=(f,t,l)=>{
+  const T=FACTIONS[f]&&FACTIONS[f].tiers[t];
+  if(!T||!T.length) return t==='beast'?(BEAST_NAMES[f]||'Bestia'):((UNITS[t]&&UNITS[t].label)||t);
+  return T[Math.min(l,T.length)-1];
+};
 
 /* wygląd zależny od poziomu — to sprawia, że ulepszenia widać */
 function look(type,lvl){
   if(type==='hero') return {scale:1+(lvl-1)*.04, helmet:true, pauldrons:true, cape:true,
     bigWeapon:true, plate:true, plume:true, weaponGlow:true, banner:true, aura:true, hero:true};
+  if(type==='beast') return {scale:1, armor:false, trophies:false, helm:false, bracers:false,
+    shieldBack:false, warPaint:false, aura:false, crown:false, weaponGlow:false, cape:false,
+    relic:false, bannerBack:false, bigWeapon:false};
   if(type==='heavy') return {scale:1+(lvl-1)*.11,
     armor:lvl>=2, trophies:lvl>=2, helm:lvl>=2, bracers:lvl>=2, shieldBack:lvl>=2, warPaint:lvl>=2,
     aura:lvl>=3, crown:lvl>=3, weaponGlow:lvl>=3, cape:lvl>=3, relic:lvl>=3, bannerBack:lvl>=3, bigWeapon:lvl>=3};

@@ -135,7 +135,7 @@ function embers(x,y,col,n=10){
 /* ==========================================================================
    TWORZENIE
    ========================================================================== */
-function upgKeyOf(type){ if(SIEGE_KEYS.indexOf(type)>=0) return 'siege'; if(type==='flamer') return 'crossbow'; return type; }
+function upgKeyOf(type){ if(SIEGE_KEYS.indexOf(type)>=0) return 'siege'; if(type==='flamer') return 'crossbow'; if(type==='beast') return 'guard'; return type; }
 function unitStats(faction,type,lvl){
   const b=UNITS[type], u=UPG[upgKeyOf(type)]||{hp:0,dmg:0};
   const st={hp:Math.round(b.hp*(1+u.hp*(lvl-1))), dmg:Math.round(b.dmg*(1+u.dmg*(lvl-1))),
@@ -195,7 +195,7 @@ function addBuilding(side,type,x,y,done){
     id:G.id++, side, faction, type, x, y, r:def.r,
     hp:done?def.hp:Math.round(def.hp*.2), maxHp:def.hp,
     done:!!done, progress:done?1:0, queue:[], trainLeft:0, trainTotal:0,
-    atk:0, dead:false, fade:1, flash:0, seed:rand(0,7), smoke:0
+    atk:0, dead:false, fade:1, flash:0, seed:rand(0,7), smoke:0, lvl:1
   };
   G.buildings.push(b);
   for(let i=0;i<10;i++) puff(x+rand(-def.r,def.r),y+rand(-def.r*.6,def.r*.6),1.2);
@@ -207,7 +207,7 @@ function addBuilding(side,type,x,y,done){
    ========================================================================== */
 function popMax(side){
   let m=0;
-  for(const b of G.buildings) if(b.side===side&&!b.dead&&b.done){ m+=BUILDINGS[b.type].pop||0; if(b.type==='townhall'&&b.keep) m+=4; }
+  for(const b of G.buildings) if(b.side===side&&!b.dead&&b.done){ m+=BUILDINGS[b.type].pop||0; if(b.type==='townhall'&&b.keep) m+=4*b.keep; if(b.type==='house'&&(b.lvl||1)>=2) m+=4; }
   return Math.min(80,m);
 }
 function popUsed(side){
@@ -421,7 +421,10 @@ function trainUnit(b,type){
       +G.buildings.filter(x=>x.side===side&&!x.dead).reduce((n,x)=>n+x.queue.filter(q=>q==='hero').length,0);
     if(have>=HERO_LIMIT){ if(side==='player') warn('Masz już bohatera'); return false; }
   }
-  if(type==='heavy'&&!G.keep[side]){ if(side==='player') warn('Najpierw ulepsz ratusz do Twierdzy'); return false; }
+  if(type==='heavy'){
+    if(!G.keep[side]){ if(side==='player') warn('Najpierw ulepsz ratusz do Twierdzy'); return false; }
+    if((b.lvl||1)<2){ if(side==='player') warn('Najpierw ulepsz Wielką Jamę na Legowisko Kolosa'); return false; }
+  }
   if(type==='heavy'){
     // jeden kolos na stronę — to jednostka wyjątkowa
     const have=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='heavy').length
@@ -438,22 +441,72 @@ function trainUnit(b,type){
   return true;
 }
 const KEEP_COST={gold:300,wood:260};
+const KEEP_COST2={gold:540,wood:420};
+function keepCost(side){ return G.keep[side]?KEEP_COST2:KEEP_COST; }
 function keepName(f){ return ({ludzie:'Twierdza Astlandu',orki:'Warownia Hordy',nieumarli:'Cytadela Kości',demony:'Piekielna Twierdza',elfy:'Warownia Srebrnego Liścia',raclaw:'Warownia Sfory'})[f]||'Twierdza'; }
+function keepName3(f){ return ({ludzie:'Cytadela Astlandu',orki:'Wielka Warownia Hordy',nieumarli:'Wielka Cytadela Kości',demony:'Cytadela Otchłani',elfy:'Cytadela Srebrnego Liścia',raclaw:'Wielka Warownia Sfory'})[f]||'Cytadela'; }
 function upgradeKeep(side){
-  if(G.keep[side]) return false;
+  const cur=G.keep[side]||0;
+  if(cur>=2) return false;
   const th=G.buildings.find(b=>b.side===side&&!b.dead&&b.done&&b.type==='townhall');
   if(!th){ if(side==='player') warn('Potrzebny gotowy ratusz'); return false; }
-  if(!canAfford(side,KEEP_COST)){ if(side==='player') warn('Brakuje surowców na Twierdzę'); return false; }
-  pay(side,KEEP_COST);
-  G.keep[side]=1;
+  const KC=cur?KEEP_COST2:KEEP_COST;
+  if(!canAfford(side,KC)){ if(side==='player') warn('Brakuje surowców na ulepszenie ratusza'); return false; }
+  pay(side,KC);
+  G.keep[side]=cur+1;
   for(const b of G.buildings) if(b.side===side&&!b.dead&&b.type==='townhall'){
-    b.keep=1; b.maxHp=Math.round(b.maxHp*1.35); b.hp=Math.min(b.maxHp,b.hp+2000);
+    b.keep=G.keep[side]; b.lvl=1+b.keep;
+    b.maxHp=Math.round(b.maxHp*1.35); b.hp=Math.min(b.maxHp,b.hp+2000);
   }
   ring(th.x,th.y,th.r*2.2,FACTIONS[G.faction[side]].col.gold,.7,7);
   SND.play('upgrade',th.x,th.y,{reach:1200,vol:side==='player'?1:.4});
   for(let i=0;i<16;i++) puff(th.x+rand(-th.r,th.r),th.y+rand(-th.r*.6,th.r*.6),1.1,'#e6d3a8');
-  if(side==='player') floatText(th.x,th.y-20,keepName(G.pf)+' — kolosy dostępne','#e6c273',15);
+  if(side==='player') floatText(th.x,th.y-20,
+    (G.keep[side]>=2?keepName3(G.pf)+' — można ulepszyć kuźnię':keepName(G.pf)+' — można ulepszyć Wielką Jamę'),'#e6c273',15);
   return true;
+}
+
+/* ==========================================================================
+   ULEPSZANIE BUDYNKOW
+   ========================================================================== */
+function bUpgBlock(side,b){
+  // zwraca null gdy mozna ulepszyc, albo tekst z powodem
+  if(!b.done||b.dead) return 'Budynek jeszcze nie gotowy';
+  const lvl=b.lvl||1;
+  if(b.type==='townhall') return 'Ratusz ulepszasz przyciskiem Twierdzy';
+  if(lvl>=bMaxLvl(b.type)) return 'Najwyższy poziom';
+  if(b.type==='lair'){
+    if(!G.keep[side]) return 'Potrzebna Twierdza (ulepsz ratusz)';
+    const atk=(G.lvl[side].warrior||1)>=2, arm=(G.lvl[side].guard||1)>=2;
+    if(!atk||!arm) return 'Potrzebne ulepszenie ataku i zbroi w kuźni';
+  }
+  if(b.type==='forge'&&(G.keep[side]||0)<2) return 'Potrzebny ratusz poziom 3 (Cytadela)';
+  return null;
+}
+function upgradeBuilding(side,b){
+  if(!b||b.side!==side) return false;
+  const block=bUpgBlock(side,b);
+  if(block){ if(side==='player') warn(block); return false; }
+  const lvl=b.lvl||1, c=bUpgCost(b.type,lvl);
+  if(!canAfford(side,c)){ if(side==='player') warn('Brakuje surowców na ulepszenie budynku'); return false; }
+  pay(side,c);
+  b.lvl=lvl+1;
+  b.maxHp=Math.round(b.maxHp*1.4); b.hp=Math.min(b.maxHp,b.hp+b.maxHp*.3);
+  ring(b.x,b.y,b.r*2.1,FACTIONS[b.faction].col.gold,.7,6);
+  SND.play('upgrade',b.x,b.y,{reach:1100,vol:side==='player'?1:.4});
+  for(let i=0;i<14;i++) puff(b.x+rand(-b.r,b.r),b.y+rand(-b.r*.6,b.r*.6),1.1,'#e6d3a8');
+  if(side==='player'){
+    const nm=BLVL_NAME[b.type]||(bLabel(b.faction,b.type)+' II');
+    floatText(b.x,b.y-b.r-14,nm+(BLVL_GAIN[b.type]?' — '+BLVL_GAIN[b.type]:''),'#e6c273',14);
+    banner(String(nm).toUpperCase(),'#e6c273');
+  }
+  return true;
+}
+function trainSpeedMul(b){
+  const lvl=b.lvl||1;
+  if(lvl<2) return 1;
+  if(b.type==='barracks'||b.type==='range'||b.type==='workshop'||b.type==='lair') return 1.3;
+  return 1.1;
 }
 function tryUpgrade(side,type){
   if(!UPG[type]) return false;
@@ -461,8 +514,9 @@ function tryUpgrade(side,type){
   if(lvl>=UPG[type].max) return false;
   const c=upgCost(type,lvl);
   if(!canAfford(side,c)){ if(side==='player') warn('Brakuje surowców na ulepszenie'); return false; }
-  const hasForge=G.buildings.some(b=>b.side===side&&!b.dead&&b.done&&b.type==='forge');
-  if(!hasForge){ if(side==='player') warn('Potrzebna kuźnia'); return false; }
+  const forge=G.buildings.find(b=>b.side===side&&!b.dead&&b.done&&b.type==='forge');
+  if(!forge){ if(side==='player') warn('Potrzebna kuźnia'); return false; }
+  if(type==='heavy'&&(forge.lvl||1)<2){ if(side==='player') warn('Kult Kolosa wymaga Wielkiej Kuźni (ulepsz kuźnię)'); return false; }
   pay(side,c);
   G.lvl[side][type]=(G.lvl[side][type]||1)+1;
   const nl=G.lvl[side][type], faction=sideFaction(side);

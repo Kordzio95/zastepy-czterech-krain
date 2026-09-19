@@ -482,6 +482,17 @@ function drawBuilding(b){
       cx.textAlign='left';
     }
   }
+  // znacznik poziomu budynku (ulepszenie)
+  if(b.done&&!b.dead&&(b.lvl||1)>=2&&ZOOM>.7){
+    const n=Math.min(3,(b.lvl||1)-1), yy=sy-r*1.5-(b.queue.length?16:7);
+    for(let i=0;i<n;i++){
+      const xx=sx+(i-(n-1)/2)*9;
+      cx.fillStyle='rgba(0,0,0,.55)';
+      cx.beginPath(); cx.moveTo(xx,yy-5.6); cx.lineTo(xx+4.4,yy+2.4); cx.lineTo(xx-4.4,yy+2.4); cx.closePath(); cx.fill();
+      cx.fillStyle='#e6c273';
+      cx.beginPath(); cx.moveTo(xx,yy-4.6); cx.lineTo(xx+3.4,yy+1.6); cx.lineTo(xx-3.4,yy+1.6); cx.closePath(); cx.fill();
+    }
+  }
   if(b===G.selBuilding){
     cx.strokeStyle='#e6c273'; cx.lineWidth=2; cx.setLineDash([5,4]);
     cx.beginPath(); cx.ellipse(sx,sy+r*.3,r*1.1,r*.7,0,0,7); cx.stroke(); cx.setLineDash([]);
@@ -509,7 +520,7 @@ function drawUnit(u){
   const sx=toScreenX(u.x), sy=toScreenY(u.y)-u.z*.6;
   const c=FACTIONS[u.faction].col, L=look(u.type,u.lvl), r=u.r;
   let bob=u.state==='move'?Math.sin(u.walk)*1.6:Math.sin(u.anim*2+u.id)*.6;
-  if(u.type==='heavy') bob=u.state==='move'?-Math.abs(Math.sin(u.walk))*3.2+1.6:Math.sin(u.anim*1.1+u.id)*1.1;
+  if(u.type==='heavy'||u.type==='beast') bob=u.state==='move'?-Math.abs(Math.sin(u.walk))*(u.type==='beast'?2.1:3.2)+1.6:Math.sin(u.anim*1.1+u.id)*1.1;
   if(u.type==='dragon') bob=u.state==='move'?-Math.abs(Math.sin(u.walk))*5.5+2.6:Math.sin(u.dragAnim*1.1)*2.2;
   cx.save();
   cx.globalAlpha=u.dead?Math.max(0,u.fade):1;
@@ -572,7 +583,7 @@ function drawUnit(u){
   if(u.type==='dragon'&&typeof drawDragonTop==='function') drawDragonTop(u,c,L,r,ang,hit);
   else if(u.type==='hero'&&typeof drawHeroTop==='function') drawHeroTop(u,c,L,r,ang,hit);
   else if(UNITS[u.type].siege) drawSiegeTop(u,c,L,r,ang,hit);
-  else if(u.type==='heavy') drawHeavyTop(u,c,L,r,ang,hit);
+  else if(u.type==='heavy'||u.type==='beast') drawHeavyTop(u,c,L,r,ang,hit);
   else drawSoldierTop(u,c,L,r,ang,hit);
   cx.restore();
 
