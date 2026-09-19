@@ -17,8 +17,8 @@ const ARCH={
            glow:'#ff6a22', roofCol:'#59120e', roof:'jag', win:'glow' },
   elfy:{   stone:'#e4ead6', stone2:'#c3d0b4', trim:'#e9d79a', wood:'#7d6a44',
            glow:'#9ae6b8', roofCol:'#4f8f58', roof:'leaf', win:'lancet' },
-  raclaw:{ stone:'#cbb896', stone2:'#a08a63', trim:'#e3b45f', wood:'#7a5330',
-           glow:null, roofCol:'#8a5a30', roof:'hide', win:'slit' }
+  raclaw:{ stone:'#5d4c3a', stone2:'#3d3126', trim:'#c9d2da', wood:'#3a2a1c',
+    glow:null, roofCol:'#231b15', roof:'hide', win:'slit' },
 };
 const archOf=f=>ARCH[f]||ARCH.ludzie;
 
@@ -581,6 +581,7 @@ function drawFactionBuilding(b,sx,sy,r,h,c){
   else if(ff==='nieumarli'&&big) soulGround(sx,sy,r,b.seed);
   else if(ff==='elfy'&&big) groveGround(sx,sy,r,b.seed);
   const ok=drawFactionBuildingCore(b,sx,sy,r,h,c);
+  if(ok&&ff==='raclaw') raclawDeco(b,sx,sy,r,h,c);
   if(ok&&b.done&&big){
     if(ff==='demony') hellAura(sx,sy,r,b.seed,b);
     else if(ff==='nieumarli') soulAura(sx,sy,r,b.seed);
@@ -588,6 +589,78 @@ function drawFactionBuilding(b,sx,sy,r,h,c){
   }
   return ok;
 }
+/* --- RACLAW: srebrne lancuchy, psie czaszki i czarne skory --- */
+function chainLine(x1,y1,x2,y2,sag,rad,col){
+  const n=Math.max(4,Math.round(Math.hypot(x2-x1,y2-y1)/(rad*1.7)));
+  for(let i=0;i<=n;i++){
+    const t=i/n, xx=x1+(x2-x1)*t, yy=y1+(y2-y1)*t+Math.sin(Math.PI*t)*sag;
+    cx.strokeStyle=hexA(col,i%2?.95:.7); cx.lineWidth=Math.max(1.1,rad*.42);
+    cx.beginPath(); cx.ellipse(xx,yy,rad,rad*.72,i%2?.5:-.5,0,7); cx.stroke();
+  }
+}
+function dogSkull(x,y,sz,bone='#e6dcc4'){
+  cx.fillStyle=bone;
+  cx.beginPath(); cx.ellipse(x,y,sz*.52,sz*.44,0,0,7); cx.fill();
+  cx.beginPath(); cx.moveTo(x-sz*.16,y+sz*.2); cx.lineTo(x-sz*.1,y+sz*.95);
+  cx.lineTo(x+sz*.18,y+sz*.95); cx.lineTo(x+sz*.2,y+sz*.2); cx.closePath(); cx.fill();
+  cx.strokeStyle='rgba(20,16,12,.65)'; cx.lineWidth=1.1; cx.stroke();
+  cx.fillStyle='#17110d';
+  cx.beginPath(); cx.ellipse(x-sz*.2,y-sz*.06,sz*.14,sz*.16,0,0,7);
+  cx.ellipse(x+sz*.2,y-sz*.06,sz*.14,sz*.16,0,0,7); cx.fill();
+  cx.fillStyle=bone;
+  for(const i of [-1,1]){
+    cx.beginPath(); cx.moveTo(x+i*sz*.13,y+sz*.62);
+    cx.lineTo(x+i*sz*.06,y+sz*1.02); cx.lineTo(x+i*sz*.2,y+sz*.64); cx.closePath(); cx.fill();
+  }
+  // klapniete uszy
+  cx.fillStyle=shade(bone,-.18);
+  for(const i of [-1,1]){
+    cx.beginPath(); cx.moveTo(x+i*sz*.42,y-sz*.2);
+    cx.quadraticCurveTo(x+i*sz*.74,y-sz*.1,x+i*sz*.5,y+sz*.3);
+    cx.quadraticCurveTo(x+i*sz*.4,y+sz*.02,x+i*sz*.42,y-sz*.2); cx.closePath(); cx.fill();
+  }
+}
+function raclawDeco(b,sx,sy,r,h,c){
+  const A=archOf('raclaw'), sd=b.seed||1, silver=A.trim, big=r>18;
+  // czarna skora napieta nad wejsciem
+  cx.fillStyle=hexA('#1d1712',.9);
+  cx.beginPath();
+  cx.moveTo(sx-r*.72,sy-h*.12);
+  cx.quadraticCurveTo(sx,sy-h*.34,sx+r*.72,sy-h*.12);
+  cx.quadraticCurveTo(sx+r*.5,sy+h*.06,sx,sy+h*.02);
+  cx.quadraticCurveTo(sx-r*.5,sy+h*.06,sx-r*.72,sy-h*.12);
+  cx.closePath(); cx.fill();
+  cx.strokeStyle=hexA(silver,.55); cx.lineWidth=1.3; cx.stroke();
+  // srebrne lancuchy zwieszone przez fasade
+  chainLine(sx-r*1.0,sy-h*.3,sx+r*1.0,sy-h*.3,h*.2,Math.max(1.6,r*.055),silver);
+  if(big) chainLine(sx-r*.86,sy-h*.62,sx+r*.86,sy-h*.62,h*.16,Math.max(1.5,r*.05),silver);
+  // psie czaszki na palach po bokach
+  const pole=(s2)=>{
+    const px=sx+s2*r*(big?1.16:.92), py=sy+h*.34;
+    cx.strokeStyle=shade(A.wood,-.2); cx.lineWidth=Math.max(2,r*.09);
+    cx.beginPath(); cx.moveTo(px,py); cx.lineTo(px,py-h*(big?1.1:.82)); cx.stroke();
+    dogSkull(px,py-h*(big?1.16:.88),Math.max(6,r*.3));
+    // lancuch od pala do bryly
+    chainLine(px,py-h*(big?.9:.66),sx+s2*r*.5,sy-h*.34,h*.1,Math.max(1.3,r*.042),silver);
+  };
+  pole(-1); if(big) pole(1);
+  // slady pazurow na scianie
+  cx.strokeStyle='rgba(18,14,10,.45)'; cx.lineWidth=1.4;
+  for(let i=-1;i<=1;i++){
+    const xx=sx+i*r*.26+((sd%3)-1)*r*.06;
+    cx.beginPath(); cx.moveTo(xx,sy+h*.26); cx.lineTo(xx+r*.08,sy+h*.02); cx.stroke();
+  }
+  // miska i kosc przed wejsciem
+  if(big&&b.done){
+    cx.fillStyle=hexA(shade(silver,-.25),.9);
+    cx.beginPath(); cx.ellipse(sx+r*.78,sy+h*.5,r*.18,r*.08,0,0,7); cx.fill();
+    cx.strokeStyle='rgba(16,14,12,.6)'; cx.lineWidth=1.1; cx.stroke();
+    cx.strokeStyle='#e6dcc4'; cx.lineWidth=Math.max(1.6,r*.05); cx.lineCap='round';
+    cx.beginPath(); cx.moveTo(sx-r*.82,sy+h*.52); cx.lineTo(sx-r*.52,sy+h*.46); cx.stroke();
+    cx.lineCap='butt';
+  }
+}
+
 /* --- nadbudowa Twierdzy: bastiony, blanki i sztandary --- */
 function keepCrest(b,sx,sy,r,h,c,A,f){
   const sd=b.seed||1, stone=A.stone||'#8d8474', st2=A.stone2||shade(stone,-.12);

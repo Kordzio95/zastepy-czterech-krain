@@ -138,8 +138,11 @@ function embers(x,y,col,n=10){
 function upgKeyOf(type){ if(SIEGE_KEYS.indexOf(type)>=0) return 'siege'; if(type==='flamer') return 'crossbow'; return type; }
 function unitStats(faction,type,lvl){
   const b=UNITS[type], u=UPG[upgKeyOf(type)]||{hp:0,dmg:0};
-  return {hp:Math.round(b.hp*(1+u.hp*(lvl-1))), dmg:Math.round(b.dmg*(1+u.dmg*(lvl-1))),
+  const st={hp:Math.round(b.hp*(1+u.hp*(lvl-1))), dmg:Math.round(b.dmg*(1+u.dmg*(lvl-1))),
     range:b.range, speed:b.speed, ias:b.ias};
+  // Zora: czarna suka Raclawia jest wyraznie szybsza i czesciej atakuje
+  if(faction==='raclaw'&&type==='heavy'){ st.speed=Math.round(b.speed*1.5); st.ias=b.ias*.7; }
+  return st;
 }
 function spawnUnit(side,type,x,y,lvlOpt){
   const faction=sideFaction(side);
@@ -709,6 +712,7 @@ function meleeAttack(u,t){
     embers(u.x+nx*14,u.y+ny*14,'#ff9e3d',5);
     G.parts.push({x:u.x+nx*16,y:u.y+ny*16,vx:nx*60,vy:ny*60,life:.3,max:.3,size:8,col:'#ffb15e',kind:'fire'});
   } else if(u.faction==='raclaw'){
+    if(u.type==='heavy'){ zoraMaul(u,t,nx,ny,ang,dmg); return; }
     // ugryzienie: rana krwawi, a ranny wrog dostaje dobicie
     const low=UNITS[t.type]&&t.hp<t.maxHp*.5;
     dealDamage(t,Math.round(dmg*(low?1.35:1)),u.side,{dx:nx,dy:ny,n:low?8:5,power:low?1.3:1});
@@ -766,6 +770,44 @@ function meleeAttack(u,t){
     }
   }
   for(let i=0;i<3;i++) puff((u.x+t.x)/2,(u.y+t.y)/2,.6,'#e7d6b4');
+}
+
+/* --- ZORA: blyskawiczny doskok i rozszarpanie --- */
+function zoraMaul(u,t,nx,ny,ang,dmg){
+  const d=Math.hypot(t.x-u.x,t.y-u.y);
+  const gap=u.r+(t.r||16)+4;
+  // doskok: jeden susz na cel, jesli nie stoi tuz przy pysku
+  if(d>gap+6&&!u.z){
+    const tx=t.x-nx*gap, ty=t.y-ny*gap;
+    for(let i=0;i<12;i++){ const k=i/12; puff(u.x+(tx-u.x)*k,u.y+(ty-u.y)*k,.8,'#3a332b'); }
+    u.x=clamp(tx,20,MAP_W-20); u.y=clamp(ty,20,MAP_H-20);
+    u.path=null; u.jump=.28; u.facing=ang;
+    shake(3.4,u.x,u.y,340); SND.play('blunt',u.x,u.y);
+    floatText(u.x,u.y-u.r-14,'DOSKOK','#e9923a',12);
+  }
+  // rozszarpanie: trzy szybkie szarpniecia klami
+  const rip=Math.round(dmg*.5);
+  for(let i=0;i<3;i++){
+    if(t.dead) break;
+    dealDamage(t,rip,u.side,{dx:nx,dy:ny,n:6,power:1.2});
+    slashArc(t.x-nx*t.r*.3,t.y-ny*t.r*.3,ang+(i-1)*.5,(t.r||16)*2.2+14,'#f2e0c6',4);
+  }
+  if(UNITS[t.type]&&!t.dead){
+    bite(t,5,u.side);
+    knockback(t,nx,ny,150,0);
+    t.stun=Math.max(t.stun,.3);
+    floatText(t.x,t.y-t.r-12,'ROZSZARPANIE','#c23a2a',13);
+  }
+  for(let i=0;i<12;i++) G.parts.push({x:t.x+rand(-t.r*.5,t.r*.5),y:t.y+rand(-t.r*.5,t.r*.3),
+    vx:rand(-110,110),vy:rand(-140,-20),life:rand(.3,.7),max:.7,size:rand(2,5),col:'#8a2b20',kind:'gore'});
+  if(u.lvl>=3){
+    // rozgrzana paszcza podpala ofiare
+    ignite(t,3,u.side);
+    embers(t.x,t.y-t.r*.4,'#ffb257',6);
+  }
+  spark(t.x,t.y,'#f2e0c6',8,1.2); shake(3,t.x,t.y,260); hitstopAt(.04,t.x,t.y,260);
+  SND.play('heroHit',t.x,t.y);
+  if(typeof unitVoice==='function'&&u.side==='player'&&Math.random()<.25) unitVoice(u,'attack');
 }
 
 /* --- strzały --- */

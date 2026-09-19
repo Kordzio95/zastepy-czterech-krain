@@ -291,13 +291,13 @@ function drawBuilding(b){
     }
   } else if(b.type==='kennel'){
     // Psiarnia: drewniana buda z lukowym wejsciem, kosciami i lancuchem
-    cx.fillStyle=shade('#7a5330',.04);
+    cx.fillStyle=shade('#3a2a1c',.05);
     cx.beginPath(); cx.rect(sx-r*.78,sy-h*.8,r*1.56,h*1.2); cx.fill();
     cx.strokeStyle='rgba(20,18,14,.55)'; cx.lineWidth=1.4; cx.stroke();
-    cx.strokeStyle=hexA(shade('#7a5330',-.28),.9); cx.lineWidth=1.6;
+    cx.strokeStyle=hexA(shade('#3a2a1c',-.3),.9); cx.lineWidth=1.6;
     for(let i=0;i<4;i++){ cx.beginPath(); cx.moveTo(sx-r*.78,sy-h*.8+i*h*.3); cx.lineTo(sx+r*.78,sy-h*.8+i*h*.3); cx.stroke(); }
     // dwuspadowy dach z desek
-    cx.fillStyle=shade(roof,-.04);
+    cx.fillStyle=shade('#231b15',.03);
     cx.beginPath(); cx.moveTo(sx-r*.95,sy-h*.8); cx.lineTo(sx,sy-h*1.55); cx.lineTo(sx+r*.95,sy-h*.8); cx.closePath(); cx.fill();
     cx.strokeStyle='rgba(20,18,14,.5)'; cx.lineWidth=1.4; cx.stroke();
     // czarny otwor wejscia
@@ -316,6 +316,10 @@ function drawBuilding(b){
     cx.beginPath(); cx.moveTo(sx+r*.74,sy+h*.1); cx.quadraticCurveTo(sx+r*1.05,sy+h*.5,sx+r*1.2,sy+h*.34); cx.stroke();
     cx.fillStyle='#4a3120';
     cx.beginPath(); cx.rect(sx+r*1.16,sy+h*.3,r*.1,h*.3); cx.fill();
+    if(typeof chainLine==='function'){
+      chainLine(sx-r*.8,sy-h*.66,sx+r*.8,sy-h*.66,h*.16,Math.max(1.4,r*.07),'#c9d2da');
+    }
+    if(typeof dogSkull==='function') dogSkull(sx,sy-h*1.78,Math.max(6,r*.3));
     if(b.done){
       const gl=.3+.25*Math.abs(Math.sin(TIME*2+b.seed));
       cx.strokeStyle=hexA(c.accent,gl); cx.lineWidth=3;

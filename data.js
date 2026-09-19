@@ -155,7 +155,7 @@ const FACTIONS={
       hero:['Jacob'],
       warrior:['Psiarz','Kłapouch','Wyjec','Rozszarpywacz','Alfa Racławia'],
       archer:['Łucznik Sfory','Strzelec Kłapouchy','Tropiciel Strzał','Mistrz Łuku Sfory','Wycie Strzał'],
-      heavy:['Zora','Zora Alfa','Zora, Pani Sfory'],
+      heavy:['Zora','Zora w Łańcuchach','Zora Ognistej Paszczy'],
       catapult:['Katapulta Sfory','Katapulta Oblężnicza','Wielka Katapulta Racławia'],
       ballista:['Balista Sfory','Balista Ciężka','Balista Racławia'],
       trebuchet:['Trebusz Sfory','Trebusz Oblężniczy','Trebusz Racławia'],

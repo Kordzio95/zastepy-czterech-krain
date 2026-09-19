@@ -231,9 +231,29 @@ function drawHeroTop(u,c,L,r,ang,hit){
     for(const sd of [-1,1]){
       const front=(sd===face);
       const reach=front?kick:Math.max(0,kick-.5)*.4;
-      const ex=sd*shW*1.02+face*reach*r*.95;
-      const ey=shY+r*.12-reach*r*.1;
-      limb(sd*shW*.86,shY,ex,ey,r*.24,'#dcae86',hit);
+      const ex=sd*shW*1.18+face*reach*r*1.0-sd*reach*shW*.5;
+      const ey=shY+r*.5-reach*r*.42;
+      // pelne ramie: bark -> biceps -> lokiec -> przedramie -> piesc
+      const sx0=sd*shW*1.0, sy0=shY+r*.04;
+      const armC=hit?'#fff':shade('#dcae86',front?.04:-.14);
+      const armC2=hit?'#fff':shade('#dcae86',front?-.06:-.22);
+      // bark (miesien naramienny)
+      cx.fillStyle=armC;
+      cx.beginPath(); cx.ellipse(sx0,sy0,r*.17,r*.15,sd*.3,0,7); cx.fill();
+      cx.strokeStyle=OUT; cx.lineWidth=1.5; cx.stroke();
+      // lokiec miedzy barkiem a piescia, odgiety na zewnatrz
+      const bend=front?(1-reach)*.9+.15:.7;
+      const elx=(sx0+ex)/2+sd*r*.3*bend+face*reach*r*.12;
+      const ely=(sy0+ey)/2+r*.1*bend;
+      limb(sx0,sy0,elx,ely,r*.21,armC,hit);
+      limb(elx,ely,ex,ey,r*.175,armC2,hit);
+      // zarys miesni ramienia
+      cx.strokeStyle=hexA(skin2,.75); cx.lineWidth=1.3;
+      cx.beginPath(); cx.arc(sx0+sd*r*.02,sy0+r*.1,r*.12,sd>0?-.2:Math.PI+.2,sd>0?1.5:Math.PI+1.5,sd<0); cx.stroke();
+      // lokiec
+      cx.fillStyle=armC2;
+      cx.beginPath(); cx.arc(elx,ely,r*.1,0,7); cx.fill();
+      cx.strokeStyle=OUT; cx.lineWidth=1.2; cx.stroke();
       // owinieta pięść
       cx.fillStyle=hit?'#fff':wrap;
       cx.beginPath(); cx.arc(ex+face*reach*r*.16,ey,r*.2,0,7); cx.fill();
