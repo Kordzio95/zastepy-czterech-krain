@@ -566,6 +566,9 @@ function updateParticles(dt){
     p.vx*=.95; p.vy*=.95;
   }
   G.parts=G.parts.filter(p=>p.life>0);
+  // twardy limit — chroni slabsze telefony przed zadyszka i padem karty
+  if(G.parts.length>PART_CAP) G.parts.splice(0,G.parts.length-PART_CAP);
+  if(G.texts.length>90) G.texts.splice(0,G.texts.length-90);
   for(const t of G.texts){ t.life-=dt; t.y-=dt*26; }
   G.texts=G.texts.filter(t=>t.life>0);
   for(const d of G.decals) d.life-=dt;
@@ -630,10 +633,11 @@ function aiTick(side,ai,dt){
     }
     for(const b of G.buildings){
       if(b.side!==side||b.dead||!b.done) continue;
-      const tr=BUILDINGS[b.type].trains;
+      const tr=trainsOf(BUILDINGS[b.type],sideFaction(side));
       if(!tr||!tr.length) continue;
       if(tr[0]==='worker') continue;
-      if(b.queue.length<2) trainUnit(b,tr[0]);
+      const want=tr[Math.floor(Math.random()*tr.length)];
+      if(b.queue.length<2) trainUnit(b,want);
     }
     if(Math.random()<.5) tryUpgrade(side,pick(['warrior','archer','heavy','siege']));
   }

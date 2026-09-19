@@ -50,6 +50,7 @@ function sideCol(side){ return SIDE_COL[side]||'#df5b4d'; }
 /* ==========================================================================
    EFEKTY
    ========================================================================== */
+const PART_CAP=(typeof navigator!=='undefined'&&/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent||''))?520:1400;
 function puff(x,y,s=1,col='#cdbfa6'){G.parts.push({x,y,vx:rand(-26,26)*s,vy:rand(-22,22)*s,life:rand(.35,.8),max:.8,size:rand(3,8)*s,col,kind:'dust'});}
 function spark(x,y,col,n=8,p=1){for(let i=0;i<n;i++)G.parts.push({x,y,vx:rand(-90,90)*p,vy:rand(-90,90)*p,life:rand(.25,.6),max:.6,size:rand(1.6,4),col,kind:'spark'});}
 function ring(x,y,maxR,col,life=.5,width=6){G.parts.push({x,y,kind:'ring',r:6,maxR,life,max:life,col,width});}
@@ -343,6 +344,7 @@ function placeBuilding(wx,wy){
 function trainUnit(b,type){
   if(!b.done||b.dead) return false;
   const side=b.side, def=UNITS[type];
+  if(!def) return false;
   if(type==='hero'){
     const have=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='hero').length
       +G.buildings.filter(x=>x.side===side&&!x.dead).reduce((n,x)=>n+x.queue.filter(q=>q==='hero').length,0);
@@ -357,7 +359,8 @@ function trainUnit(b,type){
   return true;
 }
 function tryUpgrade(side,type){
-  const lvl=G.lvl[side][type];
+  if(!UPG[type]) return false;
+  const lvl=G.lvl[side][type]||1;
   if(lvl>=UPG[type].max) return false;
   const c=upgCost(type,lvl);
   if(!canAfford(side,c)){ if(side==='player') warn('Brakuje surowców na ulepszenie'); return false; }
@@ -365,15 +368,19 @@ function tryUpgrade(side,type){
   if(!hasForge){ if(side==='player') warn('Potrzebna kuźnia'); return false; }
   pay(side,c);
   G.lvl[side][type]++;
-  const nl=G.lvl[side][type], faction=sideFaction(side), ns=unitStats(faction,type,nl), L=look(type,nl);
-  for(const u of G.units) if(u.side===side&&u.type===type&&!u.dead){
+  const nl=G.lvl[side][type], faction=sideFaction(side);
+  for(const u of G.units) if(u.side===side&&!u.dead&&upgKeyOf(u.type)===type){
+    const ns=unitStats(faction,u.type,nl), L=look(u.type,nl);
     const ratio=u.hp/u.maxHp;
     u.maxHp=ns.hp; u.hp=Math.min(ns.hp,ns.hp*ratio+ns.hp*.15);
-    u.dmg=ns.dmg; u.lvl=nl; u.r=UNITS[type].r*L.scale;
+    u.dmg=ns.dmg; u.lvl=nl; u.r=UNITS[u.type].r*(L?L.scale:1);
     ring(u.x,u.y,u.r+22,'rgba(230,194,115,.9)',.5,3);
     embers(u.x,u.y,'#e6c273',8);
   }
-  if(side==='player') banner(tierName(faction,type,nl).toUpperCase(),'#e6c273');
+  if(side==='player'){
+    const nm=UNITS[type]?tierName(faction,type,nl):(UPG[type].label||'Ulepszenie')+' '+nl;
+    banner(String(nm).toUpperCase(),'#e6c273');
+  }
   return true;
 }
 let warnMsg=null;
