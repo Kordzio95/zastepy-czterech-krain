@@ -810,8 +810,8 @@ function drawMinimap(){
   }
   for(const u of G.units){
     if(u.dead) continue;
-    cx.fillStyle=u.side==='player'&&u.type==='worker'?'#cfe7b8':sideCol(u.side);
-    const s=u.type==='heavy'?4:2.4;
+    cx.fillStyle=u.type==='dragon'?(u.dk?u.dk.glow:'#bda6d8'):(u.side==='player'&&u.type==='worker'?'#cfe7b8':sideCol(u.side));
+    const s=u.type==='dragon'?8:(u.type==='heavy'?4:2.4);
     cx.fillRect(m.x+u.x*sx-s/2,m.y+u.y*sy-s/2,s,s);
   }
   cx.strokeStyle='rgba(255,255,255,.85)'; cx.lineWidth=1.4;
@@ -838,7 +838,7 @@ function renderScene(){
   // sortowanie po Y dla głębi
   const ents=[];
   for(const b of G.buildings) if(vis(b.x,b.y,b.r*2)) ents.push({y:b.y,b});
-  for(const u of G.units) if(vis(u.x,u.y,60)) ents.push({y:u.y,u});
+  for(const u of G.units) if(vis(u.x,u.y,u.type==='dragon'?260:60)) ents.push({y:u.y,u});
   ents.sort((a,b)=>a.y-b.y);
   for(const e of ents){ if(e.b) drawBuilding(e.b); else drawUnit(e.u); }
   drawEffects();

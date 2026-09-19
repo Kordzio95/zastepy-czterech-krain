@@ -205,7 +205,7 @@ const factionBuilds=f=>BUILD_ORDER.concat([FBUILD[f].unique]);
 /* --- kolory i nazwy stron --- */
 /* --- odziały szkolone w danym budynku zależnie od krainy --- */
 const FTRAIN={ demony:{ range:['archer','crossbow','flamer'] } };
-const SIDE_COL={player:'#7ec96a', e1:'#df5b4d', e2:'#8fb4ff', e3:'#e0a33c'};
+const SIDE_COL={player:'#7ec96a', e1:'#df5b4d', e2:'#8fb4ff', e3:'#e0a33c', wild:'#bda6d8'};
 const SIDE_NAME={player:'Twoja osada', e1:'Wróg I', e2:'Wróg II', e3:'Wróg III'};
 
 /* --- mapy --- */
@@ -268,7 +268,9 @@ const UNITS={
   cannon:{   label:'Działo',       r:23, hp:540, dmg:130, range:360, speed:28, ias:5.2, cost:{gold:340,wood:200}, time:30, pop:3, mass:6,
              siege:{splash:96, bld:2.8, min:90, arc:34, shot:'ball', fire:true} },
   sling:{    label:'Wielka Proca', r:25, hp:560, dmg:105, range:350, speed:34, ias:4.6, cost:{gold:200,wood:240}, time:24, pop:3, mass:6,
-             siege:{splash:126, bld:2.4, min:100, arc:110, shot:'rock', knock:1.4} }
+             siege:{splash:126, bld:2.4, min:100, arc:110, shot:'rock', knock:1.4} },
+  /* --- boss neutralny: smok strzegacy srodka mapy (4x wiekszy od kolosa) --- */
+  dragon:{ label:'Smok', r:112, hp:9000, dmg:210, range:96, speed:34, ias:2.6, pop:0, mass:40, armor:16, boss:true }
 };
 const SIEGE_KEYS=['catapult','ballista','trebuchet','cannon','sling'];
 const UNIT_KEYS=['worker','warrior','guard','archer','crossbow','flamer','heavy','hero'].concat(SIEGE_KEYS);
@@ -336,7 +338,10 @@ const tierName=(f,t,l)=>FACTIONS[f].tiers[t][Math.min(l,FACTIONS[f].tiers[t].len
 function look(type,lvl){
   if(type==='hero') return {scale:1+(lvl-1)*.04, helmet:true, pauldrons:true, cape:true,
     bigWeapon:true, plate:true, plume:true, weaponGlow:true, banner:true, aura:true, hero:true};
-  if(type==='heavy') return {scale:1+(lvl-1)*.09, armor:lvl>=2, trophies:lvl>=2, aura:lvl>=3, crown:lvl>=3, weaponGlow:lvl>=3};
+  if(type==='heavy') return {scale:1+(lvl-1)*.11,
+    armor:lvl>=2, trophies:lvl>=2, helm:lvl>=2, bracers:lvl>=2, shieldBack:lvl>=2, warPaint:lvl>=2,
+    aura:lvl>=3, crown:lvl>=3, weaponGlow:lvl>=3, cape:lvl>=3, relic:lvl>=3, bannerBack:lvl>=3, bigWeapon:lvl>=3};
+  if(type==='dragon') return {scale:1, aura:true, weaponGlow:true, boss:true};
   if(type==='worker') return {scale:1+(lvl-1)*.06, helmet:lvl>=2, plate:lvl>=3, aura:false, weaponGlow:false};
   if(type==='guard') return {scale:1+(lvl-1)*.055, helmet:true, pauldrons:true, plate:lvl>=2,
     bigWeapon:lvl>=2, cape:lvl>=3, plume:lvl>=3, weaponGlow:lvl>=4, aura:lvl>=4};
@@ -366,3 +371,20 @@ const RES={
   gold:{label:'Kopalnia złota', amount:3200, rate:8,  carry:16, col:'#e6c273', icon:'moneta', short:'złoto'},
   wood:{label:'Drzewo',         amount:520,  rate:7,  carry:16, col:'#6f8f4a', icon:'kłoda',  short:'drewno'}
 };
+
+/* ==========================================================================
+   SMOK — boss strzegacy srodka mapy. Rodzaj zalezy od mapy.
+   ========================================================================== */
+const DRAGONS={
+  kosciany:{ key:'kosciany', name:'Kościany Smok', faction:'nieumarli',
+    bone:'#e6e0cc', bone2:'#c5bda4', bone3:'#9a9179', glow:'#79e0d2', breath:'#cfeae4',
+    breathName:'TCHNIENIE PRÓCHNICY' },
+  ognisty:{ key:'ognisty', name:'Ognisty Smok', faction:'demony',
+    bone:'#4a1f18', bone2:'#6e2a1e', bone3:'#98381f', glow:'#ff9e3d', breath:'#ffb15c',
+    breathName:'POTOP OGNIA' },
+  lodowy:{ key:'lodowy', name:'Lodowy Smok', faction:'elfy',
+    bone:'#cfe4f2', bone2:'#9dc2dd', bone3:'#6f9cbe', glow:'#9ff0e4', breath:'#dff4ff',
+    breathName:'MROŹNY WICHER' }
+};
+const DRAGON_BY_MAP={ rowniny:'kosciany', zima:'lodowy', pustynia:'ognisty', popioly:'ognisty', cztery:'kosciany' };
+const dragonKindFor=m=>DRAGONS[DRAGON_BY_MAP[m]||'kosciany'];

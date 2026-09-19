@@ -660,6 +660,59 @@ function drawHeavyTop(u,c,L,r,ang,hit){
     cx.beginPath(); cx.moveTo(tipX-r*.1,tipY+r*.06); cx.lineTo(tipX-face*r*.24+tw*r*.1,tipY-r*.12); cx.lineTo(tipX+r*.02,tipY-r*.1); cx.closePath(); cx.fill();
     cx.lineCap='butt';
   }
+  /* --- ZA PLECAMI: sztandar (3), peleryna (3), tarcza (2) --- */
+  if(L.bannerBack){
+    const bx=-face*shW*.55, by=shY-r*.1;
+    const swz=Math.sin(TIME*2.2+u.id)*.12+(moving?Math.sin(u.walk*.5)*.1:0);
+    cx.strokeStyle=hit?'#fff':'#5a4326'; cx.lineWidth=r*.07; cx.lineCap='round';
+    cx.beginPath(); cx.moveTo(bx,by+r*.5); cx.lineTo(bx-face*r*.1,by-r*1.5); cx.stroke();
+    const tx0=bx-face*r*.1, ty0=by-r*1.45;
+    cx.fillStyle=hit?'#fff':lit3d(tx0,ty0,r*.6,c.cloth);
+    cx.beginPath(); cx.moveTo(tx0,ty0);
+    cx.quadraticCurveTo(tx0-face*r*(.55+swz),ty0+r*.18,tx0-face*r*(.62+swz),ty0+r*.62);
+    cx.quadraticCurveTo(tx0-face*r*.3,ty0+r*.5,tx0,ty0+r*.7);
+    cx.closePath(); cx.fill();
+    cx.strokeStyle=hexA(c.gold,.8); cx.lineWidth=1.5; cx.stroke();
+    // godlo na sztandarze
+    cx.fillStyle=hexA(c.gold,.85);
+    cx.beginPath(); cx.arc(tx0-face*r*.3,ty0+r*.36,r*.1,0,7); cx.fill();
+    cx.lineCap='butt';
+  }
+  if(L.cape){
+    const flow=Math.sin(TIME*1.8+u.id)*.1+(moving?.18:0);
+    cx.fillStyle=hit?'#fff':lit3d(0,torY,r*1.2,shade(c.cloth,-.18));
+    cx.beginPath();
+    cx.moveTo(-shW*.86,shY-r*.06);
+    cx.quadraticCurveTo(-torW*(1.35+flow),torY+r*.2,-torW*(1.05+flow),GY-r*.02);
+    cx.quadraticCurveTo(0,GY+r*.16,torW*(1.05+flow),GY-r*.02);
+    cx.quadraticCurveTo(torW*(1.35+flow),torY+r*.2,shW*.86,shY-r*.06);
+    cx.closePath(); cx.fill();
+    cx.strokeStyle=hexA(c.gold,.55); cx.lineWidth=1.6; cx.stroke();
+    cx.strokeStyle='rgba(0,0,0,.2)'; cx.lineWidth=1.3;
+    for(let i=-1;i<=1;i++){
+      cx.beginPath(); cx.moveTo(i*torW*.5,shY+r*.05);
+      cx.quadraticCurveTo(i*torW*.75,torY+r*.2,i*torW*.7,GY-r*.05); cx.stroke();
+    }
+  }
+  if(L.shieldBack){
+    const sx2=-face*torW*1.0, sy2=torY-r*.05;
+    cx.fillStyle=hit?'#fff':lit3d(sx2,sy2,r*.8,shade(c.metal,-.14));
+    cx.beginPath();
+    cx.moveTo(sx2-r*.32,sy2-r*.4); cx.lineTo(sx2+r*.32,sy2-r*.4);
+    cx.quadraticCurveTo(sx2+r*.38,sy2+r*.2,sx2,sy2+r*.52);
+    cx.quadraticCurveTo(sx2-r*.38,sy2+r*.2,sx2-r*.32,sy2-r*.4);
+    cx.closePath(); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.8; cx.stroke();
+    cx.strokeStyle=hexA(c.gold,.7); cx.lineWidth=1.6;
+    cx.beginPath(); cx.moveTo(sx2,sy2-r*.34); cx.lineTo(sx2,sy2+r*.42); cx.stroke();
+    cx.beginPath(); cx.moveTo(sx2-r*.24,sy2-r*.02); cx.lineTo(sx2+r*.24,sy2-r*.02); cx.stroke();
+    // kolce na krawedzi tarczy
+    cx.fillStyle=hit?'#fff':'#cfc7ae';
+    for(let i=-1;i<=1;i++){
+      const px3=sx2+i*r*.22, py3=sy2-r*.42;
+      cx.beginPath(); cx.moveTo(px3-r*.05,py3); cx.lineTo(px3,py3-r*.16); cx.lineTo(px3+r*.05,py3); cx.closePath(); cx.fill();
+    }
+  }
   /* --- nogi: slupy, u demona kopytne (digitigrade) --- */
   for(const sd of [-1,1]){
     const sw=step*sd*r*.24+(sd===face?face*r*.16*stance:-face*r*.1*stance);
@@ -771,6 +824,29 @@ function drawHeavyTop(u,c,L,r,ang,hit){
     cx.fillStyle=cg; cx.beginPath(); cx.arc(0,torY-r*.16,r*.5,0,7); cx.fill();
     if(Math.random()<.35) embers(u.x+rand(-r*.4,r*.4),u.y-r*.3,'#ff9e3d',1);
   }
+  if(L.warPaint&&f!=='demony'){
+    cx.strokeStyle=hexA(c.accent,.5); cx.lineWidth=r*.05; cx.lineCap='round';
+    for(let i=-1;i<=1;i+=2){
+      cx.beginPath();
+      cx.moveTo(i*torW*.55,torY-r*.34);
+      cx.quadraticCurveTo(i*torW*.3,torY-r*.1,i*torW*.6,torY+r*.14); cx.stroke();
+    }
+    cx.lineCap='butt';
+  }
+  if(L.relic){
+    // relikwiarz przy pasie: swieci i pulsuje
+    const rx=face*torW*.72, ry=hipY-r*.12, pz=.6+.4*Math.sin(TIME*3+u.id);
+    const rg=cx.createRadialGradient(rx,ry,1,rx,ry,r*.4);
+    rg.addColorStop(0,hexA('#fff8e0',.5+pz*.3)); rg.addColorStop(.5,hexA(c.accent,.3*pz)); rg.addColorStop(1,hexA(c.accent,0));
+    cx.fillStyle=rg; cx.beginPath(); cx.arc(rx,ry,r*.4,0,7); cx.fill();
+    cx.fillStyle=hit?'#fff':c.gold;
+    cx.beginPath();
+    cx.moveTo(rx,ry-r*.14); cx.lineTo(rx+r*.1,ry); cx.lineTo(rx,ry+r*.14); cx.lineTo(rx-r*.1,ry);
+    cx.closePath(); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.2; cx.stroke();
+    cx.fillStyle=hexA('#fffdf0',.6+pz*.35);
+    cx.beginPath(); cx.arc(rx,ry,r*.04,0,7); cx.fill();
+  }
   /* --- barki --- */
   for(const sd of [-1,1]){
     const pxx=sd*shW*.84, pyy=shY-r*.04;
@@ -877,6 +953,24 @@ function drawHeavyTop(u,c,L,r,ang,hit){
       cx.fillStyle='#fff6df'; cx.beginPath(); cx.ellipse(ex,headY-hr*.02,hr*.07,hr*.11,0,0,7); cx.fill();
     }
   }
+  if(L.helm){
+    // okuty helm/obrecz bojowa
+    cx.fillStyle=hit?'#fff':lit3d(0,headY-hr*.5,hr*1.1,shade(c.metal,-.08));
+    cx.beginPath(); cx.ellipse(face*r*.03,headY-hr*.06,hr*1.08,hr*.92,0,Math.PI,0); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.6; cx.stroke();
+    cx.fillStyle=hexA(c.gold,.85);
+    cx.fillRect(face*r*.03-hr*1.06,headY-hr*.12,hr*2.12,hr*.15);
+    // grzebien helmu
+    cx.fillStyle=hit?'#fff':shade(c.metal,.12);
+    cx.beginPath();
+    cx.moveTo(face*r*.03-hr*.1,headY-hr*.92);
+    cx.quadraticCurveTo(face*r*.03,headY-hr*1.34,face*r*.03+hr*.1,headY-hr*.92);
+    cx.closePath(); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.2; cx.stroke();
+    // nosal
+    cx.strokeStyle=hexA(c.gold,.7); cx.lineWidth=r*.035;
+    cx.beginPath(); cx.moveTo(face*hr*.36,headY-hr*.1); cx.lineTo(face*hr*.42,headY+hr*.3); cx.stroke();
+  }
   if(L.crown){
     cx.fillStyle=c.gold;
     for(let i=-1;i<=1;i++){
@@ -897,8 +991,19 @@ function drawHeavyTop(u,c,L,r,ang,hit){
   // naramiennik nadgarstka
   cx.fillStyle=hit?'#fff':shade(c.metal||'#8d8474',-.1);
   cx.beginPath(); cx.ellipse(hx2,hy2,r*.14,r*.11,a,0,7); cx.fill();
+  if(L.bracers){
+    // okucia przedramienia z kolcami
+    cx.fillStyle=hit?'#fff':lit3d(elx,ely,r*.4,shade(c.metal,-.02));
+    cx.beginPath(); cx.ellipse((elx+hx2)/2,(ely+hy2)/2,r*.19,r*.15,a,0,7); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.4; cx.stroke();
+    cx.fillStyle=hexA(c.gold,.8);
+    for(let i=-1;i<=1;i++){
+      const bx2=(elx+hx2)/2+Math.cos(a+Math.PI/2)*r*.16*i, by2=(ely+hy2)/2+Math.sin(a+Math.PI/2)*r*.16*i;
+      cx.beginPath(); cx.arc(bx2,by2,r*.035,0,7); cx.fill();
+    }
+  }
   const bAng=Math.atan2(Math.sin(a-.9),face*Math.cos(a-.9));
-  const len=r*1.05;
+  const len=r*(L.bigWeapon?1.32:1.05);
   // ladowanie zamachu: pulsujaca poswiata i telegraf na ziemi
   if(chargeP>.08){
     const pz=.6+.4*Math.sin(TIME*22);
@@ -932,30 +1037,43 @@ function drawHeavyTop(u,c,L,r,ang,hit){
     cx.beginPath(); cx.moveTo(hx2,hy2); cx.lineTo(hx2+Math.cos(bAng)*len,hy2+Math.sin(bAng)*len); cx.stroke();
   }
   const tipx=hx2+Math.cos(bAng)*len, tipy=hy2+Math.sin(bAng)*len;
+  const bw=L.bigWeapon?1.34:1;
   if(f==='ludzie'){            // maczuga z kamieniem
-    limb(hx2,hy2,tipx,tipy,r*.16,'#6b5333',hit);
-    blob(tipx,tipy,r*.32,r*.28,'#9a8f7c',hit,bAng);
+    limb(hx2,hy2,tipx,tipy,r*.16*bw,'#6b5333',hit);
+    blob(tipx,tipy,r*.32*bw,r*.28*bw,'#9a8f7c',hit,bAng);
+    if(L.bigWeapon){
+      // kolce wbite w glowice
+      cx.fillStyle=hit?'#fff':'#cfc7ae';
+      for(let i=0;i<5;i++){
+        const aa=bAng+i*1.25;
+        cx.beginPath();
+        cx.moveTo(tipx+Math.cos(aa)*r*.3,tipy+Math.sin(aa)*r*.3);
+        cx.lineTo(tipx+Math.cos(aa)*r*.52,tipy+Math.sin(aa)*r*.52);
+        cx.lineTo(tipx+Math.cos(aa+.35)*r*.28,tipy+Math.sin(aa+.35)*r*.28);
+        cx.closePath(); cx.fill();
+      }
+    }
   } else if(f==='orki'){       // dwuręczny topór
-    limb(hx2,hy2,tipx,tipy,r*.17,'#6b4d2c',hit);
+    limb(hx2,hy2,tipx,tipy,r*.17*bw,'#6b4d2c',hit);
     cx.fillStyle=hit?'#fff':lit3d(tipx,tipy,r*.5,c.metal);
     cx.beginPath();
     cx.moveTo(tipx,tipy);
-    cx.quadraticCurveTo(tipx+Math.cos(bAng+1.1)*r*.66,tipy+Math.sin(bAng+1.1)*r*.66,tipx+Math.cos(bAng)*r*.42,tipy+Math.sin(bAng)*r*.42);
-    cx.quadraticCurveTo(tipx+Math.cos(bAng-1.1)*r*.66,tipy+Math.sin(bAng-1.1)*r*.66,tipx,tipy);
+    cx.quadraticCurveTo(tipx+Math.cos(bAng+1.1)*r*.66*bw,tipy+Math.sin(bAng+1.1)*r*.66*bw,tipx+Math.cos(bAng)*r*.42*bw,tipy+Math.sin(bAng)*r*.42*bw);
+    cx.quadraticCurveTo(tipx+Math.cos(bAng-1.1)*r*.66*bw,tipy+Math.sin(bAng-1.1)*r*.66*bw,tipx,tipy);
     cx.closePath(); cx.fill();
     cx.strokeStyle=OUT; cx.lineWidth=1.6; cx.stroke();
   } else if(f==='nieumarli'){  // kościana kosa
     limb(hx2,hy2,tipx,tipy,r*.14,'#cfc7ae',hit);
     cx.strokeStyle=hit?'#fff':'#e8e1c8'; cx.lineWidth=r*.16; cx.lineCap='round';
-    cx.beginPath(); cx.arc(tipx,tipy,r*.5,bAng+.3,bAng+2.1); cx.stroke();
+    cx.beginPath(); cx.arc(tipx,tipy,r*.5*bw,bAng+.3,bAng+2.1); cx.stroke();
     cx.strokeStyle=hexA(c.accent,.5); cx.lineWidth=r*.07;
-    cx.beginPath(); cx.arc(tipx,tipy,r*.5,bAng+.3,bAng+2.1); cx.stroke();
+    cx.beginPath(); cx.arc(tipx,tipy,r*.5*bw,bAng+.3,bAng+2.1); cx.stroke();
   } else {                     // płonąca maczuga demona
     limb(hx2,hy2,tipx,tipy,r*.2,'#3a1f16',hit);
     const fg=cx.createRadialGradient(tipx,tipy,2,tipx,tipy,r*.75);
     fg.addColorStop(0,'rgba(255,244,210,.9)'); fg.addColorStop(.45,'rgba(255,150,60,.55)'); fg.addColorStop(1,'rgba(220,70,30,0)');
     cx.fillStyle=fg; cx.beginPath(); cx.arc(tipx,tipy,r*.75,0,7); cx.fill();
-    blob(tipx,tipy,r*.32,r*.28,'#4a2018',hit,bAng);
+    blob(tipx,tipy,r*.32*bw,r*.28*bw,'#4a2018',hit,bAng);
     cx.fillStyle='#ffb15e';
     for(let i=0;i<5;i++){
       const aa=bAng+i*1.25+TIME*.6;

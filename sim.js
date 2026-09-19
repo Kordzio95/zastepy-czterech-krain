@@ -65,7 +65,7 @@ function updateUnits(dt){
         u.z=0;
         if(u.vz<-140){
           for(let i=0;i<10;i++) puff(u.x,u.y,1.2);
-          shake(2.5);
+          shake(2.5,u.x,u.y,180);
           dealDamage(u,Math.round(5+Math.abs(u.vz)*.05),other(u.side));
           decal(u.x,u.y,7,'rgba(60,48,32,.5)');
         }
@@ -82,6 +82,7 @@ function updateUnits(dt){
     if(u.rot!==0) u.rot=lerp(u.rot,0,1-Math.pow(.002,dt));
     u.x=clamp(u.x,14,MAP_W-14); u.y=clamp(u.y,14,MAP_H-14);
 
+    if(u.type==='dragon'){ updateDragon(u,dt); continue; }
     if(u.stun>0){ u.stun-=dt; continue; }
     u.atk=Math.max(-.05,u.atk-dt);
     if(u.swing>0) u.swing-=dt;
@@ -147,13 +148,23 @@ function updateUnits(dt){
       if(best){ attackTarget(u,best,dt); u.state='fight'; } else u.state='idle';
       continue;
     }
+    if(u.type==='heavy'&&u.lvl>=3){
+      // relikwia kolosa: regeneracja
+      if(u.hp<u.maxHp) u.hp=Math.min(u.maxHp,u.hp+dt*9);
+      // tupniecie: fala uderzeniowa, gdy wokol zbierze sie tlum
+      if(u.hcd<=0){
+        let n=0;
+        for(const o of G.units) if(!o.dead&&isFoe(o,u)&&Math.hypot(o.x-u.x,o.y-u.y)<150) n++;
+        if(n>=3){ colossusStomp(u); u.hcd=13; }
+      }
+    }
     const aggro=(u.type==='archer'||u.type==='crossbow')?u.range+90:(u.type==='flamer'?u.range+70:(u.type==='heavy'?200:160));
     const e=findEnemy(u,aggro);
     if(e){ attackTarget(u,e,dt); u.state='fight'; }
     else u.state='idle';
   }
   separate(dt);
-  if(typeof waterPushOut==='function') for(const u of G.units) waterPushOut(u,dt);
+  if(typeof waterPushOut==='function') for(const u of G.units) if(u.type!=='dragon') waterPushOut(u,dt);
 }
 
 function moveTo(u,tx,ty,dt,ignore){
@@ -554,7 +565,7 @@ function updateParticles(dt){
       p.arc=Math.sin(p.prog*Math.PI)*70;
       if(p.prog>=1&&!p.done){
         p.done=true; p.life=0;
-        shake(9); hitstop(.05);
+        shake(9,p.x,p.y,440); hitstopAt(.05,p.x,p.y);
         shockRing(p.x,p.y,110,'#d9c9a4'); debris(p.x,p.y,14);
         flash(p.x,p.y,50,'#fff2d4'); crackDecal(p.x,p.y,52);
         for(let i=0;i<20;i++) puff(p.x+rand(-24,24),p.y+rand(-18,18),1.5,'#b9a98c');
@@ -593,7 +604,7 @@ function updateParticles(dt){
         life:.4,max:.4,size:rand(3,8),col:pick(['#ff9e3d','#ffca6a']),kind:'fire'});
       if(!p.hit&&p.y>=p.ty){
         p.hit=true; p.life=0;
-        shake(6); crackDecal(p.x,p.y,44,'rgba(120,40,16,.5)');
+        shake(6,p.x,p.y,360); crackDecal(p.x,p.y,44,'rgba(120,40,16,.5)');
         fireBurst(p.x,p.y,92,p.dmg,p.side,5);
       }
       continue;
@@ -723,5 +734,167 @@ function aiTick(side,ai,dt){
   if(ai.will>=FACTIONS[fk].ability.cost+30&&Math.random()<dt*.15){
     const foes=G.units.filter(u=>!u.dead&&foe(u.side,side)).length;
     if(foes>=3){ ai.will=0; useAbility(side); }
+  }
+}
+
+
+/* ==========================================================================
+   TUPNIECIE KOLOSA — umiejetnosc z 3. poziomu Kultu Kolosa
+   ========================================================================== */
+function colossusStomp(u){
+  const acc=FACTIONS[u.faction].col.accent;
+  shake(16,u.x,u.y,560); hitstopAt(.07,u.x,u.y); flashAt(u.x,u.y,.12,acc);
+  shockRing(u.x,u.y,200,acc); ring(u.x,u.y,150,hexA(acc,.7),.5,7);
+  crackDecal(u.x,u.y,110,'rgba(40,32,24,.4)');
+  floatText(u.x,u.y-u.r-24,'TUPNIĘCIE!',acc,17);
+  for(let i=0;i<22;i++) debris(u.x+rand(-70,70),u.y+rand(-50,50),2,'#8d8272');
+  const dmg=Math.round(unitDmg(u)*.8);
+  for(const t of G.units){
+    if(t.dead||!isFoe(t,u)) continue;
+    const d=Math.hypot(t.x-u.x,t.y-u.y);
+    if(d>190) continue;
+    const nx=(t.x-u.x)/(d||1), ny=(t.y-u.y)/(d||1);
+    dealDamage(t,Math.round(dmg*(.6+.5*(1-d/190))),u.side,{n:7,power:1.2,dx:nx,dy:ny});
+    knockback(t,nx,ny,180,50,.22);
+    t.stun=Math.max(t.stun,1.1);
+  }
+  for(const b of G.buildings){
+    if(b.dead||!foe(b.side,u.side)) continue;
+    if(Math.hypot(b.x-u.x,b.y-u.y)<190+b.r*.6) dealDamage(b,Math.round(dmg*1.4),u.side);
+  }
+}
+
+/* ==========================================================================
+   SMOK — terytorialny boss srodka mapy
+   ========================================================================== */
+const DRAG_GUARD=470, DRAG_LEASH=760;
+function updateDragon(u,dt){
+  u.dragAnim+=dt; u.wingPh+=dt*(u.state==='move'?3.1:1.5); u.headPh+=dt*1.2;
+  if(u.breath>0) u.breath-=dt;
+  if(u.breathCd>0) u.breathCd-=dt;
+  if(u.roarCd>0) u.roarCd-=dt;
+  if(u.atk>0) u.atk-=dt;
+  if(u.stun>0){ u.stun-=dt; return; }
+  if(u.hp<u.maxHp) u.hp=Math.min(u.maxHp,u.hp+dt*14);   // smok sie leczy, trzeba go zabic szybko
+
+  const hx=u.home.x, hy=u.home.y;
+  // cel: najblizszy wrog w obszarze straznika
+  let t=null,bd=DRAG_GUARD;
+  for(const o of G.units){
+    if(o.dead||!isFoe(o,u)) continue;
+    const dh=Math.hypot(o.x-hx,o.y-hy);
+    if(dh>DRAG_GUARD) continue;
+    const d=Math.hypot(o.x-u.x,o.y-u.y);
+    if(d<bd){ bd=d; t=o; }
+  }
+  if(!t) for(const b of G.buildings){
+    if(b.dead) continue;
+    if(Math.hypot(b.x-hx,b.y-hy)>DRAG_GUARD) continue;
+    const d=Math.hypot(b.x-u.x,b.y-u.y)-b.r;
+    if(d<bd){ bd=d; t=b; }
+  }
+  if(t&&Math.hypot(u.x-hx,u.y-hy)>DRAG_LEASH) t=null;
+
+  if(!t){
+    const dh=Math.hypot(u.x-hx,u.y-hy);
+    if(dh>60){ dragonMove(u,hx,hy,dt); }
+    else {
+      u.state='idle';
+      if(u.roarCd<=0){ dragonRoar(u); u.roarCd=rand(11,20); }
+    }
+    return;
+  }
+  const isB=!UNITS[t.type];
+  const reach=u.range+u.r*.55+(t.r||0);
+  const d=Math.hypot(t.x-u.x,t.y-u.y);
+  // tchnienie z dystansu
+  if(u.breathCd<=0&&d<420&&d>reach*.7){
+    dragonBreath(u,t); u.breathCd=rand(7,11); return;
+  }
+  if(d>reach){ dragonMove(u,t.x,t.y,dt); return; }
+  u.facing=Math.atan2(t.y-u.y,t.x-u.x);
+  u.state='fight';
+  if(u.atk>0) return;
+  u.atk=u.ias;
+  dragonClaw(u,t,isB);
+}
+function dragonMove(u,tx,ty,dt){
+  const ang=Math.atan2(ty-u.y,tx-u.x);
+  const sp=u.speed*(u.slow>0?.6:1);
+  u.x=clamp(u.x+Math.cos(ang)*sp*dt,60,MAP_W-60);
+  u.y=clamp(u.y+Math.sin(ang)*sp*dt,60,MAP_H-60);
+  u.facing=ang; u.walk+=dt*2.2; u.state='move';
+  const ph=Math.floor(u.walk/Math.PI);
+  if(u.stepPh===undefined) u.stepPh=ph;
+  else if(u.stepPh!==ph){
+    u.stepPh=ph;
+    for(let i=0;i<10;i++) puff(u.x+rand(-u.r*.5,u.r*.5),u.y+u.r*.35+rand(-8,8),2.1,'#bfae92');
+    debris(u.x+rand(-u.r*.4,u.r*.4),u.y+u.r*.3,4,'#8d8272');
+    decal(u.x+rand(-u.r*.4,u.r*.4),u.y+u.r*.3,rand(14,22),'rgba(48,40,30,.26)');
+    shake(3.2,u.x,u.y,220);
+  }
+}
+function dragonRoar(u){
+  const k=u.dk;
+  shake(7,u.x,u.y,700);
+  ring(u.x,u.y-u.r*.6,300,hexA(k.glow,.4),.9,9);
+  floatText(u.x,u.y-u.r*1.5,'RYK!',k.glow,22);
+  for(let i=0;i<18;i++) G.parts.push({x:u.x+rand(-40,40),y:u.y-u.r*.5,vx:rand(-70,70),vy:rand(-70,-10),
+    life:rand(.5,1.1),max:1.1,size:rand(4,10),col:k.breath,kind:'ember'});
+}
+function dragonClaw(u,t,isB){
+  const k=u.dk;
+  const fx=u.x+Math.cos(u.facing)*u.r*.75, fy=u.y+Math.sin(u.facing)*u.r*.75;
+  shake(11,fx,fy,480); hitstopAt(.05,fx,fy);
+  slashArc(fx,fy,u.facing,70,k.glow,6);
+  const dmg=unitDmg(u);
+  if(isB){ dealDamage(t,Math.round(dmg*2.2),u.side); debris(t.x,t.y,10,'#9b8f7a'); return; }
+  for(const o of G.units){
+    if(o.dead||!isFoe(o,u)) continue;
+    const d=Math.hypot(o.x-fx,o.y-fy);
+    if(d>110) continue;
+    const nx=(o.x-fx)/(d||1), ny=(o.y-fy)/(d||1);
+    dealDamage(o,Math.round(dmg*(.7+.4*(1-d/110))),u.side,{n:9,power:1.5,dx:nx,dy:ny});
+    knockback(o,nx,ny,260,70,.3);
+    o.stun=Math.max(o.stun,.9);
+  }
+  for(const b of G.buildings){
+    if(b.dead||!foe(b.side,u.side)) continue;
+    if(Math.hypot(b.x-fx,b.y-fy)<110+b.r*.6) dealDamage(b,Math.round(dmg*1.6),u.side);
+  }
+}
+function dragonBreath(u,t){
+  const k=u.dk;
+  u.facing=Math.atan2(t.y-u.y,t.x-u.x);
+  u.breath=1.05; u.breathAng=u.facing; u.state='fight';
+  shake(14,u.x,u.y,620); hitstopAt(.06,u.x,u.y); flashAt(u.x,u.y,.14,k.breath,700);
+  floatText(u.x,u.y-u.r*1.4,k.breathName,k.glow,20);
+  const L=420, ARC=.52;
+  const dmg=Math.round(unitDmg(u)*.9);
+  for(const o of G.units){
+    if(o.dead||!isFoe(o,u)) continue;
+    const d=Math.hypot(o.x-u.x,o.y-u.y);
+    if(d>L) continue;
+    const da=Math.abs(Math.atan2(Math.sin(Math.atan2(o.y-u.y,o.x-u.x)-u.facing),Math.cos(Math.atan2(o.y-u.y,o.x-u.x)-u.facing)));
+    if(da>ARC) continue;
+    dealDamage(o,dmg,u.side,{n:8,power:1.2,dx:Math.cos(u.facing),dy:Math.sin(u.facing)});
+    if(k.key==='ognisty'){ if(typeof ignite==='function') ignite(o,4,u.side); }
+    else if(k.key==='lodowy'){ o.slow=Math.max(o.slow,4.5); o.stun=Math.max(o.stun,.5); }
+    else { o.stun=Math.max(o.stun,1.2); }
+  }
+  for(const b of G.buildings){
+    if(b.dead||!foe(b.side,u.side)) continue;
+    const d=Math.hypot(b.x-u.x,b.y-u.y);
+    if(d>L) continue;
+    const da=Math.abs(Math.atan2(Math.sin(Math.atan2(b.y-u.y,b.x-u.x)-u.facing),Math.cos(Math.atan2(b.y-u.y,b.x-u.x)-u.facing)));
+    if(da<ARC+.2) dealDamage(b,Math.round(dmg*1.2),u.side);
+  }
+  // sciezka tchnienia: czastki i wypalona ziemia
+  for(let i=0;i<46;i++){
+    const dd=rand(u.r*.6,L), aa=u.facing+rand(-ARC,ARC);
+    const px=u.x+Math.cos(aa)*dd, py=u.y+Math.sin(aa)*dd;
+    G.parts.push({x:px,y:py,vx:Math.cos(aa)*rand(40,170),vy:Math.sin(aa)*rand(40,170),
+      life:rand(.4,1.1),max:1.1,size:rand(5,14),col:i%3?k.breath:k.glow,kind:'ember'});
+    if(i%6===0) decal(px,py,rand(12,26),k.key==='ognisty'?'rgba(60,24,12,.34)':(k.key==='lodowy'?'rgba(200,232,248,.3)':'rgba(120,124,110,.26)'));
   }
 }

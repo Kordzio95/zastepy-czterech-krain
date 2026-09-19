@@ -464,6 +464,7 @@ function drawUnit(u){
   const c=FACTIONS[u.faction].col, L=look(u.type,u.lvl), r=u.r;
   let bob=u.state==='move'?Math.sin(u.walk)*1.6:Math.sin(u.anim*2+u.id)*.6;
   if(u.type==='heavy') bob=u.state==='move'?-Math.abs(Math.sin(u.walk))*3.2+1.6:Math.sin(u.anim*1.1+u.id)*1.1;
+  if(u.type==='dragon') bob=u.state==='move'?-Math.abs(Math.sin(u.walk))*5.5+2.6:Math.sin(u.dragAnim*1.1)*2.2;
   cx.save();
   cx.globalAlpha=u.dead?Math.max(0,u.fade):1;
   // cień
@@ -522,7 +523,8 @@ function drawUnit(u){
     cx.beginPath(); cx.ellipse(0,r*.55,r*1.05,r*.58,0,0,7); cx.stroke();
   }
   const hit=u.hitFlash>0;
-  if(u.type==='hero'&&typeof drawHeroTop==='function') drawHeroTop(u,c,L,r,ang,hit);
+  if(u.type==='dragon'&&typeof drawDragonTop==='function') drawDragonTop(u,c,L,r,ang,hit);
+  else if(u.type==='hero'&&typeof drawHeroTop==='function') drawHeroTop(u,c,L,r,ang,hit);
   else if(UNITS[u.type].siege) drawSiegeTop(u,c,L,r,ang,hit);
   else if(u.type==='heavy') drawHeavyTop(u,c,L,r,ang,hit);
   else drawSoldierTop(u,c,L,r,ang,hit);
@@ -530,6 +532,18 @@ function drawUnit(u){
 
   // pasek HP
   const dmgd=u.hp<u.maxHp;
+  if(u.type==='dragon'&&!u.dead){
+    const w=150, yy=sy-r*1.35;
+    cx.fillStyle='rgba(0,0,0,.6)'; cx.fillRect(sx-w/2-2,yy-2,w+4,11);
+    cx.fillStyle=hexA(u.dk?u.dk.glow:'#fff',.95);
+    cx.fillRect(sx-w/2,yy,w*Math.max(0,u.hp/u.maxHp),7);
+    cx.strokeStyle='rgba(20,16,12,.8)'; cx.lineWidth=1.4; cx.strokeRect(sx-w/2-2,yy-2,w+4,11);
+    cx.font='700 13px Cinzel, serif'; cx.textAlign='center';
+    cx.fillStyle='rgba(0,0,0,.7)'; cx.fillText((u.dk?u.dk.name:'Smok'),sx+1,yy-7);
+    cx.fillStyle=u.dk?u.dk.glow:'#fff'; cx.fillText((u.dk?u.dk.name:'Smok'),sx,yy-8);
+    cx.textAlign='left';
+    cx.restore&&0;
+  }
   if((dmgd||u.type==='heavy')&&!u.dead){
     const w=u.type==='heavy'?38:(u.type==='hero'?32:20), yy=sy-r*(u.type==='heavy'?2.3:1.85)-8;
     cx.fillStyle='rgba(0,0,0,.55)'; cx.fillRect(sx-w/2-1,yy-1,w+2,5);
