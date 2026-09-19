@@ -66,6 +66,7 @@ function drawTerrain(){
   for(let x=x0;x<CAM.w;x+=gs){cx.moveTo(x,0);cx.lineTo(x,CAM.h);}
   for(let y=y0;y<CAM.h;y+=gs){cx.moveTo(0,y);cx.lineTo(CAM.w,y);}
   cx.stroke();
+  if(typeof drawRivers==='function') drawRivers();
   for(const d of G.world.decor){
     if(!vis(d.x,d.y,20)) continue;
     const sx=toScreenX(d.x), sy=toScreenY(d.y);

@@ -22,15 +22,22 @@ function makeWorld(mapKey,mode){
   const M=MAPS[mapKey]||MAPS.rowniny, T=M.theme;
   MAP_W=M.w; MAP_H=M.h;
   const spots=baseSpots(mode);
-  const w={decor:[],res:[],patches:[],theme:T,name:M.name,key:mapKey};
+  const w={decor:[],res:[],patches:[],theme:T,name:M.name,key:mapKey,rivers:[]};
+  G.world=w;                                  // rzeki potrzebuja dostepu przez inWater()
+  w.rivers=(typeof makeRivers==='function')?makeRivers(mapKey):[];
+  const dry=(x,y,pad)=>!(typeof inWater==='function')||!inWater(x,y,pad===undefined?26:pad);
   const nearBase=(x,y,d)=>spots.some(s=>Math.hypot(s.x-x,s.y-y)<d);
   const nP=Math.round(120*(MAP_W*MAP_H)/(2600*1800));
   for(let i=0;i<nP;i++){
-    w.patches.push({x:rand(0,MAP_W),y:rand(0,MAP_H),r:rand(50,130),col:pick(T.patch)});
+    const px0=rand(0,MAP_W), py0=rand(0,MAP_H);
+    if(!dry(px0,py0,10)) continue;
+    w.patches.push({x:px0,y:py0,r:rand(50,130),col:pick(T.patch)});
   }
   const nD=Math.round(T.decor*(MAP_W*MAP_H)/(2600*1800));
   for(let i=0;i<nD;i++){
-    w.decor.push({x:rand(0,MAP_W),y:rand(0,MAP_H),kind:Math.random()<.72?'grass':(Math.random()<.6?'stone':'flower'),
+    const dx0=rand(0,MAP_W), dy0=rand(0,MAP_H);
+    if(!dry(dx0,dy0,4)) continue;
+    w.decor.push({x:dx0,y:dy0,kind:Math.random()<.72?'grass':(Math.random()<.6?'stone':'flower'),
       s:rand(.7,1.5),a:rand(0,7)});
   }
   // gaje drzew — nigdy na starcie osady
@@ -38,10 +45,12 @@ function makeWorld(mapKey,mode){
   for(let g=0;g<nG;g++){
     const cx=rand(160,MAP_W-160), cy=rand(150,MAP_H-150);
     if(nearBase(cx,cy,300)) continue;
+    if(!dry(cx,cy,90)) continue;
     const n=randi(7,16);
     for(let i=0;i<n;i++){
       const a=rand(0,7), d=rand(10,120);
       const x=clamp(cx+Math.cos(a)*d,60,MAP_W-60), y=clamp(cy+Math.sin(a)*d*.8,60,MAP_H-60);
+      if(!dry(x,y,24)) continue;
       w.res.push({id:'r'+w.res.length, kind:'wood', x, y, r:15, amount:RES.wood.amount, max:RES.wood.amount,
         seed:rand(0,7), s:rand(.85,1.25)});
     }
@@ -54,8 +63,10 @@ function makeWorld(mapKey,mode){
       const n=randi(8,13);
       for(let i=0;i<n;i++){
         const a2=rand(0,7), d=rand(10,80);
-        w.res.push({id:'r'+w.res.length, kind:'wood', x:clamp(cx+Math.cos(a2)*d,60,MAP_W-60),
-          y:clamp(cy+Math.sin(a2)*d*.8,60,MAP_H-60), r:15, amount:RES.wood.amount, max:RES.wood.amount,
+        const tx0=clamp(cx+Math.cos(a2)*d,60,MAP_W-60), ty0=clamp(cy+Math.sin(a2)*d*.8,60,MAP_H-60);
+        if(!dry(tx0,ty0,24)) continue;
+        w.res.push({id:'r'+w.res.length, kind:'wood', x:tx0,
+          y:ty0, r:15, amount:RES.wood.amount, max:RES.wood.amount,
           seed:rand(0,7), s:rand(.85,1.25)});
       }
     }
@@ -71,6 +82,12 @@ function makeWorld(mapKey,mode){
   mineSpots.push({x:MAP_W*.5,y:MAP_H*.5},{x:MAP_W*.5,y:MAP_H*.26},{x:MAP_W*.5,y:MAP_H*.76},
                  {x:MAP_W*.26,y:MAP_H*.5},{x:MAP_W*.74,y:MAP_H*.5});
   for(const m of mineSpots){
+    // kopalnia nie moze lezec w rzece — odsun ja na brzeg
+    for(let g=0;g<24&&!dry(m.x,m.y,70);g++){
+      const sgn=(m.x>MAP_W*.5)?1:-1;
+      m.x=clamp(m.x+sgn*34,140,MAP_W-140);
+    }
+    if(!dry(m.x,m.y,70)) continue;
     const n=randi(3,5);
     for(let i=0;i<n;i++){
       const a=i/n*Math.PI*2+rand(-.3,.3), d=rand(14,40);
@@ -141,6 +158,8 @@ function canPlace(type,x,y){
     if(r.amount<=0) continue;
     if(Math.hypot(r.x-x,r.y-y)<r.r+def.r+6) return false;
   }
+  if(typeof inWater==='function'&&inWater(x,y,def.r*.6)) return false;      // nie w rzece
+  if(typeof onBridge==='function'&&onBridge(x,y,def.r*.6)) return false;    // nie na moscie
   return true;
 }
 

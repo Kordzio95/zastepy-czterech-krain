@@ -134,6 +134,7 @@ function updateUnits(dt){
     else u.state='idle';
   }
   separate(dt);
+  if(typeof waterPushOut==='function') for(const u of G.units) waterPushOut(u,dt);
 }
 
 function moveTo(u,tx,ty,dt,ignore){
@@ -170,6 +171,7 @@ function moveTo(u,tx,ty,dt,ignore){
     } else if(u.avoid) u.avoid=null;
   } else if(u.avoid) u.avoid=null;
   const sp=u.speed*spdMul(u);
+  if(typeof waterAdjust==='function') ang=waterAdjust(u,tx,ty,ang,sp*dt);
   u.x+=Math.cos(ang)*sp*dt; u.y+=Math.sin(ang)*sp*dt;
   u.facing=ang; u.walk+=dt*9; u.state='move';
   if(Math.random()<dt*7) puff(u.x-Math.cos(ang)*u.r,u.y-Math.sin(ang)*u.r,.45,'#c0b191');

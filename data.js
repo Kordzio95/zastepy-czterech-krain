@@ -36,9 +36,9 @@ const FACTIONS={
       archer:['Strzelec','Łucznik','Łowca','Mistrz Łuku','Sokole Oko'],
       heavy:['Cyklop','Cyklop Zbrojny','Cyklop Pogromca'],
       catapult:['Katapulta','Katapulta Oblężnicza','Wielka Katapulta'],
-      ballista:['Wielka Kusza','Balista','Balista Królewska'],
-      trebuchet:['Trebusz','Trebusz Ciężki','Trebusz Zagłady'],
-      cannon:['Działo','Ciężkie Działo','Bombarda'],
+      ballista:['Balista','Balista Ciężka','Balista Królewska'],
+      trebuchet:['Trebusz','Trebusz Oblężniczy','Trebusz Królewski'],
+      cannon:['Działo','Ciężkie Działo','Bombarda Królewska'],
       sling:['Wielka Proca','Wyrzutnia Kłów','Miotacz Skał']
     },
     attackDesc:{warrior:'Uderzenie tarczą — szansa na ogłuszenie',archer:'Co trzeci strzał to salwa trzech strzał',heavy:'Ciska głazem, a z bliska wali maczugą w ziemię',
@@ -60,9 +60,9 @@ const FACTIONS={
       archer:['Kusznik','Strzelec Kłów','Zatruty Kusznik','Mistrz Kuszy','Czarna Strzała'],
       heavy:['Wielki Herszt','Herszt Krwi','Władca Hordy'],
       catapult:['Katapulta','Katapulta Oblężnicza','Wielka Katapulta'],
-      ballista:['Wielka Kusza','Balista','Balista Ciężka'],
-      trebuchet:['Trebusz','Trebusz Ciężki','Trebusz Zagłady'],
-      cannon:['Działo','Ciężkie Działo','Bombarda'],
+      ballista:['Balista Kłów','Balista Wojenna','Balista Hordy'],
+      trebuchet:['Trebusz Hordy','Ciężki Trebusz Hordy','Trebusz Krwawego Kła'],
+      cannon:['Grzmotomiot','Ciężki Grzmotomiot','Bombarda Hordy'],
       sling:['Wielka Proca','Wyrzutnia Kłów','Miotacz Skał']
     },
     attackDesc:{warrior:'Zamach tnie dwóch wrogów naraz',archer:'Ciężki bełt odrzuca trafionego',heavy:'Młyniec toporem odrzuca wszystko wokół',
@@ -84,9 +84,9 @@ const FACTIONS={
       archer:['Kościany Łucznik','Mroźny Strzelec','Widmowy Łucznik','Żniwiarz Strzał','Cień Zimy'],
       heavy:['Kościotrup','Gigantyczny Kościotrup','Kostny Kolos'],
       catapult:['Katapulta','Katapulta Oblężnicza','Wielka Katapulta'],
-      ballista:['Wielka Kusza','Balista','Balista Ciężka'],
-      trebuchet:['Trebusz','Trebusz Ciężki','Trebusz Zagłady'],
-      cannon:['Działo','Ciężkie Działo','Bombarda'],
+      ballista:['Balista Kościana','Balista Grobowa','Balista Zmierzchu'],
+      trebuchet:['Trebusz Kościany','Trebusz Nekropolii','Trebusz Zagłady'],
+      cannon:['Działo Kostne','Ciężkie Działo Kostne','Bombarda Krypt'],
       sling:['Wielka Proca','Wyrzutnia Kłów','Miotacz Skał']
     },
     attackDesc:{warrior:'Wysysa życie — leczy się przy każdym ciosie',archer:'Mroźna strzała spowalnia wroga',heavy:'Wstrząs ziemi biegnie falą i miota szeregami',
@@ -108,9 +108,9 @@ const FACTIONS={
       archer:['Miotacz Ognia','Ognisty Kusznik','Siarkowy Strzelec','Mistrz Płomieni','Oko Otchłani'],
       heavy:['Ognisty Kolos','Balrog','Władca Otchłani'],
       catapult:['Katapulta','Katapulta Oblężnicza','Wielka Katapulta'],
-      ballista:['Wielka Kusza','Balista','Balista Ciężka'],
-      trebuchet:['Trebusz','Trebusz Ciężki','Trebusz Zagłady'],
-      cannon:['Działo','Ciężkie Działo','Bombarda'],
+      ballista:['Balista Siarki','Balista Otchłani','Balista Vharoth'],
+      trebuchet:['Trebusz Siarki','Trebusz Otchłani','Trebusz Zagłady'],
+      cannon:['Działo Siarki','Ciężkie Działo Otchłani','Bombarda Vharoth'],
       sling:['Wielka Proca','Wyrzutnia Kłów','Miotacz Skał']
     },
     attackDesc:{warrior:'Każdy cios podpala wroga',archer:'Kula ognia wybucha przy trafieniu',heavy:'Uderzenie zamienia ziemię w morze ognia',
@@ -132,9 +132,9 @@ const FACTIONS={
       archer:['Łucznik Gaju','Strzelec Liścia','Cichy Łucznik','Mistrz Długiego Łuku','Wiatr Strzał'],
       heavy:['Ent','Starodrzew','Praojciec Borów'],
       catapult:['Katapulta','Katapulta Oblężnicza','Wielka Katapulta'],
-      ballista:['Wielka Kusza','Balista','Balista Gaju'],
-      trebuchet:['Trebusz','Trebusz Ciężki','Trebusz Zagłady'],
-      cannon:['Działo','Ciężkie Działo','Bombarda'],
+      ballista:['Balista Gajowa','Balista Srebrnego Liścia','Balista Gaju'],
+      trebuchet:['Trebusz Gaju','Ciężki Trebusz Gaju','Trebusz Przymierza'],
+      cannon:['Działo Gaju','Ciężkie Działo Gaju','Bombarda Przymierza'],
       sling:['Wielka Proca','Wyrzutnia Kłów','Miotacz Skał']
     },
     attackDesc:{warrior:'Podwójne cięcie — co drugi cios jest krytyczny',archer:'Strzała przebija dwóch wrogów naraz',
@@ -163,7 +163,12 @@ for(const f in FTIERS) for(const t in FTIERS[f]) FACTIONS[f].tiers[t]=FTIERS[f][
 const UDESC={
   guard:'Ciężka piechota — pancerz tłumi obrażenia, a tarcza odpycha wroga.',
   crossbow:'Kusznicy — bełt przebija zbroję i szeregi.',
-  flamer:'Miotacz ognia — zalewa wszystko przed sobą stożkiem płomieni i podpala.'
+  flamer:'Miotacz ognia — zalewa wszystko przed sobą stożkiem płomieni i podpala.',
+  catapult:'Katapulta — miota kamieniem po łuku, obszarowo; groźna dla murów.',
+  ballista:'Balista — wielka kusza oblężnicza; bełt leci prosto i przebija szereg.',
+  trebuchet:'Trebusz — najdłuższy zasięg i największy rozbłysk, ale wolno przeładowuje.',
+  cannon:'Działo — huk i kula burząca mury; słabe w zwarciu.',
+  sling:'Wielka Proca — tanie miotanie skał po wysokim łuku.'
 };
 const FKEYS=Object.keys(FACTIONS);
 
@@ -256,7 +261,7 @@ const UNITS={
   /* --- maszyny oblegnicze: wolne, kruche w zwarciu, niszczycielskie z daleka --- */
   catapult:{ label:'Katapulta',    r:24, hp:520, dmg:95,  range:330, speed:30, ias:5.0, cost:{gold:220,wood:260}, time:26, pop:3, mass:6,
              siege:{splash:118, bld:2.6, min:95, arc:96, shot:'rock'} },
-  ballista:{ label:'Wielka Kusza', r:22, hp:470, dmg:120, range:400, speed:32, ias:4.2, cost:{gold:250,wood:230}, time:24, pop:3, mass:5,
+  ballista:{ label:'Balista',      r:22, hp:470, dmg:120, range:400, speed:32, ias:4.2, cost:{gold:250,wood:230}, time:24, pop:3, mass:5,
              siege:{splash:56, bld:2.2, min:80, arc:26, shot:'bolt', pierce:true} },
   trebuchet:{label:'Trebusz',      r:27, hp:600, dmg:150, range:470, speed:24, ias:6.4, cost:{gold:320,wood:340}, time:32, pop:4, mass:7,
              siege:{splash:140, bld:3.4, min:150, arc:150, shot:'rock'} },

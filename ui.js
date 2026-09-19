@@ -771,6 +771,7 @@ function drawMinimap(){
   cx.fillStyle='rgba(40,46,28,.95)'; cx.fillRect(m.x,m.y,m.w,m.h);
   cx.strokeStyle='rgba(230,194,115,.45)'; cx.strokeRect(m.x+.5,m.y+.5,m.w-1,m.h-1);
   const sx=m.w/MAP_W, sy=m.h/MAP_H;
+  if(typeof drawRiversMini==='function') drawRiversMini(m,sx,sy);
   for(const r of G.world.res){
     if(r.amount<=0) continue;
     cx.fillStyle=r.kind==='gold'?'rgba(230,194,115,.85)':'rgba(96,140,64,.8)';
