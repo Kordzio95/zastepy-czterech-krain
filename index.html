@@ -55,11 +55,22 @@
     .mouseonly{display:none}
     .touchonly{display:block}
   }
+
+#sndBar{position:fixed;right:8px;bottom:8px;z-index:40;display:flex;gap:6px}
+.sndBtn{font:600 10px/1 'Cinzel',serif;letter-spacing:.06em;color:#e6c273;
+  background:rgba(16,14,11,.78);border:1px solid rgba(230,194,115,.4);border-radius:4px;
+  padding:6px 8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.sndBtn.off{color:#7d7566;border-color:rgba(125,117,102,.35)}
+@media(max-width:560px){.sndBtn{font-size:9px;padding:5px 6px}}
 </style>
 </head>
 <body>
 <canvas id="cv"></canvas>
 
+<div id="sndBar">
+  <button id="btnMus" class="sndBtn" title="Muzyka (M)">♪ MUZYKA</button>
+  <button id="btnSfx" class="sndBtn" title="Dźwięki (N)">🔊 DŹWIĘKI</button>
+</div>
 <div class="ov" id="menu">
   <h1>Zastępy Pięciu Krain</h1>
   <p class="lead">Strategia czasu rzeczywistego z widokiem z góry. Wybierz frakcję, mapę i tryb (1v1, 1v1v1 lub 2v2). Zbieraj złoto i drewno, stawiaj osadę,
@@ -93,7 +104,7 @@
   <div class="chips" id="modeChips"></div>
   <button class="btn" id="startBtn">Do boju</button>
   <p class="hint mouseonly">LPM zaznacza (przeciągnij ramkę), PPM wydaje rozkaz · WASD lub krawędzie ekranu przesuwają kamerę ·
-    B budowa · A cała armia · E bohater · Q moc bohatera · Z robotnicy do złota · X do drewna · H ratusz · R moc krainy · SPACJA pauza</p>
+    B budowa · A cała armia · E bohater · Q moc bohatera · Z robotnicy do złota · X do drewna · H ratusz · R moc krainy · M muzyka · N dźwięki · SPACJA pauza</p>
   <p class="hint touchonly">Dotknij jednostki, żeby ją zaznaczyć · dotknij mapy, by wysłać tam oddziały ·
     przeciągnij jednym palcem, aby przesunąć widok · dwa palce przybliżają ·
     dwa razy dotknij jednostki, by wziąć wszystkich tego typu · przytrzymaj palec, by zaznaczyć ramką ·
@@ -118,6 +129,7 @@
   <script src="arch.js"></script>
   <script src="heroes.js"></script>
   <script src="dragon.js"></script>
+  <script src="audio.js"></script>
 <script src="ui.js"></script>
 </body>
 </html>

@@ -301,6 +301,7 @@ function doGather(u,dt){
     const take=Math.min(Math.floor(u.gatherAcc),r.amount,RES[r.kind].carry-u.carry.amount);
     u.gatherAcc-=Math.floor(u.gatherAcc);
     u.carry.amount+=take; r.amount-=take;
+    SND.play(r.kind==='wood'?'chop':'mine',r.x,r.y,{reach:420});
     if(r.kind==='wood'){
       if(Math.random()<.5) G.parts.push({x:r.x+rand(-8,8),y:r.y+rand(-6,6),vx:rand(-50,50),vy:rand(-60,-10),
         life:.6,max:.6,size:rand(2,4),col:'#8a6a3f',kind:'rock',rot:rand(0,6),vrot:rand(-8,8)});
@@ -329,10 +330,12 @@ function doBuild(u,dt){
   b.progress=Math.min(1,b.progress+dt/def.build*(1+.3*(u.lvl-1)));
   b.hp=Math.max(b.hp,def.hp*(.2+.8*b.progress));
   if(Math.random()<dt*12) puff(b.x+rand(-b.r,b.r),b.y+rand(-b.r*.6,b.r*.6),.9,'#d6c7a8');
-  if(Math.random()<dt*4) spark(b.x+rand(-b.r*.7,b.r*.7),b.y+rand(-b.r*.5,b.r*.5),'#f3e3bc',3,.5);
+  if(Math.random()<dt*4){ spark(b.x+rand(-b.r*.7,b.r*.7),b.y+rand(-b.r*.5,b.r*.5),'#f3e3bc',3,.5);
+    SND.play('build',b.x,b.y,{reach:400}); }
   if(b.progress>=1){
     b.done=true; b.hp=def.hp;
     ring(b.x,b.y,b.r*1.8,'rgba(230,194,115,.9)',.7,5);
+    SND.play('done',b.x,b.y,{reach:900,vol:b.side==='player'?1:.5});
     for(let i=0;i<18;i++) puff(b.x+rand(-b.r,b.r),b.y+rand(-b.r*.7,b.r*.7),1.4,'#e0d0ad');
     if(b.side==='player') floatText(b.x,b.y-b.r-8,bLabel(G.pf,b.type)+' gotowy','#e6c273',14);
     // robotnicy wracają do pracy
@@ -394,6 +397,7 @@ function updateBuildings(dt){
         const a=rand(0,7);
         const u=spawnUnit(b.side,type,b.x+Math.cos(a)*(b.r+16),b.y+Math.sin(a)*(b.r+16));
         if(b.side==='player'){ G.stats.trained++; floatText(b.x,b.y-b.r-6,tierName(b.faction,type,u.lvl),'#cfe7b8',12); }
+        SND.play('train',b.x,b.y,{reach:700,vol:b.side==='player'?1:.45});
         // nowy robotnik od razu rusza do najbliższego surowca
         if(type==='worker'){
           autoGather(u);
@@ -485,6 +489,7 @@ function updateArrows(dt){
       if(a.through&&a.through.indexOf(o.id)>=0) continue;
       if(Math.hypot(o.x-a.x,o.y-a.y)<o.r+5){
         const nx=a.vx/560, ny=a.vy/560;
+        SND.play(a.kind==='fire'?'fire':'arrow',o.x,o.y,{reach:620});
         dealDamage(o,a.dmg,a.side,{n:5,dx:nx,dy:ny,pierceArmor:!!a.pierceArmor});
         if(a.kind==='bolt'){ knockback(o,nx,ny,240,0); ring(o.x,o.y,20,'rgba(216,98,47,.8)',.25,3); }
         else if(a.kind==='fire'){ knockback(o,nx,ny,90,0); ignite(o,4,a.side);
@@ -565,7 +570,7 @@ function updateParticles(dt){
       p.arc=Math.sin(p.prog*Math.PI)*70;
       if(p.prog>=1&&!p.done){
         p.done=true; p.life=0;
-        shake(9,p.x,p.y,440); hitstopAt(.05,p.x,p.y);
+        shake(9,p.x,p.y,440); hitstopAt(.05,p.x,p.y); SND.play('siege',p.x,p.y,{reach:900});
         shockRing(p.x,p.y,110,'#d9c9a4'); debris(p.x,p.y,14);
         flash(p.x,p.y,50,'#fff2d4'); crackDecal(p.x,p.y,52);
         for(let i=0;i<20;i++) puff(p.x+rand(-24,24),p.y+rand(-18,18),1.5,'#b9a98c');
@@ -604,7 +609,7 @@ function updateParticles(dt){
         life:.4,max:.4,size:rand(3,8),col:pick(['#ff9e3d','#ffca6a']),kind:'fire'});
       if(!p.hit&&p.y>=p.ty){
         p.hit=true; p.life=0;
-        shake(6,p.x,p.y,360); crackDecal(p.x,p.y,44,'rgba(120,40,16,.5)');
+        shake(6,p.x,p.y,360); SND.play('explosion',p.x,p.y,{reach:900}); crackDecal(p.x,p.y,44,'rgba(120,40,16,.5)');
         fireBurst(p.x,p.y,92,p.dmg,p.side,5);
       }
       continue;
@@ -743,7 +748,7 @@ function aiTick(side,ai,dt){
    ========================================================================== */
 function colossusStomp(u){
   const acc=FACTIONS[u.faction].col.accent;
-  shake(16,u.x,u.y,560); hitstopAt(.07,u.x,u.y); flashAt(u.x,u.y,.12,acc);
+  shake(16,u.x,u.y,560); hitstopAt(.07,u.x,u.y); flashAt(u.x,u.y,.12,acc); SND.play('stomp',u.x,u.y,{reach:1100});
   shockRing(u.x,u.y,200,acc); ring(u.x,u.y,150,hexA(acc,.7),.5,7);
   crackDecal(u.x,u.y,110,'rgba(40,32,24,.4)');
   floatText(u.x,u.y-u.r-24,'TUPNIĘCIE!',acc,17);
@@ -832,11 +837,12 @@ function dragonMove(u,tx,ty,dt){
     debris(u.x+rand(-u.r*.4,u.r*.4),u.y+u.r*.3,4,'#8d8272');
     decal(u.x+rand(-u.r*.4,u.r*.4),u.y+u.r*.3,rand(14,22),'rgba(48,40,30,.26)');
     shake(3.2,u.x,u.y,220);
+    SND.play('step',u.x,u.y,{reach:700,vol:1.2});
   }
 }
 function dragonRoar(u){
   const k=u.dk;
-  shake(7,u.x,u.y,700);
+  shake(7,u.x,u.y,700); SND.play('roar',u.x,u.y,{reach:3000});
   ring(u.x,u.y-u.r*.6,300,hexA(k.glow,.4),.9,9);
   floatText(u.x,u.y-u.r*1.5,'RYK!',k.glow,22);
   for(let i=0;i<18;i++) G.parts.push({x:u.x+rand(-40,40),y:u.y-u.r*.5,vx:rand(-70,70),vy:rand(-70,-10),
@@ -845,7 +851,7 @@ function dragonRoar(u){
 function dragonClaw(u,t,isB){
   const k=u.dk;
   const fx=u.x+Math.cos(u.facing)*u.r*.75, fy=u.y+Math.sin(u.facing)*u.r*.75;
-  shake(11,fx,fy,480); hitstopAt(.05,fx,fy);
+  shake(11,fx,fy,480); hitstopAt(.05,fx,fy); SND.play('claw',fx,fy,{reach:1200});
   slashArc(fx,fy,u.facing,70,k.glow,6);
   const dmg=unitDmg(u);
   if(isB){ dealDamage(t,Math.round(dmg*2.2),u.side); debris(t.x,t.y,10,'#9b8f7a'); return; }
@@ -868,6 +874,7 @@ function dragonBreath(u,t){
   u.facing=Math.atan2(t.y-u.y,t.x-u.x);
   u.breath=1.05; u.breathAng=u.facing; u.state='fight';
   shake(14,u.x,u.y,620); hitstopAt(.06,u.x,u.y); flashAt(u.x,u.y,.14,k.breath,700);
+  SND.play('breath',u.x,u.y,{reach:2200});
   floatText(u.x,u.y-u.r*1.4,k.breathName,k.glow,20);
   const L=420, ARC=.52;
   const dmg=Math.round(unitDmg(u)*.9);

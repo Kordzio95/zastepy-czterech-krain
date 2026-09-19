@@ -321,6 +321,7 @@ function stompStep(u){
   if(u.faction==='nieumarli'&&Math.random()<.4) puff(u.x,fy,.8,'rgba(150,190,160,.45)');
   if(u.faction==='elfy'&&Math.random()<.4) puff(u.x,fy,.8,'rgba(120,160,90,.4)');
   shake(1.3,u.x,u.y,160);
+  SND.play('step',u.x,u.y,{reach:420});
 }
 /* --- ROZBIORKA gotowego budynku: 50% zwrotu --- */
 function demolish(b){
@@ -428,6 +429,7 @@ function trainUnit(b,type){
   if(!canAfford(side,def.cost)){ if(side==='player') warn('Brakuje surowców na '+def.label); return false; }
   pay(side,def.cost);
   b.queue.push(type);
+  if(side==='player') SND.play('click');
   if(b.queue.length===1){ b.trainLeft=def.time; b.trainTotal=def.time; }
   return true;
 }
@@ -444,6 +446,7 @@ function upgradeKeep(side){
     b.keep=1; b.maxHp=Math.round(b.maxHp*1.35); b.hp=Math.min(b.maxHp,b.hp+2000);
   }
   ring(th.x,th.y,th.r*2.2,FACTIONS[G.faction[side]].col.gold,.7,7);
+  SND.play('upgrade',th.x,th.y,{reach:1200,vol:side==='player'?1:.4});
   for(let i=0;i<16;i++) puff(th.x+rand(-th.r,th.r),th.y+rand(-th.r*.6,th.r*.6),1.1,'#e6d3a8');
   if(side==='player') floatText(th.x,th.y-20,keepName(G.pf)+' — kolosy dostępne','#e6c273',15);
   return true;
@@ -469,12 +472,12 @@ function tryUpgrade(side,type){
   }
   if(side==='player'){
     const nm=UNITS[type]?tierName(faction,type,nl):(UPG[type].label||'Ulepszenie')+' '+nl;
-    banner(String(nm).toUpperCase(),'#e6c273');
+    banner(String(nm).toUpperCase(),'#e6c273'); SND.play('upgrade');
   }
   return true;
 }
 let warnMsg=null;
-function warn(txt){ warnMsg={txt,life:2.2}; }
+function warn(txt){ warnMsg={txt,life:2.2}; SND.play('warn'); }
 
 /* ==========================================================================
    WALKA
@@ -585,12 +588,14 @@ function dealDamage(t,amount,fromSide,opts={}){
     flash(t.x,t.y,t.type==='heavy'?36:16,hexA(FACTIONS[t.faction].gore,.9));
     ring(t.x,t.y,t.type==='heavy'?60:26,hexA(FACTIONS[t.faction].col.accent,.65),.35,3);
     bloodCone(t.x,t.y,t.faction,opts.dx||rand(-1,1),opts.dy||rand(-1,1),1.3);
+    SND.play(t.type==='heavy'?'dieHeavy':'die',t.x,t.y,{reach:t.type==='heavy'?900:620});
     if(t.type==='heavy'){ shake(9,t.x,t.y,420); hitstopAt(.08,t.x,t.y); debris(t.x,t.y,16); shockRing(t.x,t.y,70,FACTIONS[t.faction].col.accent); }
     G.fallen[t.side].push({x:t.x,y:t.y,type:t.type,lvl:t.lvl});
     if(G.fallen[t.side].length>30) G.fallen[t.side].shift();
     if(t.side==='player'){ G.stats.losses++; G.alert=Math.max(G.alert,1.5); }
     else if(fromSide==='player') G.stats.kills++;
     if(t.type==='dragon'){
+      SND.play('bossDie',t.x,t.y,{reach:4000});
       shake(26,t.x,t.y,1200); hitstopAt(.2,t.x,t.y,900); flashAt(t.x,t.y,.3,t.dk?t.dk.glow:'#fff',1200);
       for(let i=0;i<5;i++) shockRing(t.x,t.y,240+i*90,hexA(t.dk?t.dk.glow:'#fff',.5));
       debris(t.x,t.y,60,t.dk?t.dk.bone2:'#9b8f7a');
@@ -609,6 +614,7 @@ function dealDamage(t,amount,fromSide,opts={}){
 }
 function destroyBuilding(b,fromSide){
   b.dead=true; b.hp=0;
+  SND.play('collapse',b.x,b.y,{reach:1100});
   shake(14,b.x,b.y,520); hitstopAt(.1,b.x,b.y);
   shockRing(b.x,b.y,b.r*2.4,'#d9c9a4');
   debris(b.x,b.y,26,'#9b8f7a');
@@ -669,6 +675,7 @@ function meleeAttack(u,t){
   const ang=Math.atan2(t.y-u.y,t.x-u.x), nx=Math.cos(ang), ny=Math.sin(ang);
   u.facing=ang;
   const swCol=u.faction==='nieumarli'?'#cfeee8':(u.faction==='orki'?'#f3c98f':(u.faction==='demony'?'#ffb15e':(u.faction==='elfy'?'#d6f7e2':'#eef3ff')));
+  SND.play('slash',u.x,u.y);
   slashArc(u.x+nx*(u.r+8),u.y+ny*(u.r+8),ang,u.r*2.4+16,swCol,u.lvl>=3?6:4);
   slashArc(u.x+nx*(u.r+5),u.y+ny*(u.r+5),ang-.18,u.r*2.1+10,hexA('#ffffff',.5),2.5);
   flash(u.x+nx*(u.r+10),u.y+ny*(u.r+10),8,swCol);
@@ -677,7 +684,7 @@ function meleeAttack(u,t){
     if(!t.dead&&UNITS[t.type]&&Math.random()<.28){
       t.stun=Math.max(t.stun,.7); knockback(t,nx,ny,240,0);
       ring(t.x,t.y,t.r+16,'rgba(214,219,230,.9)',.3,3);
-      spark(t.x,t.y,'#ffffff',10,1.3); shake(2,t.x,t.y,200); hitstopAt(.04,t.x,t.y,260);
+      spark(t.x,t.y,'#ffffff',10,1.3); shake(2,t.x,t.y,200); hitstopAt(.04,t.x,t.y,260); SND.play('blunt',t.x,t.y);
       floatText(t.x,t.y-t.r-12,'OGŁUSZONY','#cfdcf8',12);
     } else if(UNITS[t.type]) knockback(t,nx,ny,80,0);
   } else if(u.faction==='orki'){
@@ -719,7 +726,7 @@ function meleeAttack(u,t){
     const acc=FACTIONS[u.faction].col.accent;
     slashArc(u.x+nx*(u.r+12),u.y+ny*(u.r+12),ang+.22,u.r*2.8+22,acc,5);
     ring(t.x,t.y,t.r+18,hexA(acc,.7),.28,3);
-    spark(t.x,t.y,acc,8,1.2); shake(2.2,t.x,t.y,200);
+    spark(t.x,t.y,acc,8,1.2); shake(2.2,t.x,t.y,200); SND.play('heroHit',t.x,t.y);
     if(u.faction==='ludzie'){
       for(const a of G.units){
         if(!allySide(a.side,u.side)||a.dead||a===u) continue;
@@ -753,6 +760,7 @@ function shootArrow(u,t,opts={}){
     dmg:Math.round(unitDmg(u)*(opts.dmgMul||1)), kind:opts.kind||'normal', trail:[],
     pierceUnits:opts.pierceUnits||0, pierceArmor:!!opts.pierceArmor});
   spark(u.x+Math.cos(ang)*(u.r+6),u.y+Math.sin(ang)*(u.r+6),'#f0e4c4',3,.5);
+  SND.play('bowShot',u.x,u.y);
 }
 function archerAttack(u,t){
   if(u.faction==='ludzie'){
@@ -774,6 +782,7 @@ function crossbowAttack(u,t){
   const ang=Math.atan2(t.y-u.y,t.x-u.x);
   const fx=u.x+Math.cos(ang)*(u.r+8), fy=u.y+Math.sin(ang)*(u.r+8);
   flash(fx,fy,11,'#fff0cc'); puff(fx,fy,.5,'#d8cbb0');
+  SND.play('bolt',u.x,u.y);
 }
 
 /* --- ciezka piechota: powolne, mocne uderzenie tarcza i drzewcem --- */
@@ -781,6 +790,7 @@ function guardAttack(u,t){
   const dmg=unitDmg(u);
   const ang=Math.atan2(t.y-u.y,t.x-u.x), nx=Math.cos(ang), ny=Math.sin(ang);
   u.facing=ang;
+  SND.play('blunt',u.x,u.y);
   slashArc(u.x+nx*(u.r+10),u.y+ny*(u.r+10),ang,u.r*2.6+18,'#f2efe2',6);
   flash(u.x+nx*(u.r+12),u.y+ny*(u.r+12),10,'#fff6df');
   dealDamage(t,dmg,u.side,{dx:nx,dy:ny,n:7,power:1.2});
@@ -847,6 +857,7 @@ function launchSiege(u){
     col:S.shot==='ball'?'#3a3430':(S.shot==='bolt'?'#8a6636':'#8d7f68'),
     side:u.side,dmg:Math.round(unitDmg(u)),splash:S.splash,bld:S.bld,fire:!!S.fire,knock:S.knock||1,pierce:!!S.pierce});
   const fx=u.x+Math.cos(u.facing)*(u.r+8), fy=u.y+Math.sin(u.facing)*(u.r+8);
+  SND.play(S.fire?'fire':'siege',fx,fy);
   if(S.fire){ flash(fx,fy,34,'#ffd6a0'); for(let i=0;i<14;i++) puff(fx+rand(-8,8),fy+rand(-8,8),1.3,'#6b6258'); shake(6,fx,fy,300); }
   else { puff(fx,fy,1.1,'#cdbfa6'); shake(3,fx,fy,240); }
   spark(fx,fy,'#f0e4c4',5,.7);
@@ -854,6 +865,7 @@ function launchSiege(u){
 function siegeHit(p){
   const R=p.splash;
   shake(p.shot==='bolt'?5:10,p.x,p.y,p.shot==='bolt'?300:460); hitstopAt(.04,p.x,p.y,400);
+  SND.play(p.fire?'explosion':'siege',p.x,p.y,{reach:1000});
   if(p.fire){ fireBurst(p.x,p.y,R,Math.round(p.dmg*.8),p.side,5); flash(p.x,p.y,R*.7,'#ffbf72'); crackDecal(p.x,p.y,R*.6,'rgba(120,50,18,.5)'); }
   else { shockRing(p.x,p.y,R,'#d9c9a4'); debris(p.x,p.y,p.shot==='bolt'?5:16); flash(p.x,p.y,R*.55,'#fff2d4'); crackDecal(p.x,p.y,R*.55); }
   for(let i=0;i<(p.shot==='bolt'?6:18);i++) puff(p.x+rand(-R*.3,R*.3),p.y+rand(-R*.25,R*.25),1.4,'#b9a98c');
@@ -889,12 +901,12 @@ function resolveHeavy(u){
     G.parts.push({x:u.x,y:u.y,kind:'boulder',size:16,col:'#8d7f68',rot:0,vrot:8,life:1.2,max:1.2,
       sx:u.x,sy:u.y,tx:t.x,ty:t.y,prog:0,sp:1/Math.max(.35,Math.hypot(t.x-u.x,t.y-u.y)/420),
       side:u.side,dmg:Math.round(dmg*.9)});
-    shake(4,u.x,u.y,300); floatText(u.x,u.y-u.r-16,'GŁAZ!','#e6c273',15);
+    shake(4,u.x,u.y,300); SND.play('siege',u.x,u.y,{reach:900}); floatText(u.x,u.y-u.r-16,'GŁAZ!','#e6c273',15);
     return;
   }
   if(k==='quake'){
     G.quakes.push({x:u.x,y:u.y,ang:u.facing,side:u.side,dmg:Math.round(dmg*.85),life:1.4,travel:0,hits:new Set()});
-    shake(12,u.x,u.y,520); flashAt(u.x,u.y,.12,'#79e0d2');
+    shake(12,u.x,u.y,520); SND.play('stomp',u.x,u.y,{reach:900}); flashAt(u.x,u.y,.12,'#79e0d2');
     shockRing(u.x,u.y,120,'#79e0d2'); G.stats.slams++;
     return;
   }
@@ -902,6 +914,7 @@ function resolveHeavy(u){
     // Ent: uderzenie konarem + korzenie wybijaja w linii przed nim
     const fx=u.x+Math.cos(u.facing)*(u.r+18), fy=u.y+Math.sin(u.facing)*(u.r+18);
     G.stats.slams++; shake(13,fx,fy,520); hitstopAt(.06,fx,fy); flashAt(fx,fy,.12,'#9ae6b8');
+    SND.play('stomp',fx,fy,{reach:900});
     shockRing(fx,fy,130,'#9ae6b8');
     floatText(u.x,u.y-u.r-18,'GNIEW BORÓW!','#9ae6b8',15);
     for(const t of G.units){
@@ -926,6 +939,7 @@ function resolveHeavy(u){
   if(k==='fire'){
     const fx=u.x+Math.cos(u.facing)*(u.r+16), fy=u.y+Math.sin(u.facing)*(u.r+16);
     G.stats.slams++; shake(15,fx,fy,520); hitstopAt(.07,fx,fy); flashAt(fx,fy,.16,'#ff9e3d');
+    SND.play('explosion',fx,fy,{reach:900});
     crackDecal(fx,fy,80,'rgba(120,40,16,.5)');
     floatText(u.x,u.y-u.r-18,'MORZE OGNIA!','#ff9e3d',16);
     fireBurst(fx,fy,155,dmg,u.side,6);
@@ -936,6 +950,7 @@ function resolveHeavy(u){
   const R=whirl?150:135;
   G.stats.slams++;
   shake(16,cx,cy,520); hitstopAt(.07,cx,cy); flashAt(cx,cy,.16,acc);
+  SND.play('stomp',cx,cy,{reach:900});
   shockRing(cx,cy,R,acc);
   ring(cx,cy,R*.6,'rgba(255,255,255,.75)',.4,5);
   flash(cx,cy,R*.55,'#fff6dc');
@@ -1056,7 +1071,7 @@ function heroPower(u){
   shockRing(u.x,u.y,R,FACTIONS[u.faction].col.accent);
   ring(u.x,u.y,R*.6,'rgba(255,255,255,.7)',.45,4);
   flash(u.x,u.y,R*.4,hexA(FACTIONS[u.faction].col.accent,.9));
-  shake(7,u.x,u.y,600); hitstopAt(.07,u.x,u.y,600);
+  shake(7,u.x,u.y,600); hitstopAt(.07,u.x,u.y,600); SND.play('power',u.x,u.y,{reach:1400});
   if(u.side==='player') banner(H.power.toUpperCase(),FACTIONS[u.faction].col.accent);
   if(u.faction==='ludzie'){
     for(const a of G.units){

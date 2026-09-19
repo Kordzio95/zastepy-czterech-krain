@@ -25,6 +25,7 @@ let pinch=null, boxMode=false, topBarH=0, addMode=false, lastTap=null, buildPick
    ========================================================================== */
 let pickF='ludzie', pickMap='rowniny', pickMode='1v1';
 function startGame(faction,mapKey,mode){
+  sndInit(); SND.faction=faction||pickF; SND.bar=0; SND.tension=0;
   document.getElementById('menu').style.display='none';
   document.getElementById('result').style.display='none';
   paused=false; buildMenuOpen=false; buildPick=null;
@@ -36,6 +37,7 @@ function showResult(win){
   const el=document.getElementById('result');
   const s=G.stats;
   el.style.display='flex';
+  sndFanfare(win);
   el.querySelector('h2').textContent=win?'ZWYCIĘSTWO':'KLĘSKA';
   el.querySelector('h2').style.color=win?'#e6c273':'#df5b4d';
   el.querySelector('.rs').innerHTML=
@@ -198,6 +200,7 @@ function bindInput(){
       if(G.placing){ G.placing=null; G.wallStart=null; return; }
       const w={x:toWorldX(p.x),y:toWorldY(p.y)};
       if(G.sel.length) issueOrder(G.sel.filter(u=>!u.dead),w.x,w.y,e.shiftKey);
+      if(G.sel.length) SND.play('order');
       return;
     }
     if(G.placing){ const wallM=BUILDINGS[G.placing].wallSeg; placeBuilding(toWorldX(p.x),toWorldY(p.y)); if(!keys['Shift']&&!wallM) G.placing=null; return; }
@@ -243,6 +246,8 @@ function bindInput(){
     if(e.key==='Escape'){ G.placing=null; G.wallStart=null; buildMenuOpen=false; return; }
     if(k==='b'){ buildMenuOpen=!buildMenuOpen; G.selBuilding=null; return; }
     if(k==='a'){ selectArmy(); return; }
+    if(k==='m'){ if(window.toggleMusic) window.toggleMusic(); return; }
+    if(k==='n'){ if(window.toggleSfx) window.toggleSfx(); return; }
     if(k==='h'){ homeView(); return; }
     if(k==='r'){ useAbility('player'); return; }
     if(k==='q'){ const h=selHero()||heroOf('player'); if(h) heroPower(h); else warn('Nie masz bohatera — wyszkol go w ratuszu'); return; }
@@ -1048,6 +1053,13 @@ window.addEventListener('DOMContentLoaded',()=>{
   const oc=document.querySelectorAll('[data-mode]');
   oc.forEach(el=>el.addEventListener('click',()=>{ pickMode=el.getAttribute('data-mode'); mark(oc,pickMode,'data-mode'); }));
   mark(oc,pickMode,'data-mode');
+  const bm=document.getElementById('btnMus'), bs=document.getElementById('btnSfx');
+  const syncSnd=()=>{ bm.classList.toggle('off',!SND.musOn); bs.classList.toggle('off',!SND.sfxOn); };
+  bm.addEventListener('click',e=>{ e.stopPropagation(); sndInit(); sndSetMusic(!SND.musOn); syncSnd(); });
+  bs.addEventListener('click',e=>{ e.stopPropagation(); sndInit(); sndSetSfx(!SND.sfxOn); syncSnd(); SND.play('click'); });
+  window.toggleMusic=()=>{ sndSetMusic(!SND.musOn); syncSnd(); };
+  window.toggleSfx=()=>{ sndSetSfx(!SND.sfxOn); syncSnd(); };
+  document.addEventListener('pointerdown',()=>sndResume(),{once:false});
   document.getElementById('startBtn').addEventListener('click',()=>startGame(pickF,pickMap,pickMode));
   document.querySelectorAll('[data-again]').forEach(el=>{
     el.addEventListener('click',()=>{ document.getElementById('result').style.display='none';
