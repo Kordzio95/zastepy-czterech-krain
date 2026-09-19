@@ -169,6 +169,176 @@ function drawHeroTop(u,c,L,r,ang,hit){
       vx:rand(-8,8),vy:rand(-34,-10),life:rand(.6,1.2),max:1.2,size:rand(2,4),
       col:pick(['#9ae6b8','#d6f7e2','#e9d79a']),kind:'ember'});
     if(u.hcd<=0) glowAura(0,torY,r*1.6,r*1.6,'#9ae6b8',.15+.08*Math.sin(TIME*2.6+u.id));
+     return;
+  }
+
+
+  /* ============================ RACŁAW — JACOB, PIĘŚCIARZ ============================ */
+  if(f==='raclaw'){
+    const hair='#191512', hair2='#2c2520', wrap='#efe3c8';
+    const kick=swing;                        // 0..1 — faza ciosu
+    const skin2=shade('#dcae86',-.12);
+    // nogi w skorzanych spodniach — jedna wykopuje przy ataku
+    for(const sd of [-1,1]){
+      const front=(sd===face);
+      const sw=step*sd*r*.3;
+      const kickAmt=(front?kick:0);
+      const kx=sd*r*.19*(1-.5*prof)+sw*.4+face*kickAmt*r*.5;
+      const ky=hipY+r*.3-kickAmt*r*.34;
+      const fx=sd*r*.22*(1-.5*prof)+sw+face*kickAmt*r*1.05;
+      const fy=GY-kickAmt*r*.62;
+      limb(sd*r*.18*(1-.4*prof),hipY,kx,ky,r*.23,'#6e4a2c',hit);
+      limb(kx,ky,fx,fy,r*.2,'#5c3c24',hit);
+      // but z owijka
+      cx.fillStyle=hit?'#fff':'#3d2a1a';
+      cx.beginPath(); cx.ellipse(fx+face*r*.07,fy+r*.03,r*.2,r*.1,0,0,7); cx.fill();
+      cx.strokeStyle=OUT; cx.lineWidth=1.2; cx.stroke();
+      cx.strokeStyle=hexA(wrap,.8); cx.lineWidth=r*.045;
+      cx.beginPath(); cx.moveTo(fx-r*.14,fy-r*.08); cx.lineTo(fx+r*.14,fy-r*.11); cx.stroke();
+      if(front&&kick>.4){
+        cx.strokeStyle=hexA('#f2e0c6',.5*kick); cx.lineWidth=r*.1; cx.lineCap='round';
+        cx.beginPath(); cx.arc(0,hipY+r*.1,r*1.1,face>0?-.5:Math.PI+.5,face>0?.7:Math.PI-.7,face<0); cx.stroke();
+      }
+    }
+    // pas z narzedziami
+    // tors — nagi, barczysty, z bandazem na zebrach
+    cx.fillStyle=hit?'#fff':lit3d(0,torY,torW*1.7,'#dcae86');
+    cx.beginPath();
+    cx.moveTo(-shW*.95,shY); cx.quadraticCurveTo(-torW*1.5,torY,-torW*.95,hipY);
+    cx.lineTo(torW*.95,hipY); cx.quadraticCurveTo(torW*1.5,torY,shW*.95,shY);
+    cx.closePath(); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.9; cx.stroke();
+    hi3d(-torW*.3,torY-r*.1,torW*1.05,torH*.75,.2);
+    // miesnie: klatka i brzuch
+    cx.strokeStyle=hexA(skin2,.8); cx.lineWidth=1.5;
+    cx.beginPath(); cx.arc(-torW*.42,torY-r*.08,r*.16,-.4,1.5); cx.stroke();
+    cx.beginPath(); cx.arc(torW*.42,torY-r*.08,r*.16,1.64,3.54); cx.stroke();
+    for(let i=0;i<2;i++){
+      const yy=torY+r*.1+i*r*.12;
+      cx.beginPath(); cx.moveTo(-torW*.5,yy); cx.lineTo(torW*.5,yy); cx.stroke();
+    }
+    cx.beginPath(); cx.moveTo(0,torY-r*.02); cx.lineTo(0,hipY-r*.04); cx.stroke();
+    // bandaz na zebrach
+    cx.fillStyle=hexA(wrap,.9);
+    cx.save(); cx.beginPath(); cx.rect(-torW*1.1,torY+r*.02,torW*2.2,r*.16); cx.clip();
+    for(let i=-3;i<=3;i++){ cx.fillRect(-torW*1.1+ (i+3)*torW*.32, torY+r*.02, torW*.22, r*.16); }
+    cx.restore();
+    // pas
+    cx.fillStyle=hit?'#fff':'#4a3120';
+    cx.fillRect(-torW*.98,hipY-r*.1,torW*1.96,r*.13);
+    cx.fillStyle=hexA(gold,.9); cx.fillRect(-r*.08,hipY-r*.11,r*.16,r*.15);
+    // ramiona: tylna reka cofnieta, przednia wyprowadza prosty cios
+    for(const sd of [-1,1]){
+      const front=(sd===face);
+      const reach=front?kick:Math.max(0,kick-.5)*.4;
+      const ex=sd*shW*1.02+face*reach*r*.95;
+      const ey=shY+r*.12-reach*r*.1;
+      limb(sd*shW*.86,shY,ex,ey,r*.24,'#dcae86',hit);
+      // owinieta pięść
+      cx.fillStyle=hit?'#fff':wrap;
+      cx.beginPath(); cx.arc(ex+face*reach*r*.16,ey,r*.2,0,7); cx.fill();
+      cx.strokeStyle=OUT; cx.lineWidth=1.5; cx.stroke();
+      cx.strokeStyle=hexA(shade(wrap,-.3),.9); cx.lineWidth=1.4;
+      for(let i=-1;i<=1;i++){
+        cx.beginPath();
+        cx.moveTo(ex+face*reach*r*.16-r*.17,ey+i*r*.08);
+        cx.lineTo(ex+face*reach*r*.16+r*.17,ey+i*r*.08-r*.02); cx.stroke();
+      }
+      if(front&&kick>.55){
+        cx.strokeStyle=hexA('#fff4d6',.55*kick); cx.lineWidth=r*.08; cx.lineCap='round';
+        cx.beginPath(); cx.moveTo(ex-face*r*.5,ey+r*.05); cx.lineTo(ex+face*r*.3,ey); cx.stroke();
+      }
+    }
+    // szyja
+    cx.fillStyle=hit?'#fff':shade('#dcae86',-.14);
+    cx.fillRect(face*r*.01-r*.09,shY-r*.14,r*.18,r*.18);
+    // glowa
+    blob(face*r*.02,headY,hr*(1-.06*prof),hr*1.04,'#dcae86',hit,0);
+    // czarne wlosy — gesta czupryna
+    cx.fillStyle=hit?'#fff':hair;
+    cx.beginPath();
+    cx.moveTo(-hr*1.02+face*r*.02,headY-hr*.05);
+    cx.quadraticCurveTo(face*r*.02,headY-hr*1.5,hr*1.02+face*r*.02,headY-hr*.05);
+    cx.quadraticCurveTo(face*r*.02,headY-hr*.48,-hr*1.02+face*r*.02,headY-hr*.05);
+    cx.closePath(); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.3; cx.stroke();
+    // kosmyki nad kark
+    cx.fillStyle=hit?'#fff':hair2;
+    cx.beginPath();
+    cx.moveTo(-face*hr*.9,headY-hr*.3);
+    cx.quadraticCurveTo(-face*hr*1.25,headY+hr*.7,-face*hr*.55,shY-r*.04);
+    cx.quadraticCurveTo(-face*hr*.3,headY+hr*.3,-face*hr*.35,headY-hr*.4);
+    cx.closePath(); cx.fill();
+    // oczy i brwi
+    if(!back){
+      for(const sd of [-1,1]){
+        const ex=face*hr*.34+sd*hr*.3*(1-prof*.55), ey=headY-hr*.06;
+        if(prof>.72&&sd===-face) continue;
+        cx.fillStyle='#1d2126'; cx.beginPath(); cx.ellipse(ex,ey,hr*.1,hr*.13,0,0,7); cx.fill();
+        cx.strokeStyle=hair; cx.lineWidth=hr*.14;
+        cx.beginPath(); cx.moveTo(ex-hr*.16,ey-hr*.26); cx.lineTo(ex+hr*.16,ey-hr*.3); cx.stroke();
+      }
+      // nos
+      cx.strokeStyle=hexA(skin2,.9); cx.lineWidth=1.6;
+      cx.beginPath(); cx.moveTo(face*hr*.5,headY-hr*.06); cx.lineTo(face*hr*.58,headY+hr*.18); cx.stroke();
+    }
+    // czarna broda — geste, dlugie klaki
+    cx.fillStyle=hit?'#fff':hair;
+    cx.beginPath();
+    cx.moveTo(-hr*.84+face*r*.02,headY+hr*.42);
+    cx.quadraticCurveTo(-hr*.78+face*r*.02,headY+hr*1.55,face*r*.06,headY+hr*1.8);
+    cx.quadraticCurveTo(hr*.82+face*r*.02,headY+hr*1.45,hr*.86+face*r*.02,headY+hr*.42);
+    cx.quadraticCurveTo(face*r*.02,headY+hr*.9,-hr*.84+face*r*.02,headY+hr*.42);
+    cx.closePath(); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.4; cx.stroke();
+    cx.strokeStyle=hexA(hair2,.9); cx.lineWidth=1.3;
+    for(let i=-1;i<=1;i++){
+      cx.beginPath();
+      cx.moveTo(i*hr*.34+face*r*.02,headY+hr*.55);
+      cx.quadraticCurveTo(i*hr*.4+face*r*.02,headY+hr*1.2,i*hr*.2+face*r*.02,headY+hr*1.62); cx.stroke();
+    }
+    // wasy
+    cx.fillStyle=hit?'#fff':hair;
+    cx.beginPath(); cx.ellipse(face*hr*.3,headY+hr*.4,hr*.4,hr*.1,0,0,7); cx.fill();
+    /* ---- GNIAZDO NA GŁOWIE ---- */
+    const nx0=face*r*.02, ny0=headY-hr*1.24;
+    // czasza gniazda z galazek
+    cx.fillStyle=hit?'#fff':'#6b4a28';
+    cx.beginPath(); cx.ellipse(nx0,ny0,hr*1.34,hr*.56,0,Math.PI,0); cx.fill();
+    cx.beginPath(); cx.ellipse(nx0,ny0,hr*1.34,hr*.4,0,0,Math.PI); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.5;
+    cx.beginPath(); cx.ellipse(nx0,ny0,hr*1.34,hr*.56,0,0,7); cx.stroke();
+    // splecione galazki
+    cx.strokeStyle=hexA('#8a6434',.95); cx.lineWidth=1.5;
+    for(let i=-3;i<=3;i++){
+      cx.beginPath();
+      cx.moveTo(nx0+i*hr*.4,ny0+hr*.4);
+      cx.quadraticCurveTo(nx0+i*hr*.48,ny0-hr*.26,nx0+i*hr*.22,ny0-hr*.46); cx.stroke();
+    }
+    cx.strokeStyle=hexA('#a87c44',.9); cx.lineWidth=1.3;
+    cx.beginPath(); cx.ellipse(nx0,ny0-hr*.1,hr*1.16,hr*.34,0,Math.PI,0); cx.stroke();
+    // jajka w gniezdzie
+    cx.fillStyle=hit?'#fff':'#f2eede';
+    for(const j of [-1,0,1]){
+      cx.beginPath(); cx.ellipse(nx0+j*hr*.4,ny0-hr*.26,hr*.2,hr*.25,j*.2,0,7); cx.fill();
+      cx.strokeStyle=hexA('#b9a98a',.9); cx.lineWidth=1; cx.stroke();
+    }
+    // ptaszek przysiadajacy na brzegu gniazda
+    const bob=Math.sin(TIME*2.4+u.id)*hr*.08;
+    const bx2=nx0+face*hr*.84, by2=ny0-hr*.5+bob;
+    cx.fillStyle=hit?'#fff':'#5d7b8a';
+    cx.beginPath(); cx.ellipse(bx2,by2,hr*.32,hr*.25,face*.25,0,7); cx.fill();
+    cx.beginPath(); cx.arc(bx2+face*hr*.26,by2-hr*.22,hr*.17,0,7); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.1; cx.stroke();
+    cx.fillStyle='#e3b45f';
+    cx.beginPath(); cx.moveTo(bx2+face*hr*.4,by2-hr*.26); cx.lineTo(bx2+face*hr*.66,by2-hr*.19); cx.lineTo(bx2+face*hr*.4,by2-hr*.12); cx.closePath(); cx.fill();
+    cx.fillStyle='#10161a';
+    cx.beginPath(); cx.arc(bx2+face*hr*.3,by2-hr*.26,hr*.045,0,7); cx.fill();
+    cx.fillStyle=hexA('#44606e',.95);
+    cx.beginPath(); cx.ellipse(bx2-face*hr*.06,by2-hr*.02,hr*.2,hr*.13,face*.3,0,7); cx.fill();
+    if(Math.random()<.02) G.parts.push({x:u.x+face*r*.2,y:u.y-r*.9,vx:rand(-10,10),vy:rand(-18,-4),
+      life:rand(.6,1.1),max:1.1,size:rand(2,3),col:'#efe3c8',kind:'ember'});
+    return;
   }
 
   /* ============================ LUDZIE ============================ */

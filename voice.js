@@ -10,7 +10,8 @@ const VOICE={
   orki:     {f:104, type:'square',   fc:760,  q:5,  rough:.30, syl:.125, spread:.85, g:.135},
   nieumarli:{f:132, type:'sawtooth', fc:1750, q:12, rough:.42, syl:.100, spread:1.25, g:.100},
   demony:   {f:74,  type:'square',   fc:520,  q:4,  rough:.34, syl:.140, spread:.75, g:.150},
-  elfy:     {f:216, type:'triangle', fc:1500, q:9,  rough:.05, syl:.095, spread:1.35, g:.100}
+  elfy:     {f:216, type:'triangle', fc:1500, q:9,  rough:.05, syl:.095, spread:1.35, g:.100},
+  raclaw:   {f:128, type:'sawtooth', fc:880,  q:7,  rough:.26, syl:.085, spread:1.10, g:.130}
 };
 
 /* kwestie: [frakcja][rodzaj jednostki][zdarzenie] — losowane */
@@ -51,6 +52,15 @@ const VLINES={
     flamer:{sel:['Paszcza gotowa.','Czuję dym.'],order:['Idę.'],attack:['SPALIĆ!']},
     heavy:{sel:['OTCHŁAŃ MÓWI!','Czuję wasz strach.'],order:['Ziemia płonie.'],attack:['ZGORZEJCIE!']},
     hero:{sel:['Otchłań jest ze mną.'],order:['Za Vharoth!'],attack:['Pieklę się!']}
+  },
+  raclaw:{
+    worker:{sel:['Hau! Kopię.','Wąchać? Kopać?','Węszę robotę.'],order:['Biegnę!','Już węszę.','Hau!']},
+    warrior:{sel:['Sfora gotowa!','Wrr… kły czekają.','Hau hau!'],order:['Tropię!','Biegnę!'],attack:['Gryź!','Rozszarpać!']},
+    archer:{sel:['Wietrzę cel.','Strzała czeka.'],order:['Podchodzę.'],attack:['Tropiona strzała!']},
+    guard:{sel:['Kaganiec zdjęty.','Stoję jak wrota.'],order:['Idę ciężko.'],attack:['Nie przejdziesz!']},
+    crossbow:{sel:['Bełt naciągnięty.'],order:['Zmieniam trop.'],attack:['Przebić!']},
+    heavy:{sel:['ZORA CZUJE KREW!','Wrrrau!'],order:['Zora rusza.'],attack:['ROZSZARPIĘ!']},
+    hero:{sel:['Jacob gotowy do bójki.','Pięści same się rwą.','Kto pierwszy?'],order:['Doskakuję!'],attack:['Kopniak!','Masz!']}
   },
   elfy:{
     worker:{sel:['Gaj pomoże.','Słucham.','Z lasem w zgodzie.'],order:['Idę cicho.','Już.']},

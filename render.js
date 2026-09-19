@@ -289,6 +289,41 @@ function drawBuilding(b){
       cx.strokeStyle=hexA(c.accent,gl); cx.lineWidth=3;
       cx.beginPath(); cx.ellipse(sx,sy+r*.16,r*1.5,r*.9,0,0,7); cx.stroke();
     }
+  } else if(b.type==='kennel'){
+    // Psiarnia: drewniana buda z lukowym wejsciem, kosciami i lancuchem
+    cx.fillStyle=shade('#7a5330',.04);
+    cx.beginPath(); cx.rect(sx-r*.78,sy-h*.8,r*1.56,h*1.2); cx.fill();
+    cx.strokeStyle='rgba(20,18,14,.55)'; cx.lineWidth=1.4; cx.stroke();
+    cx.strokeStyle=hexA(shade('#7a5330',-.28),.9); cx.lineWidth=1.6;
+    for(let i=0;i<4;i++){ cx.beginPath(); cx.moveTo(sx-r*.78,sy-h*.8+i*h*.3); cx.lineTo(sx+r*.78,sy-h*.8+i*h*.3); cx.stroke(); }
+    // dwuspadowy dach z desek
+    cx.fillStyle=shade(roof,-.04);
+    cx.beginPath(); cx.moveTo(sx-r*.95,sy-h*.8); cx.lineTo(sx,sy-h*1.55); cx.lineTo(sx+r*.95,sy-h*.8); cx.closePath(); cx.fill();
+    cx.strokeStyle='rgba(20,18,14,.5)'; cx.lineWidth=1.4; cx.stroke();
+    // czarny otwor wejscia
+    cx.fillStyle='#161009';
+    cx.beginPath(); cx.moveTo(sx-r*.3,sy+h*.4); cx.lineTo(sx-r*.3,sy-h*.2);
+    cx.quadraticCurveTo(sx,sy-h*.62,sx+r*.3,sy-h*.2); cx.lineTo(sx+r*.3,sy+h*.4); cx.closePath(); cx.fill();
+    // kosci przed buda
+    cx.strokeStyle='#efe6d2'; cx.lineWidth=3; cx.lineCap='round';
+    for(let i=-1;i<=1;i++){
+      const bxx=sx+i*r*.5+ (i?0:r*.1), byy=sy+h*.52+Math.abs(i)*3;
+      cx.beginPath(); cx.moveTo(bxx-r*.16,byy); cx.lineTo(bxx+r*.16,byy-3); cx.stroke();
+    }
+    cx.lineCap='butt';
+    // lancuch i kolek
+    cx.strokeStyle=hexA(c.metal,.85); cx.lineWidth=2;
+    cx.beginPath(); cx.moveTo(sx+r*.74,sy+h*.1); cx.quadraticCurveTo(sx+r*1.05,sy+h*.5,sx+r*1.2,sy+h*.34); cx.stroke();
+    cx.fillStyle='#4a3120';
+    cx.beginPath(); cx.rect(sx+r*1.16,sy+h*.3,r*.1,h*.3); cx.fill();
+    if(b.done){
+      const gl=.3+.25*Math.abs(Math.sin(TIME*2+b.seed));
+      cx.strokeStyle=hexA(c.accent,gl); cx.lineWidth=3;
+      cx.beginPath(); cx.ellipse(sx,sy+r*.16,r*1.5,r*.9,0,0,7); cx.stroke();
+      // dwa slepia w mroku budy
+      cx.fillStyle=hexA('#e9c15a',.5+.4*Math.sin(TIME*3+b.seed));
+      cx.beginPath(); cx.arc(sx-r*.1,sy-h*.06,2.6,0,7); cx.arc(sx+r*.1,sy-h*.06,2.6,0,7); cx.fill();
+    }
   } else if(b.type==='crypt'){
     cx.fillStyle=shade(wall,-.1);
     cx.beginPath(); cx.moveTo(sx-r*.95,sy+h*.4); cx.lineTo(sx-r*.7,sy-h*.8); cx.lineTo(sx+r*.7,sy-h*.8); cx.lineTo(sx+r*.95,sy+h*.4); cx.closePath(); cx.fill();
@@ -1123,7 +1158,7 @@ function drawEffects(){
       cx.fillStyle=fg; cx.beginPath(); cx.arc(sx,sy,10,0,7); cx.fill();
       continue;
     }
-    cx.strokeStyle=a.kind==='frost'?'#9ff0e4':(a.kind==='bolt'?'#e0a15c':'#efe4c6');
+    cx.strokeStyle=a.kind==='frost'?'#9ff0e4':(a.kind==='bolt'?'#e0a15c':(a.kind==='track'?'#e9923a':'#efe4c6'));
     cx.lineWidth=a.kind==='bolt'?3.4:2.2;
     cx.beginPath(); cx.moveTo(sx,sy); cx.lineTo(sx-Math.cos(ang)*13,sy-Math.sin(ang)*13); cx.stroke();
   }

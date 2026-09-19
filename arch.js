@@ -16,7 +16,9 @@ const ARCH={
   demony:{ stone:'#3c2028', stone2:'#1d1015', trim:'#ff7a2f', wood:'#2d1a19',
            glow:'#ff6a22', roofCol:'#59120e', roof:'jag', win:'glow' },
   elfy:{   stone:'#e4ead6', stone2:'#c3d0b4', trim:'#e9d79a', wood:'#7d6a44',
-           glow:'#9ae6b8', roofCol:'#4f8f58', roof:'leaf', win:'lancet' }
+           glow:'#9ae6b8', roofCol:'#4f8f58', roof:'leaf', win:'lancet' },
+  raclaw:{ stone:'#cbb896', stone2:'#a08a63', trim:'#e3b45f', wood:'#7a5330',
+           glow:null, roofCol:'#8a5a30', roof:'hide', win:'slit' }
 };
 const archOf=f=>ARCH[f]||ARCH.ludzie;
 
@@ -615,7 +617,7 @@ function keepCrest(b,sx,sy,r,h,c,A,f){
   for(let i=-3;i<=3;i++){ cx.beginPath(); cx.moveTo(sx+i*r*.3,sy-h*.06); cx.lineTo(sx+i*r*.3-r*.07,sy+h*.04); cx.lineTo(sx+i*r*.3+r*.07,sy+h*.04); cx.closePath(); cx.fill(); }
 }
 function drawFactionBuildingCore(b,sx,sy,r,h,c){
-  const A=archOf(b.faction), f=b.faction, t=b.type, sd=b.seed, done=b.done;
+  const A=archOf(b.faction), f=(b.faction==='raclaw'?'orki':b.faction), t=b.type, sd=b.seed, done=b.done;
   const G1=A.glow;
 
   if(t==='townhall'){

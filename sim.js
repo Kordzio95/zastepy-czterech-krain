@@ -47,6 +47,13 @@ function updateUnits(dt){
     if(u.slow>0) u.slow-=dt;
     if(u.hcd>0) u.hcd-=dt;
     if(u.hbuff>0) u.hbuff-=dt;
+    if(u.bleed>0){
+      u.bleed-=dt; u.bleedAcc=(u.bleedAcc||0)+dt;
+      if(Math.random()<dt*12) G.parts.push({x:u.x+rand(-u.r*.5,u.r*.5),y:u.y+rand(-u.r*.3,u.r*.2),
+        vx:rand(-12,12),vy:rand(20,70),life:rand(.3,.6),max:.6,size:rand(2,4),col:'#8a2b20',kind:'ember'});
+      if(u.bleedAcc>=.6){ u.bleedAcc=0; dealDamage(u,5,u.bleedSide,{n:1,power:.4}); if(u.dead) continue; }
+      if(u.bleed<=0){ u.bleed=0; u.bleedSide=null; }
+    }
     if(u.burn>0){
       u.burn-=dt; u.burnAcc=(u.burnAcc||0)+dt;
       if(Math.random()<dt*22) G.parts.push({x:u.x+rand(-u.r*.6,u.r*.6),y:u.y+rand(-u.r*.5,u.r*.2),
@@ -500,6 +507,13 @@ function updateArrows(dt){
             life:.6,max:.6,size:rand(2,4),col:'#9ff0e4',kind:'ember'}); }
         else if(a.kind==='bolt2'){ knockback(o,nx,ny,120,0);
           spark(o.x,o.y,'#f6efd8',6,1); ring(o.x,o.y,17,'rgba(246,239,216,.7)',.2,2); }
+        else if(a.kind==='track'){
+          knockback(o,nx,ny,60,0);
+          o.slow=Math.max(o.slow||0,a.slow||1.6);
+          floatText(o.x,o.y-o.r-10,'TROP','#e9923a',10);
+          for(let i=0;i<6;i++) G.parts.push({x:o.x+rand(-8,8),y:o.y+rand(-8,8),vx:rand(-26,26),vy:rand(-34,-6),
+            life:.6,max:.6,size:rand(2,4),col:'#e9923a',kind:'ember'});
+        }
         else if(a.kind==='leaf'){
           knockback(o,nx,ny,45,0);
           for(let i=0;i<6;i++) G.parts.push({x:o.x+rand(-8,8),y:o.y+rand(-8,8),vx:rand(-26,26),vy:rand(-40,-6),

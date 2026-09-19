@@ -159,9 +159,10 @@ const MUS_SCALE={
   orki:     [0,1,5,6,7,10,11],  // frygijska obniżona — dzika
   nieumarli:[0,2,3,5,6,8,10],   // lokrycka — chłodna, niepokojąca
   demony:   [0,1,4,6,7,8,11],   // zmniejszona — piekielna
-  elfy:     [0,2,4,7,9,11,12]   // lidyjska — jasna, leśna
+  elfy:     [0,2,4,7,9,11,12],  // lidyjska — jasna, leśna
+  raclaw:   [0,2,3,5,7,9,10]    // dorycka — watahowa, marszowa
 };
-const MUS_ROOT={ludzie:110,orki:98,nieumarli:104,demony:92,elfy:123};
+const MUS_ROOT={ludzie:110,orki:98,nieumarli:104,demony:92,elfy:123,raclaw:104};
 function musHz(root,semi){ return root*Math.pow(2,semi/12); }
 
 function musNote(f,dur,g,at,type,fc){

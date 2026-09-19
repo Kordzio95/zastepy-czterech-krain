@@ -142,6 +142,32 @@ const FACTIONS={
       hero:'Każdy cios leczy pobliskich sojuszników'},
     hero:{name:'Aerith, Głos Gaju', power:'Gniew Borów', cd:24, radius:205,
           desc:'Korzenie wybijają z ziemi: unieruchamiają wrogów na 3 s i ranią za 75.'}
+  },
+  raclaw:{
+    name:'Racław', realm:'Sfora Psogłowych',
+    desc:'Psogłowi tropiciele — szybcy, gryzą i polują w sforze.',
+    col:{main:'#b06a34', dark:'#3c2617', light:'#f2e0c6', metal:'#c8ced6', gold:'#e3b45f',
+         accent:'#e9923a', skin:'#8d6e4f', cloth:'#4d6b78', roof:'#8a5a30', wall:'#cbb896'},
+    ability:{name:'Zew Sfory', cost:95, cd:21, desc:'Wycie zrywa całą sforę: +35% obrażeń i +40% prędkości na 9 s.'},
+    gore:'#8a2b20',
+    tiers:{
+      worker:['Kopacz','Tropiciel','Mistrz Sfory'],
+      hero:['Jacob'],
+      warrior:['Psiarz','Kłapouch','Wyjec','Rozszarpywacz','Alfa Racławia'],
+      archer:['Łucznik Sfory','Strzelec Kłapouchy','Tropiciel Strzał','Mistrz Łuku Sfory','Wycie Strzał'],
+      heavy:['Zora','Zora Alfa','Zora, Pani Sfory'],
+      catapult:['Katapulta Sfory','Katapulta Oblężnicza','Wielka Katapulta Racławia'],
+      ballista:['Balista Sfory','Balista Ciężka','Balista Racławia'],
+      trebuchet:['Trebusz Sfory','Trebusz Oblężniczy','Trebusz Racławia'],
+      cannon:['Działo Sfory','Ciężkie Działo','Bombarda Racławia'],
+      sling:['Wielka Proca','Wyrzutnia Kłów','Miotacz Skał']
+    },
+    attackDesc:{warrior:'Ugryzienie — rana krwawi i dobija wroga po ciosie',
+      archer:'Strzała tropiciela — spowalnia trafionego',
+      heavy:'Zora dopada wroga skokiem i szarpie go kłami',
+      hero:'Jacob doskakuje i kopie — odrzuca wroga'},
+    hero:{name:'Jacob', power:'Doskok i Kopniak', cd:22, radius:170,
+          desc:'Jacob doskakuje do skupiska wrogów i kopniakiem odrzuca ich: 85 obrażeń i 1,2 s ogłuszenia.'}
   }
 };
 /* --- ciężka piechota, kusznicy i miotacze: nazwy poziomów dla każdej krainy --- */
@@ -156,7 +182,9 @@ const FTIERS={
           crossbow:['Siarkowy Kusznik','Arbalet Otchłani','Czarna Lufa','Oko Bełtów'],
           flamer:['Miotacz Ognia','Piekielny Płomieniarz','Paszcza Otchłani','Gardziel Zagłady']},
   elfy:{  guard:['Wartownik Gaju','Gwardia Korzeni','Tarcza Starodrzewu','Straż Wiecznego Liścia'],
-          crossbow:['Kusznik Liścia','Arbaletnik Gaju','Srebrny Bełt','Cichy Arbalet']}
+          crossbow:['Kusznik Liścia','Arbaletnik Gaju','Srebrny Bełt','Cichy Arbalet']},
+  raclaw:{guard:['Kagańcowy Gwardzian','Pancerny Kłapouch','Żelazna Sfora','Kły Racławia'],
+          crossbow:['Kusznik Sfory','Arbaletnik Kłapouchy','Srebrny Bełt Sfory','Oko Tropiciela']}
 };
 for(const f in FTIERS) for(const t in FTIERS[f]) FACTIONS[f].tiers[t]=FTIERS[f][t];
 /* opisy nowych oddziałów — wspólne dla wszystkich krain */
@@ -188,7 +216,10 @@ const FBUILD={
     wall:'Mur Obsydianowy',gate:'Wrota Otchłani',workshop:'Ludwisarnia Otchłani'}},
   elfy:{unique:'grove', names:{townhall:'Drzewo Rady',house:'Domostwo w Konarach',barracks:'Dziedziniec Klingi',range:'Taras Łuczników',
     forge:'Kuźnia Srebrnego Liścia',lair:'Krąg Entów',tower:'Wieżyca Strażnicza',grove:'Gaj Wiecznego Liścia',
-    wall:'Żywopłot Cierniowy',gate:'Brama Splecionych Drzew',workshop:'Warsztat Leśny'}}
+    wall:'Żywopłot Cierniowy',gate:'Brama Splecionych Drzew',workshop:'Warsztat Leśny'}},
+  raclaw:{unique:'kennel', names:{townhall:'Gród Racławia',house:'Buda',barracks:'Psiarnia Bojowa',range:'Strzelnica Sfory',
+    forge:'Kuźnia Kłów',lair:'Legowisko Zory',tower:'Wieża Wycia',kennel:'Psiarnia',
+    wall:'Palisada Sfory',gate:'Wrota Grodu',workshop:'Warsztat Racławia'}}
 };
 /* --- maszyny oblegnicze frakcji --- */
 const FSIEGE={
@@ -196,7 +227,8 @@ const FSIEGE={
   orki:['sling','cannon'],
   nieumarli:['trebuchet','ballista'],
   demony:['cannon','trebuchet'],
-  elfy:['ballista','catapult']
+  elfy:['ballista','catapult'],
+  raclaw:['catapult','sling']
 };
 const siegeOf=f=>FSIEGE[f]||['catapult'];
 const bLabel=(f,t)=>(FBUILD[f]&&FBUILD[f].names[t])||BUILDINGS[t].label;
@@ -313,7 +345,10 @@ const BUILDINGS={
              desc:'Przyzywa chochliki i podpala wrogów, którzy podejdą za blisko.' },
   grove:{    label:'Gaj Wiecznego Liścia', key:'U', r:28, hp:1600, cost:{gold:180,wood:120}, build:24, pop:3, trains:[],
              aura:{kind:'heal',range:225,rate:20},
-             desc:'Żywy gaj leczy sojuszników w pobliżu i daje +3 ludności.' }
+             desc:'Żywy gaj leczy sojuszników w pobliżu i daje +3 ludności.' },
+  kennel:{   label:'Psiarnia',    key:'U', r:27, hp:1500, cost:{gold:170,wood:135}, build:23, pop:3, trains:[],
+             aura:{kind:'dmg',range:215,mul:1.25},
+             desc:'Sfora czuje wsparcie: sojusznicy w pobliżu biją o 25% mocniej i dostajesz +3 ludności.' }
 };
 const BUILD_ORDER=['townhall','house','barracks','range','forge','lair','tower','workshop','wall','gate'];
 const WALL_SPACING=27;

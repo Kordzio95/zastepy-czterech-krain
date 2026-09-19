@@ -153,7 +153,7 @@ function spawnUnit(side,type,x,y,lvlOpt){
     facing:rand(0,7), state:'idle', order:null, carry:null, gatherAcc:0,
     atk:rand(0,.5), anim:rand(0,6), walk:0, stun:0, slow:0, hitFlash:0,
     windup:0, windupKind:null, swing:0, swingMax:.38, swingKind:null, volley:0, hcd:0, hbuff:0, avoid:null, stuck:0, lastD:0,
-    burn:0, burnSide:null, burnAcc:0,
+    burn:0, burnSide:null, burnAcc:0, bleed:0, bleedSide:null, bleedAcc:0,
     z:0, vz:0, vx:0, vy:0, rot:0, vrot:0,
     dead:false, fade:1, sel:false
   };
@@ -435,7 +435,7 @@ function trainUnit(b,type){
   return true;
 }
 const KEEP_COST={gold:300,wood:260};
-function keepName(f){ return ({ludzie:'Twierdza Astlandu',orki:'Warownia Hordy',nieumarli:'Cytadela Kości',demony:'Piekielna Twierdza',elfy:'Warownia Srebrnego Liścia'})[f]||'Twierdza'; }
+function keepName(f){ return ({ludzie:'Twierdza Astlandu',orki:'Warownia Hordy',nieumarli:'Cytadela Kości',demony:'Piekielna Twierdza',elfy:'Warownia Srebrnego Liścia',raclaw:'Warownia Sfory'})[f]||'Twierdza'; }
 function upgradeKeep(side){
   if(G.keep[side]) return false;
   const th=G.buildings.find(b=>b.side===side&&!b.dead&&b.done&&b.type==='townhall');
@@ -636,6 +636,10 @@ function destroyBuilding(b,fromSide){
   }
   if(b.side==='player'){ G.alert=2.2; warn('Straciłeś '+bLabel(G.pf,b.type)+'!'); }
 }
+function bite(t,secs,fromSide){
+  if(!t||t.dead) return;
+  t.bleed=Math.max(t.bleed||0,secs); t.bleedSide=fromSide;
+}
 function ignite(t,secs,fromSide){
   if(!t||t.dead||!UNITS[t.type]) return;
   t.burn=Math.max(t.burn||0,secs); t.burnSide=fromSide;
@@ -677,7 +681,7 @@ function meleeAttack(u,t){
   if(typeof unitVoice==='function'&&u.side==='player'&&Math.random()<.07) unitVoice(u,'attack');
   const ang=Math.atan2(t.y-u.y,t.x-u.x), nx=Math.cos(ang), ny=Math.sin(ang);
   u.facing=ang;
-  const swCol=u.faction==='nieumarli'?'#cfeee8':(u.faction==='orki'?'#f3c98f':(u.faction==='demony'?'#ffb15e':(u.faction==='elfy'?'#d6f7e2':'#eef3ff')));
+  const swCol=u.faction==='nieumarli'?'#cfeee8':(u.faction==='orki'?'#f3c98f':(u.faction==='demony'?'#ffb15e':(u.faction==='elfy'?'#d6f7e2':(u.faction==='raclaw'?'#f2e0c6':'#eef3ff'))));
   SND.play('slash',u.x,u.y);
   slashArc(u.x+nx*(u.r+8),u.y+ny*(u.r+8),ang,u.r*2.4+16,swCol,u.lvl>=3?6:4);
   slashArc(u.x+nx*(u.r+5),u.y+ny*(u.r+5),ang-.18,u.r*2.1+10,hexA('#ffffff',.5),2.5);
@@ -704,6 +708,14 @@ function meleeAttack(u,t){
     if(UNITS[t.type]){ knockback(t,nx,ny,90,0); ignite(t,4,u.side); }
     embers(u.x+nx*14,u.y+ny*14,'#ff9e3d',5);
     G.parts.push({x:u.x+nx*16,y:u.y+ny*16,vx:nx*60,vy:ny*60,life:.3,max:.3,size:8,col:'#ffb15e',kind:'fire'});
+  } else if(u.faction==='raclaw'){
+    // ugryzienie: rana krwawi, a ranny wrog dostaje dobicie
+    const low=UNITS[t.type]&&t.hp<t.maxHp*.5;
+    dealDamage(t,Math.round(dmg*(low?1.35:1)),u.side,{dx:nx,dy:ny,n:low?8:5,power:low?1.3:1});
+    if(UNITS[t.type]){ knockback(t,nx,ny,70,0); bite(t,3.5,u.side); }
+    for(let i=0;i<4;i++) G.parts.push({x:t.x+rand(-t.r*.4,t.r*.4),y:t.y+rand(-t.r*.4,t.r*.2),
+      vx:rand(-50,50),vy:rand(-90,-20),life:rand(.3,.6),max:.6,size:rand(2,4),col:'#8a2b20',kind:'ember'});
+    if(low&&!t.dead) floatText(t.x,t.y-t.r-12,'DOBICIE','#e9923a',12);
   } else if(u.faction==='elfy'){
     // podwojne ciecie: co drugi cios jest krytyczny
     u.volley=(u.volley||0)+1;
@@ -740,6 +752,10 @@ function meleeAttack(u,t){
     } else if(u.faction==='orki'&&UNITS[t.type]) knockback(t,nx,ny,200,.6);
     else if(u.faction==='demony'){ ignite(t,6,u.side); u.hp=Math.min(u.maxHp,u.hp+Math.round(dmg*.2)); }
     else if(u.faction==='nieumarli'){ u.hp=Math.min(u.maxHp,u.hp+Math.round(dmg*.25)); u.hbuff=Math.max(u.hbuff,2.5); }
+    else if(u.faction==='raclaw'){
+      if(UNITS[t.type]){ knockback(t,nx,ny,240,.7); t.stun=Math.max(t.stun,.45); }
+      for(let i=0;i<7;i++) debris(t.x+rand(-14,14),t.y+rand(-10,10),1.4,'#cbb896');
+    }
     else if(u.faction==='elfy'){
       for(const a of G.units){
         if(!allySide(a.side,u.side)||a.dead||a===u) continue;
@@ -761,7 +777,7 @@ function shootArrow(u,t,opts={}){
   G.arrows.push({x:u.x+Math.cos(ang)*(u.r+4),y:u.y+Math.sin(ang)*(u.r+4),
     vx:Math.cos(a)*(opts.sp||sp), vy:Math.sin(a)*(opts.sp||sp), life:opts.life||1.6, side:u.side, faction:u.faction,
     dmg:Math.round(unitDmg(u)*(opts.dmgMul||1)), kind:opts.kind||'normal', trail:[],
-    pierceUnits:opts.pierceUnits||0, pierceArmor:!!opts.pierceArmor});
+    pierceUnits:opts.pierceUnits||0, pierceArmor:!!opts.pierceArmor, slow:opts.slow||0});
   spark(u.x+Math.cos(ang)*(u.r+6),u.y+Math.sin(ang)*(u.r+6),'#f0e4c4',3,.5);
   SND.play('bowShot',u.x,u.y);
 }
@@ -774,6 +790,7 @@ function archerAttack(u,t){
   } else if(u.faction==='orki') shootArrow(u,t,{kind:'bolt',dmgMul:1.15});
   else if(u.faction==='demony') shootArrow(u,t,{kind:'fire',dmgMul:.9});
   else if(u.faction==='elfy') shootArrow(u,t,{kind:'leaf',dmgMul:1.05,pierceUnits:1,sp:680});
+  else if(u.faction==='raclaw') shootArrow(u,t,{kind:'track',dmgMul:1.02,slow:1.6,sp:640});
   else shootArrow(u,t,{kind:'frost'});
 }
 
@@ -893,7 +910,7 @@ function heavyAttack(u,t){
   u.facing=Math.atan2(t.y-u.y,t.x-u.x);
   if(u.faction==='ludzie'&&d>90&&UNITS[t.type]){ u.windup=.5; u.windupKind='boulder'; u.boulderTarget={x:t.x,y:t.y}; return; }
   u.windup=.42;
-  u.windupKind=u.faction==='orki'?'whirl':(u.faction==='nieumarli'?'quake':(u.faction==='demony'?'fire':(u.faction==='elfy'?'roots':'slam')));
+  u.windupKind=u.faction==='orki'?'whirl':(u.faction==='nieumarli'?'quake':(u.faction==='demony'?'fire':(u.faction==='elfy'?'roots':(u.faction==='raclaw'?'bite':'slam'))));
 }
 function resolveHeavy(u){
   const k=u.windupKind; u.windupKind=null;
@@ -989,7 +1006,7 @@ function inSight(side,x,y){
 }
 function abilityTarget(side){
   const f=sideFaction(side);
-  if(f==='orki'||f==='elfy') return G.units.some(u=>u.side===side&&!u.dead);
+  if(f==='orki'||f==='elfy'||f==='raclaw') return G.units.some(u=>u.side===side&&!u.dead);
   if(f==='nieumarli') return G.fallen[side]&&G.fallen[side].length>0;
   return G.units.some(u=>!u.dead&&foe(u.side,side)&&inSight(side,u.x,u.y));
 }
@@ -1036,6 +1053,18 @@ function useAbility(side){
         life:1.6,max:1.6,size:14,col:'#ff8a3a',side,dmg:Math.round(34+G.lvl[side].heavy*8),ty,hit:false,rot:rand(0,7),vrot:9});
     }
     ring(best.x,best.y,150,'rgba(255,158,61,.85)',.9,4);
+  } else if(f==='raclaw'){
+    // Zew Sfory: cala sfora rusza szybciej i gryzie mocniej
+    G.buff[side]=9;
+    if(side==='player') banner('ZEW SFORY','#e9923a');
+    for(const u of G.units) if(u.side===side&&!u.dead){
+      u.slow=0;
+      ring(u.x,u.y,u.r+16,'rgba(233,146,58,.85)',.5,3);
+      for(let i=0;i<4;i++) G.parts.push({x:u.x+rand(-u.r,u.r),y:u.y+rand(-u.r*.4,u.r*.4),
+        vx:rand(-18,18),vy:rand(-60,-20),life:rand(.3,.7),max:.7,size:rand(2,4),col:pick(['#e9923a','#f2e0c6','#b06a34']),kind:'ember'});
+    }
+    const lead=G.units.filter(u=>u.side===side&&!u.dead);
+    if(lead.length&&typeof groupVoice==='function') groupVoice(lead,'order');
   } else if(f==='elfy'){
     // Piesn Gaju: leczy i przyspiesza cala armie
     G.buff[side]=9;
@@ -1104,6 +1133,34 @@ function heroPower(u){
       t.stun=Math.max(t.stun,1.5);
     }
     for(let i=0;i<26;i++) debris(u.x+rand(-40,40),u.y+rand(-30,30),2);
+  } else if(u.faction==='raclaw'){
+    // Doskok i Kopniak: Jacob skacze w skupisko i kopie
+    let best=null,bc=-1;
+    for(const o of G.units){
+      if(o.dead||!isFoe(o,u)) continue;
+      if(Math.hypot(o.x-u.x,o.y-u.y)>R*2.4) continue;
+      const c=G.units.filter(p=>!p.dead&&isFoe(p,u)&&Math.hypot(p.x-o.x,p.y-o.y)<110).length;
+      if(c>bc){bc=c;best=o;}
+    }
+    if(best){
+      const d=Math.hypot(best.x-u.x,best.y-u.y)||1;
+      const tx=best.x-(best.x-u.x)/d*(u.r+best.r+6), ty=best.y-(best.y-u.y)/d*(u.r+best.r+6);
+      for(let i=0;i<14;i++){ const t2=i/14; puff(u.x+(tx-u.x)*t2,u.y+(ty-u.y)*t2,.8,'#e7d6b4'); }
+      u.x=tx; u.y=ty; u.facing=Math.atan2(best.y-u.y,best.x-u.x);
+      u.path=null; u.jump=.35;
+      shake(6,u.x,u.y,520);
+    }
+    for(const t of G.units){
+      if(t.dead||!isFoe(t,u)) continue;
+      const d=Math.hypot(t.x-u.x,t.y-u.y);
+      if(d>R) continue;
+      const nx=(t.x-u.x)/(d||1), ny=(t.y-u.y)/(d||1);
+      dealDamage(t,85,u.side,{n:7,power:1.3,dx:nx,dy:ny});
+      knockback(t,nx,ny,330,1.3);
+      t.stun=Math.max(t.stun,1.2);
+      spark(t.x,t.y,'#f2e0c6',7,1.1);
+    }
+    for(let i=0;i<18;i++) debris(u.x+rand(-40,40),u.y+rand(-30,30),1.8,'#cbb896');
   } else if(u.faction==='elfy'){
     // Gniew Borow: korzenie wybijaja z ziemi i trzymaja wrogow
     for(const t of G.units){

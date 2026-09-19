@@ -174,6 +174,47 @@ function drawSoldierTop(u,c,L,r,ang,hit){
       cx.beginPath(); cx.moveTo(tx-hr*.07,ty); cx.lineTo(tx,ty-hr*.3); cx.lineTo(tx+hr*.07,ty); cx.closePath(); cx.fill();
     }
   }
+  if(f==='raclaw'&&u.type!=='hero'){    // psia glowa: wydluzony pysk i uszy
+    const fur=shade(skin,-.08), fur2=shade(skin,-.2);
+    // uszy (za glowa, wiec najpierw)
+    cx.fillStyle=hit?'#fff':fur2;
+    for(const sd of [-1,1]){
+      if(prof>.8&&sd===face) continue;
+      const ex=sd*hr*.82*(1-prof*.3)+face*r*.02;
+      cx.beginPath();
+      cx.moveTo(ex-sd*hr*.1,headY-hr*.5);
+      cx.quadraticCurveTo(ex+sd*hr*.5,headY-hr*.8,ex+sd*hr*.44,headY-hr*.02);
+      cx.quadraticCurveTo(ex+sd*hr*.2,headY+hr*.14,ex-sd*hr*.06,headY-hr*.2);
+      cx.closePath(); cx.fill();
+      cx.strokeStyle=OUT; cx.lineWidth=1.1; cx.stroke();
+    }
+    // pysk
+    cx.fillStyle=hit?'#fff':fur;
+    cx.beginPath();
+    cx.ellipse(face*hr*.62,headY+hr*.26,hr*.52*(0.55+0.45*prof),hr*.3,0,0,7); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.2; cx.stroke();
+    // nos
+    cx.fillStyle=hit?'#fff':'#241a14';
+    cx.beginPath(); cx.ellipse(face*hr*1.02,headY+hr*.18,hr*.15,hr*.12,0,0,7); cx.fill();
+    // kly
+    if(!back){
+      cx.fillStyle='#fdf6e0';
+      for(const sd of [-1,1]){
+        const tx=face*hr*.78+sd*hr*.14*(1-prof*.5), ty=headY+hr*.44;
+        cx.beginPath(); cx.moveTo(tx-hr*.055,ty-hr*.06); cx.lineTo(tx,ty+hr*.2); cx.lineTo(tx+hr*.055,ty-hr*.06); cx.closePath(); cx.fill();
+      }
+    }
+    // kudlata grzywa na karku
+    cx.fillStyle=hit?'#fff':fur2;
+    cx.beginPath();
+    for(let i=-3;i<=3;i++){
+      const xx=i*hr*.28+face*r*.02;
+      cx.moveTo(xx-hr*.14,shY-r*.02);
+      cx.lineTo(xx,shY-r*.2-Math.abs(i)*hr*.02);
+      cx.lineTo(xx+hr*.14,shY-r*.02);
+    }
+    cx.fill();
+  }
   if(f==='elfy'&&!L.helmet){            // spiczaste uszy
     cx.fillStyle=hit?'#fff':shade(skin,-.05);
     for(const sd of [-1,1]){
@@ -205,6 +246,9 @@ function drawSoldierTop(u,c,L,r,ang,hit){
         cx.fillStyle=hexA('#ffca6a',.4+eg*.5);
         cx.beginPath(); cx.arc(ex,ey,hr*.22,0,7); cx.fill();
         cx.fillStyle='#fff6df'; cx.beginPath(); cx.arc(ex,ey,hr*.1,0,7); cx.fill();
+      } else if(f==='raclaw'&&u.type!=='hero'){
+        cx.fillStyle=hexA('#e9c15a',.95); cx.beginPath(); cx.ellipse(ex,ey-hr*.04,hr*.13,hr*.11,0,0,7); cx.fill();
+        cx.fillStyle='#1b1410'; cx.beginPath(); cx.ellipse(ex,ey-hr*.04,hr*.05,hr*.09,0,0,7); cx.fill();
       } else if(f==='elfy'){
         cx.fillStyle='#1b2a26'; cx.beginPath(); cx.ellipse(ex,ey,hr*.12,hr*.15,0,0,7); cx.fill();
         cx.fillStyle=hexA('#d6f7e2',.85); cx.beginPath(); cx.arc(ex+hr*.03,ey-hr*.03,hr*.05,0,7); cx.fill();
