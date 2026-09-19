@@ -180,7 +180,9 @@ function drawBuilding(b){
   const roof=b.done?c.roof:shade(c.roof,-.4);
   const h=r*1.15*prog;
 
-  if(b.type==='townhall'){
+  const handled=(typeof drawFactionBuilding==='function')?drawFactionBuilding(b,sx,sy,r,h,c):false;
+  if(handled){ /* sylwetka frakcyjna narysowana w arch.js */ }
+  else if(b.type==='townhall'){
     cx.fillStyle=wall;
     cx.beginPath(); cx.rect(sx-r*.86,sy-h*.62,r*1.72,h*1.1); cx.fill();
     cx.fillStyle=roof;
@@ -399,7 +401,7 @@ function drawBuilding(b){
     }
     if(b.done&&Math.random()<.5) embers(b.x+rand(-r*.4,r*.4),b.y-r*.4,'#ff9e3d',1);
   }
-  if(b.done&&['lair','totem','portal','wall','gate','workshop'].indexOf(b.type)<0){
+  if(b.done&&!handled&&['lair','totem','portal','wall','gate','workshop'].indexOf(b.type)<0){
     if(b.faction==='orki'){
       cx.strokeStyle='#2f2620'; cx.lineWidth=2.4;
       for(let i=0;i<3;i++){
@@ -518,7 +520,8 @@ function drawUnit(u){
     cx.beginPath(); cx.ellipse(0,r*.55,r*1.05,r*.58,0,0,7); cx.stroke();
   }
   const hit=u.hitFlash>0;
-  if(UNITS[u.type].siege) drawSiegeTop(u,c,L,r,ang,hit);
+  if(u.type==='hero'&&typeof drawHeroTop==='function') drawHeroTop(u,c,L,r,ang,hit);
+  else if(UNITS[u.type].siege) drawSiegeTop(u,c,L,r,ang,hit);
   else if(u.type==='heavy') drawHeavyTop(u,c,L,r,ang,hit);
   else drawSoldierTop(u,c,L,r,ang,hit);
   cx.restore();
