@@ -143,7 +143,14 @@ function buildWallLine(side,x1,y1,x2,y2){
     addBuilding(side,'wall',x,y,false);
     placed++;
   }
-  if(placed) G.stats.built+=placed;
+  if(placed){
+    G.stats.built+=placed;
+    const segs=G.buildings.filter(b=>!b.dead&&!b.done&&b.side===side&&b.type==='wall');
+    const sel=(side==='player'?G.sel.filter(u=>!u.dead&&UNITS[u.type].build):[]);
+    const crew=sel.length?sel:G.units.filter(u=>u.side===side&&!u.dead&&UNITS[u.type].build)
+      .sort((a,c)=>Math.hypot(a.x-x1,a.y-y1)-Math.hypot(c.x-x1,c.y-y1)).slice(0,3);
+    crew.forEach((u,i)=>{ const t=segs[i%segs.length]; if(t) u.order={kind:'build',b:t}; });
+  }
   return placed;
 }
 function addBuilding(side,type,x,y,done){
@@ -242,6 +249,34 @@ function autoGather(u){
   const kind=gatherCount(u.side,'wood')<gatherCount(u.side,'gold')?'wood':'gold';
   const r=nearestRes(u.x,u.y,kind,900)||nearestRes(u.x,u.y,null,900);
   if(r){ u.order={kind:'gather',res:r}; u.state='move'; }
+}
+/* --- pomocnicy budowy: kto buduje, kogo wyslac, jak anulowac --- */
+function buildersOn(b){
+  return G.units.filter(u=>!u.dead&&u.order&&u.order.kind==='build'&&u.order.b===b);
+}
+function sendBuilders(b,n){
+  if(!b||b.dead||b.done) return false;
+  const free=G.units.filter(u=>u.side===b.side&&!u.dead&&UNITS[u.type].build&&
+      !(u.order&&u.order.kind==='build'&&u.order.b===b))
+    .sort((p,q)=>Math.hypot(p.x-b.x,p.y-b.y)-Math.hypot(q.x-b.x,q.y-b.y)).slice(0,n);
+  if(!free.length){ if(b.side==='player') warn('Brak wolnych robotników'); return false; }
+  commandBuildHelp(free,b);
+  if(b.side==='player'){
+    floatText(b.x,b.y-b.r-10,free.length+'× robotnik w drodze','#cfe0a8',13);
+    selectUnits(free,false);
+  }
+  return true;
+}
+function cancelBuild(b){
+  if(!b||b.dead||b.done) return false;
+  const c=BUILDINGS[b.type].cost;
+  G.res[b.side].gold+=Math.round((c.gold||0)*.6);
+  G.res[b.side].wood+=Math.round((c.wood||0)*.6);
+  for(const u of buildersOn(b)) u.order=null;
+  b.dead=true; b.fade=.6;
+  for(let i=0;i<10;i++) puff(b.x+rand(-b.r,b.r),b.y+rand(-b.r*.6,b.r*.6),1.1,'#cdbfa6');
+  if(b.side==='player'){ if(G.selBuilding===b) G.selBuilding=null; floatText(b.x,b.y-14,'Budowa przerwana — zwrot 60%','#e6c273',13); }
+  return true;
 }
 function commandBuildHelp(units,b){
   for(const u of units){

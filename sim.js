@@ -292,6 +292,10 @@ function doBuild(u,dt){
     if(b.side==='player') floatText(b.x,b.y-b.r-8,bLabel(G.pf,b.type)+' gotowy','#e6c273',14);
     // robotnicy wracają do pracy
     for(const w of G.units) if(w.order&&w.order.kind==='build'&&w.order.b===b){
+      // najpierw dokoncz inne budowy w okolicy (np. kolejne odcinki muru)
+      const nb=G.buildings.filter(x=>!x.dead&&!x.done&&x.side===w.side)
+        .sort((p,q)=>Math.hypot(p.x-w.x,p.y-w.y)-Math.hypot(q.x-w.x,q.y-w.y))[0];
+      if(nb&&Math.hypot(nb.x-w.x,nb.y-w.y)<520){ w.order={kind:'build',b:nb}; continue; }
       const nr=nearestRes(w.x,w.y,null,700);
       w.order=nr?{kind:'gather',res:nr}:null;
     }

@@ -95,6 +95,10 @@ function tapWorld(px,py){
     buildMenuOpen=false; return;
   }
   const b=buildingAt(wx,wy);
+  if(b&&b.side==='player'&&!b.done){
+    const w=G.sel.filter(x=>!x.dead&&UNITS[x.type].build);
+    if(w.length){ commandBuildHelp(w,b); warn(w.length+'× robotnik → dokończ '+bLabel(G.pf,b.type)); return; }
+  }
   if(b&&b.side==='player'){ clearSel(); G.selBuilding=b; buildMenuOpen=false; return; }
   if(G.sel.length){ issueOrder(G.sel.filter(x=>!x.dead),wx,wy,addMode); return; }
   if(!addMode) clearSel();
@@ -454,8 +458,12 @@ function drawHUD(){
     cx.font='500 11.5px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.7)';
     cx.fillText(d.desc+'   HP '+Math.max(0,Math.round(b.hp))+'/'+b.maxHp,px,py+34);
     if(!b.done){
+      const wrk=buildersOn(b).length;
       cx.fillStyle='#e6c273'; cx.font='600 13px Satoshi,sans-serif';
-      cx.fillText('W budowie: '+Math.round(b.progress*100)+'%',px,py+60);
+      cx.fillText('W budowie: '+Math.round(b.progress*100)+'%'+(wrk?'  ·  buduje '+wrk+' robotn.':'  ·  nikt nie buduje'),px,py+58);
+      btn(px,py+66,150,44,'Buduj dalej','najbliżsi 3',true,()=>sendBuilders(b,3),true);
+      btn(px+156,py+66,150,44,'Wszyscy robotnicy','dokończcie to',true,()=>sendBuilders(b,99),true);
+      btn(px+312,py+66,150,44,'Anuluj budowę','zwrot 60%',true,()=>cancelBuild(b),true);
     } else if(d.upgrades){
       ['warrior','archer','heavy','worker','siege'].forEach((t,i)=>{
         const lvl=G.lvl.player[t], maxed=lvl>=UPG[t].max, c=upgCost(t,lvl);
@@ -589,7 +597,13 @@ function drawHUDMobile(){
     items.push({t:'✕',s:'zamknij',ok:true,a:()=>{buildMenuOpen=false;G.placing=null;G.wallStart=null;buildPick=null;}});
   } else if(G.selBuilding&&!G.selBuilding.dead){
     const b=G.selBuilding, d=BUILDINGS[b.type], dl=bLabel(b.faction,b.type);
-    if(!b.done) info=dl+' — w budowie '+Math.round(b.progress*100)+'%';
+    if(!b.done){
+      const wrk=buildersOn(b).length;
+      info=dl+' · '+Math.round(b.progress*100)+'%'+(wrk?' · '+wrk+' robotn.':' · brak ekipy');
+      items.push({t:'Buduj dalej',s:'najbliżsi 3',ok:true,a:()=>sendBuilders(b,3)});
+      items.push({t:'Wszyscy',s:'robotnicy',ok:true,a:()=>sendBuilders(b,99)});
+      items.push({t:'Anuluj',s:'zwrot 60%',ok:true,a:()=>cancelBuild(b)});
+    }
     else if(d.upgrades){
       info='Kuźnia — ulepszenia widoczne na jednostkach';
       for(const t of ['warrior','archer','heavy','worker','siege']){
