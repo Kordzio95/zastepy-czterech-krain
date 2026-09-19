@@ -43,6 +43,7 @@ function updateUnits(dt){
     if(u.dead){ u.fade-=dt*.8; u.rot+=dt*.4; continue; }
     u.anim+=dt;
     u.hitFlash=Math.max(0,u.hitFlash-dt);
+    if(u.sayT>0){ u.sayT-=dt; if(u.sayT<=0) u.say=null; }
     if(u.slow>0) u.slow-=dt;
     if(u.hcd>0) u.hcd-=dt;
     if(u.hbuff>0) u.hbuff-=dt;

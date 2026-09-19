@@ -430,11 +430,18 @@ function drawBuilding(b){
   if(b.flash>0){ cx.globalAlpha=b.flash*2; cx.fillStyle='#fff';
     cx.beginPath(); cx.ellipse(sx,sy,r,r*.7,0,0,7); cx.fill(); cx.globalAlpha=1; }
   // HP
-  if(b.hp<b.maxHp&&!b.dead){
-    const w=r*1.5;
+  if(!b.dead&&b.done){
+    const w=r*1.5, fr=clamp(b.hp/b.maxHp,0,1), dm=b.hp<b.maxHp;
     cx.fillStyle='rgba(0,0,0,.6)'; cx.fillRect(sx-w/2,sy-r*1.5,w,5);
-    cx.fillStyle=TCOL(b.side);
-    cx.fillRect(sx-w/2,sy-r*1.5,w*(b.hp/b.maxHp),5);
+    cx.fillStyle='rgba(60,50,40,.55)'; cx.fillRect(sx-w/2+1,sy-r*1.5+1,w-2,3);
+    cx.fillStyle=dm?(fr>.55?TCOL(b.side):(fr>.28?'#e8b455':'#df5b4d')):TCOL(b.side);
+    cx.fillRect(sx-w/2+1,sy-r*1.5+1,(w-2)*fr,3);
+    if((dm||b===G.selBuilding)&&ZOOM>.85){
+      cx.font='700 9px Satoshi,sans-serif'; cx.textAlign='center';
+      cx.fillStyle='rgba(0,0,0,.65)'; cx.fillText(Math.ceil(b.hp)+'/'+b.maxHp,sx+.5,sy-r*1.5-3.5);
+      cx.fillStyle=fr>.28?'#f1e7cf':'#ffc9c0'; cx.fillText(Math.ceil(b.hp)+'/'+b.maxHp,sx,sy-r*1.5-4);
+      cx.textAlign='left';
+    }
   }
   if(b===G.selBuilding){
     cx.strokeStyle='#e6c273'; cx.lineWidth=2; cx.setLineDash([5,4]);
@@ -544,11 +551,49 @@ function drawUnit(u){
     cx.textAlign='left';
     cx.restore&&0;
   }
-  if((dmgd||u.type==='heavy')&&!u.dead){
-    const w=u.type==='heavy'?38:(u.type==='hero'?32:20), yy=sy-r*(u.type==='heavy'?2.3:1.85)-8;
-    cx.fillStyle='rgba(0,0,0,.55)'; cx.fillRect(sx-w/2-1,yy-1,w+2,5);
-    cx.fillStyle=TCOL(u.side);
-    cx.fillRect(sx-w/2,yy,w*clamp(u.hp/u.maxHp,0,1),3);
+  if(!u.dead){
+    const w=u.type==='heavy'?42:(u.type==='hero'?34:(u.sel?26:22));
+    const yy=sy-r*(u.type==='heavy'?2.3:1.85)-8;
+    const fr=clamp(u.hp/u.maxHp,0,1);
+    cx.fillStyle='rgba(0,0,0,.6)'; cx.fillRect(sx-w/2-1,yy-1,w+2,5);
+    cx.fillStyle='rgba(60,50,40,.55)'; cx.fillRect(sx-w/2,yy,w,3);
+    cx.fillStyle=dmgd?(fr>.55?TCOL(u.side):(fr>.28?'#e8b455':'#df5b4d')):TCOL(u.side);
+    cx.fillRect(sx-w/2,yy,w*fr,3);
+    // liczbowe zycie dla zaznaczonych, bohatera i kolosa
+    if((u.type==='heavy'||u.type==='hero'||(u.sel&&G.sel.length<=4))&&ZOOM>.85){
+      cx.font='700 9px Satoshi,sans-serif'; cx.textAlign='center';
+      cx.fillStyle='rgba(0,0,0,.65)';
+      cx.fillText(Math.ceil(u.hp)+'/'+u.maxHp,sx+.5,yy-3.5);
+      cx.fillStyle=fr>.28?'#f1e7cf':'#ffc9c0';
+      cx.fillText(Math.ceil(u.hp)+'/'+u.maxHp,sx,yy-4);
+      cx.textAlign='left';
+    }
+  }
+  // nazwa jednostki pod zaznaczeniem — krotki opis kto to jest
+  if(u.sel&&!u.dead&&ZOOM>.8&&G.sel.length<=4&&typeof tierName==='function'){
+    let nm='';
+    try{ nm=u.type==='dragon'?(u.dk?u.dk.name:'Smok'):tierName(sideFaction(u.side),u.type,u.lvl||1); }catch(e){ nm=UNITS[u.type].label; }
+    cx.font='600 10px Satoshi,sans-serif'; cx.textAlign='center';
+    cx.fillStyle='rgba(0,0,0,.6)'; cx.fillText(nm,sx+.5,sy+r*.95+.5);
+    cx.fillStyle='rgba(241,231,207,.92)'; cx.fillText(nm,sx,sy+r*.95);
+    cx.textAlign='left';
+  }
+  // dymek z kwestia jednostki
+  if(u.say&&u.sayT>0&&!u.dead){
+    const a=clamp(u.sayT/.45,0,1);
+    cx.save(); cx.globalAlpha=a;
+    cx.font='600 11px Satoshi,sans-serif';
+    const tw=cx.measureText(u.say).width, bw=tw+16, bh=19;
+    const bx=sx-bw/2, by=sy-r*2.05-30;
+    cx.fillStyle='rgba(18,15,12,.88)';
+    if(cx.roundRect){ cx.beginPath(); cx.roundRect(bx,by,bw,bh,5); cx.fill(); }
+    else cx.fillRect(bx,by,bw,bh);
+    cx.strokeStyle=hexA(TCOL(u.side),.7); cx.lineWidth=1;
+    if(cx.roundRect){ cx.beginPath(); cx.roundRect(bx+.5,by+.5,bw-1,bh-1,5); cx.stroke(); }
+    cx.beginPath(); cx.moveTo(sx-4,by+bh); cx.lineTo(sx+4,by+bh); cx.lineTo(sx,by+bh+5);
+    cx.closePath(); cx.fillStyle='rgba(18,15,12,.88)'; cx.fill();
+    cx.fillStyle='#f1e7cf'; cx.textAlign='center'; cx.fillText(u.say,sx,by+13);
+    cx.textAlign='left'; cx.restore();
   }
   if(u.vet>0&&!u.dead){
     const vy=sy-r*(u.type==='heavy'?2.45:2.0)-8;

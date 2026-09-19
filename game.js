@@ -352,6 +352,7 @@ function commandBuildHelp(units,b){
 }
 function issueOrder(units,wx,wy,shift){
   if(!units.length) return;
+  if(typeof groupVoice==='function') groupVoice(units,'order');
   const eb=buildingAt(wx,wy), eu=unitAt(wx,wy), rs=resAt(wx,wy);
   if(eu&&foe(eu.side,'player')){ commandAttack(units,eu); return; }
   if(eb&&foe(eb.side,'player')){ commandAttack(units,eb); return; }
@@ -589,6 +590,7 @@ function dealDamage(t,amount,fromSide,opts={}){
     ring(t.x,t.y,t.type==='heavy'?60:26,hexA(FACTIONS[t.faction].col.accent,.65),.35,3);
     bloodCone(t.x,t.y,t.faction,opts.dx||rand(-1,1),opts.dy||rand(-1,1),1.3);
     SND.play(t.type==='heavy'?'dieHeavy':'die',t.x,t.y,{reach:t.type==='heavy'?900:620});
+    if(typeof unitVoice==='function'&&t.type!=='dragon') unitVoice(t,'die');
     if(t.type==='heavy'){ shake(9,t.x,t.y,420); hitstopAt(.08,t.x,t.y); debris(t.x,t.y,16); shockRing(t.x,t.y,70,FACTIONS[t.faction].col.accent); }
     G.fallen[t.side].push({x:t.x,y:t.y,type:t.type,lvl:t.lvl});
     if(G.fallen[t.side].length>30) G.fallen[t.side].shift();
@@ -672,6 +674,7 @@ function knockback(o,nx,ny,power,launch,extraStun){
 /* --- unikalne ataki wręcz --- */
 function meleeAttack(u,t){
   const dmg=unitDmg(u);
+  if(typeof unitVoice==='function'&&u.side==='player'&&Math.random()<.07) unitVoice(u,'attack');
   const ang=Math.atan2(t.y-u.y,t.x-u.x), nx=Math.cos(ang), ny=Math.sin(ang);
   u.facing=ang;
   const swCol=u.faction==='nieumarli'?'#cfeee8':(u.faction==='orki'?'#f3c98f':(u.faction==='demony'?'#ffb15e':(u.faction==='elfy'?'#d6f7e2':'#eef3ff')));

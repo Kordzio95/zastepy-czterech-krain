@@ -57,8 +57,10 @@ function showResult(win){
 function clearSel(){ for(const u of G.sel) u.sel=false; G.sel=[]; G.selBuilding=null; }
 function selectUnits(list,add){
   if(!add) clearSel();
-  for(const u of list) if(!u.sel){ u.sel=true; G.sel.push(u); }
+  const fresh=[];
+  for(const u of list) if(!u.sel){ u.sel=true; G.sel.push(u); fresh.push(u); }
   if(G.sel.length) G.selBuilding=null;
+  if(fresh.length&&typeof groupVoice==='function') groupVoice(fresh,'sel');
 }
 function selectArmy(){
   selectUnits(G.units.filter(u=>u.side==='player'&&!u.dead&&u.type!=='worker'),false);
@@ -408,7 +410,12 @@ function drawHUD(){
   resBox(100,y0+8,86,40,'wood',Math.floor(r.wood),gatherCount('player','wood'));
   const pu=popUsed('player'), pm=popMax('player');
   cx.fillStyle=pu>=pm?'#df5b4d':'#cfdcf8'; cx.font='700 14px Cinzel,Georgia,serif';
+  const army=G.units.filter(u=>u.side==='player'&&!u.dead&&u.type!=='worker'&&u.type!=='hero').length;
+  const wrk=G.units.filter(u=>u.side==='player'&&!u.dead&&UNITS[u.type].gather).length;
   cx.fillText('Ludność '+pu+'/'+pm,12,y0+68);
+  const pw2=cx.measureText('Ludność '+pu+'/'+pm).width;
+  cx.font='600 11.5px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.85)';
+  cx.fillText('wojska '+army,16+pw2,y0+68);
   const hro=heroOf('player');
   cx.font='600 12px Satoshi,sans-serif';
   cx.fillStyle=hro?'#e6c273':'rgba(200,190,170,.5)';
@@ -518,16 +525,29 @@ function drawHUD(){
   } else if(G.sel.length){
     const counts={};
     for(const u of G.sel) counts[u.type]=(counts[u.type]||0)+1;
-    cx.font='700 15px Cinzel,Georgia,serif'; cx.fillStyle='#e6c273';
-    cx.fillText('Zaznaczono: '+G.sel.length,px,py+16);
+    let shp=0,smax=0;
+    for(const u of G.sel){ shp+=u.hp; smax+=u.maxHp; }
+  cx.font='700 15px Cinzel,Georgia,serif'; cx.fillStyle='#e6c273';
+  cx.fillText('Zaznaczono: '+G.sel.length+' jedn.',px,py+16);
+  cx.font='600 12px Satoshi,sans-serif';
+  const sfr=smax?shp/smax:1;
+  cx.fillStyle=sfr>.55?'#a8d47a':(sfr>.28?'#e8b455':'#df5b4d');
+  cx.fillText('Życie '+Math.ceil(shp)+' / '+smax+'  ('+Math.round(sfr*100)+'%)',px+205,py+16);
+  cx.fillStyle='rgba(0,0,0,.5)'; cx.fillRect(px+400,py+6,110,9);
+  cx.fillStyle=sfr>.55?'#a8d47a':(sfr>.28?'#e8b455':'#df5b4d');
+  cx.fillRect(px+401,py+7,108*clamp(sfr,0,1),7);
     let i=0;
     for(const t in counts){
       const u=G.sel.find(x=>x.type===t);
       cx.font='600 12.5px Satoshi,sans-serif'; cx.fillStyle='#f1e2bf';
       cx.fillText(counts[t]+'× '+groupName(t,u.lvl,counts[t]),px+i*180,py+38);
+      let ghp=0,gmx=0;
+      for(const q of G.sel) if(q.type===t){ ghp+=q.hp; gmx+=q.maxHp; }
+      cx.font='600 10.5px Satoshi,sans-serif'; cx.fillStyle='rgba(168,212,122,.9)';
+      cx.fillText('życie '+Math.ceil(ghp)+'/'+gmx,px+i*180,py+50);
       cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.65)';
       const dd=FACTIONS[G.pf].attackDesc[t]||(typeof UDESC!=='undefined'?UDESC[t]:'');
-      wrapText(dd||'Buduje i wydobywa surowce.',px+i*180,py+56,168,13);
+      wrapText(dd||'Buduje i wydobywa surowce.',px+i*180,py+64,168,13);
       i++;
     }
     const sw=selWorkers(), hh=selHero();
@@ -663,7 +683,10 @@ function drawHUDMobile(){
       const u=G.sel.find(x=>x.type===t);
       parts.push(counts[t]+'× '+groupName(t,u.lvl,counts[t]));
     }
-    info='Zaznaczono: '+parts.join(' · ');
+    let mhp=0,mmx=0;
+    for(const q of G.sel){ mhp+=q.hp; mmx+=q.maxHp; }
+    info='Zaznaczono: '+parts.join(' · ')+'  ·  życie '+Math.ceil(mhp)+'/'+mmx;
+
     const sw=selWorkers(), hh=selHero();
     if(hh){
       const H=FACTIONS[G.pf].hero;
@@ -753,6 +776,9 @@ function drawHUDMobile(){
   cx.fillStyle=pu>=pm?'#df5b4d':'#cfdcf8';
   cx.font='700 '+Math.round(11*US)+'px Cinzel,Georgia,serif';
   cx.fillText(pu+'/'+pm,rx2+2,fy);
+  const armyM=G.units.filter(u=>u.side==='player'&&!u.dead&&u.type!=='worker').length;
+  cx.font='600 '+Math.round(10*US)+'px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.8)';
+  cx.fillText('⚔'+armyM,rx2+46,fy);
   const qh=topBarH-8, qw=Math.round(qh*1.5);
   btn(VW-qw*3-16,4,qw,qh,'⌂','',true,()=>homeView(),false);
   btn(VW-qw*2-10,4,qw,qh,paused?'▶':'❚❚','',true,()=>{paused=!paused;},false);
@@ -923,6 +949,76 @@ function hintLabel(x,y,txt,col){
   cx.strokeStyle=hexA(col,.55); cx.lineWidth=1; cx.stroke();
   cx.fillStyle=col; cx.fillText(txt,x,y-1);
 }
+/* --- opis pod kursorem: nazwa, zycie i do czego sluzy --- */
+function infoTip(mx,my,title,sub,lines,hp,mx2,col){
+  cx.save();
+  cx.font='600 12px Satoshi,sans-serif';
+  let w=cx.measureText(title).width;
+  const rows=[];
+  for(const L of lines){
+    const words=L.split(' '); let cur='';
+    cx.font='500 11px Satoshi,sans-serif';
+    for(const wd of words){
+      const test=cur?cur+' '+wd:wd;
+      if(cx.measureText(test).width>200&&cur){ rows.push(cur); cur=wd; } else cur=test;
+    }
+    if(cur) rows.push(cur);
+  }
+  for(const rw of rows) w=Math.max(w,cx.measureText(rw).width);
+  if(sub){ cx.font='600 10.5px Satoshi,sans-serif'; w=Math.max(w,cx.measureText(sub).width); }
+  const bw=w+20, bh=24+(sub?13:0)+(hp!==null?13:0)+rows.length*13+8;
+  let bx=mx+20, by=my+16;
+  if(bx+bw>VW-8) bx=mx-bw-14;
+  if(by+bh>VIEW_H-8) by=my-bh-12;
+  by=Math.max(8,Math.min(by,VIEW_H-bh-8));
+  cx.fillStyle='rgba(16,13,10,.93)';
+  if(cx.roundRect){ cx.beginPath(); cx.roundRect(bx,by,bw,bh,6); cx.fill(); }
+  else cx.fillRect(bx,by,bw,bh);
+  cx.strokeStyle=hexA(col||'#e6c273',.6); cx.lineWidth=1;
+  if(cx.roundRect){ cx.beginPath(); cx.roundRect(bx+.5,by+.5,bw-1,bh-1,6); cx.stroke(); }
+  let yy=by+17;
+  cx.textAlign='left';
+  cx.font='700 12.5px Cinzel,Georgia,serif'; cx.fillStyle=col||'#e6c273';
+  cx.fillText(title,bx+10,yy); yy+=14;
+  if(sub){ cx.font='600 10.5px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.7)'; cx.fillText(sub,bx+10,yy); yy+=13; }
+  if(hp!==null){
+    const fr=mx2?Math.max(0,Math.min(1,hp/mx2)):1;
+    cx.font='700 11px Satoshi,sans-serif';
+    cx.fillStyle=fr>.55?'#a8d47a':(fr>.28?'#e8b455':'#df5b4d');
+    cx.fillText('Życie '+Math.ceil(hp)+' / '+mx2,bx+10,yy);
+    cx.fillStyle='rgba(0,0,0,.5)'; cx.fillRect(bx+10,yy+3,bw-20,4);
+    cx.fillStyle=fr>.55?'#a8d47a':(fr>.28?'#e8b455':'#df5b4d');
+    cx.fillRect(bx+10,yy+3,(bw-20)*fr,4);
+    yy+=13;
+  }
+  cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(226,216,196,.85)';
+  for(const rw of rows){ cx.fillText(rw,bx+10,yy+4); yy+=13; }
+  cx.restore();
+}
+function unitTip(u,mx,my){
+  const f=sideFaction(u.side);
+  let nm=UNITS[u.type].label;
+  try{ nm=u.type==='dragon'?(u.dk?u.dk.name:'Smok'):tierName(f,u.type,u.lvl||1); }catch(e){}
+  const d=UNITS[u.type];
+  const desc=(FACTIONS[f]&&FACTIONS[f].attackDesc&&FACTIONS[f].attackDesc[u.type])||
+             (typeof UDESC!=='undefined'?UDESC[u.type]:'')||'';
+  const lines=[];
+  if(desc) lines.push(desc);
+  lines.push('Obrażenia '+Math.round(d.dmg)+' · zasięg '+Math.round(d.range)+' · prędkość '+Math.round(d.speed));
+  const rel=u.side==='player'?'twoja jednostka':(allySide(u.side,'player')?'sojusznik':'wróg');
+  const sub=rel+(u.lvl>1?' · poziom '+u.lvl:'')+(u.vet>0?' · weteran '+u.vet:'');
+  infoTip(mx,my,nm,sub,lines,u.hp,u.maxHp,u.side==='player'?'#e6c273':(rel==='wróg'?'#f09a8e':'#9fd6f0'));
+}
+function buildTip(b,mx,my){
+  const f=sideFaction(b.side);
+  const d=BUILDINGS[b.type];
+  const lines=[];
+  if(d.desc) lines.push(d.desc);
+  if(!b.done) lines.push('W budowie: '+Math.round(b.progress*100)+'%');
+  if(d.pop) lines.push('Ludność +'+d.pop);
+  const sub=(b.side==='player'?'twój budynek':(allySide(b.side,'player')?'sojusznik':'wrogi budynek'));
+  infoTip(mx,my,bLabel(f,b.type),sub,lines,b.hp,b.maxHp,b.side==='player'?'#e6c273':'#f09a8e');
+}
 function drawHoverHints(){
   if(!G||G.placing||!mouse.inWorld||!mouse.seen) return;
   const wx=toWorldX(mouse.x), wy=toWorldY(mouse.y);
@@ -961,6 +1057,11 @@ function drawHoverHints(){
     iconAxe(mx+16,my-14,11,'#cfe0a8');
     hintLabel(mx+16,my-32,'Buduj','#cfe0a8');
   }
+  /* --- opis celu pod kursorem --- */
+  try{
+    if(hu&&!hu.dead) unitTip(hu,mx,my);
+    else if(hb&&!hb.dead) buildTip(hb,mx,my);
+  }catch(e){}
 }
 function drawPlacementGhost(){
   if(!G.placing||!mouse.inWorld) return;
