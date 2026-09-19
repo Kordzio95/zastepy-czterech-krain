@@ -103,7 +103,7 @@ function embers(x,y,col,n=10){
 /* ==========================================================================
    TWORZENIE
    ========================================================================== */
-function upgKeyOf(type){ return SIEGE_KEYS.indexOf(type)>=0?'siege':type; }
+function upgKeyOf(type){ if(SIEGE_KEYS.indexOf(type)>=0) return 'siege'; if(type==='flamer') return 'crossbow'; return type; }
 function unitStats(faction,type,lvl){
   const b=UNITS[type], u=UPG[upgKeyOf(type)]||{hp:0,dmg:0};
   return {hp:Math.round(b.hp*(1+u.hp*(lvl-1))), dmg:Math.round(b.dmg*(1+u.dmg*(lvl-1))),
@@ -301,6 +301,9 @@ function issueOrder(units,wx,wy,shift){
    ========================================================================== */
 function trainsOf(def,faction){
   if(def.trains==='siege') return siegeOf(faction);
+  if(FTRAIN[faction]){
+    for(const k in FTRAIN[faction]) if(BUILDINGS[k]===def) return FTRAIN[faction][k];
+  }
   return def.trains||[];
 }
 function startPlacing(type){
@@ -439,6 +442,14 @@ function findEnemy(u,radius){
 }
 function dealDamage(t,amount,fromSide,opts={}){
   if(t.dead) return;
+  // pancerz ciezkiej piechoty tlumi kazde uderzenie (belty kusznikow go przebijaja)
+  const ud=UNITS[t.type];
+  if(ud&&ud.armor&&!opts.pierceArmor){
+    const arm=ud.armor*(1+(t.lvl-1)*.3);
+    const before=amount;
+    amount=Math.max(3,Math.round(amount-arm));
+    if(before-amount>3&&Math.random()<.35) spark(t.x,t.y,'#f4f0e2',3,.7);
+  }
   t.hp-=amount; t.hitFlash=.2;
   if(t.maxHp&&t.type&&BUILDINGS[t.type]&&!UNITS[t.type]){ // budynek
     spark(t.x+rand(-t.r*.6,t.r*.6),t.y+rand(-t.r*.4,t.r*.4),'#d9c9a4',6,1);
@@ -536,7 +547,7 @@ function meleeAttack(u,t){
   const dmg=unitDmg(u);
   const ang=Math.atan2(t.y-u.y,t.x-u.x), nx=Math.cos(ang), ny=Math.sin(ang);
   u.facing=ang;
-  const swCol=u.faction==='nieumarli'?'#cfeee8':(u.faction==='orki'?'#f3c98f':(u.faction==='demony'?'#ffb15e':'#eef3ff'));
+  const swCol=u.faction==='nieumarli'?'#cfeee8':(u.faction==='orki'?'#f3c98f':(u.faction==='demony'?'#ffb15e':(u.faction==='elfy'?'#d6f7e2':'#eef3ff')));
   slashArc(u.x+nx*(u.r+8),u.y+ny*(u.r+8),ang,u.r*2.4+16,swCol,u.lvl>=3?6:4);
   slashArc(u.x+nx*(u.r+5),u.y+ny*(u.r+5),ang-.18,u.r*2.1+10,hexA('#ffffff',.5),2.5);
   flash(u.x+nx*(u.r+10),u.y+ny*(u.r+10),8,swCol);
@@ -562,6 +573,17 @@ function meleeAttack(u,t){
     if(UNITS[t.type]){ knockback(t,nx,ny,90,0); ignite(t,4,u.side); }
     embers(u.x+nx*14,u.y+ny*14,'#ff9e3d',5);
     G.parts.push({x:u.x+nx*16,y:u.y+ny*16,vx:nx*60,vy:ny*60,life:.3,max:.3,size:8,col:'#ffb15e',kind:'fire'});
+  } else if(u.faction==='elfy'){
+    // podwojne ciecie: co drugi cios jest krytyczny
+    u.volley=(u.volley||0)+1;
+    const crit=u.volley%2===0;
+    dealDamage(t,Math.round(dmg*(crit?1.7:1)),u.side,{dx:nx,dy:ny,n:crit?9:5,power:crit?1.4:1});
+    if(UNITS[t.type]) knockback(t,nx,ny,crit?110:60,0);
+    if(crit&&!t.dead){
+      slashArc(u.x+nx*(u.r+10),u.y+ny*(u.r+10),ang+.5,u.r*2.4+18,'#d6f7e2',4);
+      floatText(t.x,t.y-t.r-12,'KRYTYCZNE','#9ae6b8',12);
+      spark(t.x,t.y,'#d6f7e2',8,1.1);
+    }
   } else {
     dealDamage(t,dmg,u.side,{dx:nx,dy:ny});
     if(UNITS[t.type]) knockback(t,nx,ny,70,0);
@@ -587,6 +609,14 @@ function meleeAttack(u,t){
     } else if(u.faction==='orki'&&UNITS[t.type]) knockback(t,nx,ny,200,.6);
     else if(u.faction==='demony'){ ignite(t,6,u.side); u.hp=Math.min(u.maxHp,u.hp+Math.round(dmg*.2)); }
     else if(u.faction==='nieumarli'){ u.hp=Math.min(u.maxHp,u.hp+Math.round(dmg*.25)); u.hbuff=Math.max(u.hbuff,2.5); }
+    else if(u.faction==='elfy'){
+      for(const a of G.units){
+        if(!allySide(a.side,u.side)||a.dead||a===u) continue;
+        if(Math.hypot(a.x-u.x,a.y-u.y)>150||a.hp>=a.maxHp) continue;
+        a.hp=Math.min(a.maxHp,a.hp+12);
+        G.parts.push({x:u.x,y:u.y,vx:(a.x-u.x)*1.4,vy:(a.y-u.y)*1.4,life:.45,max:.45,size:3,col:'#9ae6b8',kind:'ember'});
+      }
+    }
   }
   for(let i=0;i<3;i++) puff((u.x+t.x)/2,(u.y+t.y)/2,.6,'#e7d6b4');
 }
@@ -598,8 +628,9 @@ function shootArrow(u,t,opts={}){
   const sp=560, spread=opts.spread||0;
   const a=ang+spread;
   G.arrows.push({x:u.x+Math.cos(ang)*(u.r+4),y:u.y+Math.sin(ang)*(u.r+4),
-    vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:1.6, side:u.side, faction:u.faction,
-    dmg:Math.round(unitDmg(u)*(opts.dmgMul||1)), kind:opts.kind||'normal', trail:[]});
+    vx:Math.cos(a)*(opts.sp||sp), vy:Math.sin(a)*(opts.sp||sp), life:opts.life||1.6, side:u.side, faction:u.faction,
+    dmg:Math.round(unitDmg(u)*(opts.dmgMul||1)), kind:opts.kind||'normal', trail:[],
+    pierceUnits:opts.pierceUnits||0, pierceArmor:!!opts.pierceArmor});
   spark(u.x+Math.cos(ang)*(u.r+6),u.y+Math.sin(ang)*(u.r+6),'#f0e4c4',3,.5);
 }
 function archerAttack(u,t){
@@ -610,7 +641,72 @@ function archerAttack(u,t){
     else shootArrow(u,t);
   } else if(u.faction==='orki') shootArrow(u,t,{kind:'bolt',dmgMul:1.15});
   else if(u.faction==='demony') shootArrow(u,t,{kind:'fire',dmgMul:.9});
+  else if(u.faction==='elfy') shootArrow(u,t,{kind:'leaf',dmgMul:1.05,pierceUnits:1,sp:680});
   else shootArrow(u,t,{kind:'frost'});
+}
+
+/* --- kusznicy: wolny, ciezki belt przebijajacy pancerz --- */
+function crossbowAttack(u,t){
+  const extra=u.faction==='demony'?{kind:'fire'}:(u.faction==='nieumarli'?{kind:'frost'}:{kind:'bolt2'});
+  shootArrow(u,t,Object.assign({dmgMul:1,sp:860,life:1.5,pierceArmor:true,
+    pierceUnits:u.faction==='elfy'?1:0},extra));
+  const ang=Math.atan2(t.y-u.y,t.x-u.x);
+  const fx=u.x+Math.cos(ang)*(u.r+8), fy=u.y+Math.sin(ang)*(u.r+8);
+  flash(fx,fy,11,'#fff0cc'); puff(fx,fy,.5,'#d8cbb0');
+}
+
+/* --- ciezka piechota: powolne, mocne uderzenie tarcza i drzewcem --- */
+function guardAttack(u,t){
+  const dmg=unitDmg(u);
+  const ang=Math.atan2(t.y-u.y,t.x-u.x), nx=Math.cos(ang), ny=Math.sin(ang);
+  u.facing=ang;
+  slashArc(u.x+nx*(u.r+10),u.y+ny*(u.r+10),ang,u.r*2.6+18,'#f2efe2',6);
+  flash(u.x+nx*(u.r+12),u.y+ny*(u.r+12),10,'#fff6df');
+  dealDamage(t,dmg,u.side,{dx:nx,dy:ny,n:7,power:1.2});
+  if(!t.dead&&UNITS[t.type]){
+    knockback(t,nx,ny,210,0,.1);
+    ring(t.x,t.y,t.r+14,'rgba(240,236,220,.8)',.26,3);
+    if(u.faction==='demony') ignite(t,3,u.side);
+    if(u.faction==='nieumarli') u.hp=Math.min(u.maxHp,u.hp+Math.round(dmg*.2));
+    if(u.faction==='elfy'&&Math.random()<.3){ t.stun=Math.max(t.stun,.5);
+      floatText(t.x,t.y-t.r-12,'KORZENIE','#9ae6b8',11); }
+  }
+  shake(1.6);
+}
+
+/* --- miotacz ognia: stozek plomieni przed soba --- */
+function flamerAttack(u,t){
+  const ang=Math.atan2(t.y-u.y,t.x-u.x);
+  u.facing=ang;
+  const R=u.range+u.r, arc=UNITS.flamer.flame.arc, dmg=unitDmg(u);
+  // strumien ognia
+  for(let i=0;i<9;i++){
+    const a=ang+rand(-arc,arc)*.85, d=rand(u.r*.6,R);
+    G.parts.push({x:u.x+Math.cos(ang)*u.r*.7,y:u.y+Math.sin(ang)*u.r*.7-6,
+      vx:Math.cos(a)*d*1.5,vy:Math.sin(a)*d*1.5,
+      life:rand(.24,.46),max:.46,size:rand(7,15),
+      col:pick(['#ffd08a','#ff9e3d','#ef5f22','#c33a15']),kind:'fire'});
+  }
+  const fx=u.x+Math.cos(ang)*(u.r+10), fy=u.y+Math.sin(ang)*(u.r+10);
+  flash(fx,fy,20,'#ffd7a2');
+  for(let i=0;i<3;i++) puff(fx+rand(-8,8),fy+rand(-8,8),1.1,'#6b6258');
+  let any=0;
+  for(const o of G.units){
+    if(o.dead||!isFoe(o,u)) continue;
+    const d=Math.hypot(o.x-u.x,o.y-u.y);
+    if(d>R+o.r) continue;
+    const da=Math.atan2(Math.sin(Math.atan2(o.y-u.y,o.x-u.x)-ang),Math.cos(Math.atan2(o.y-u.y,o.x-u.x)-ang));
+    if(Math.abs(da)>arc) continue;
+    dealDamage(o,Math.round(dmg*(1-.35*d/R)),u.side,{n:4,power:.8,dx:Math.cos(ang),dy:Math.sin(ang)});
+    if(!o.dead) ignite(o,4.5,u.side);
+    any++;
+  }
+  for(const b of G.buildings){
+    if(b.dead||!foe(b.side,u.side)) continue;
+    if(Math.hypot(b.x-u.x,b.y-u.y)<R+b.r*.7) dealDamage(b,Math.round(dmg*1.4),u.side);
+  }
+  if(any>2) floatText(u.x,u.y-u.r-14,'POCHODNIA!','#ff9e3d',12);
+  if(u.lvl>=3) crackDecal(fx,fy,34,'rgba(120,50,18,.35)');
 }
 
 /* --- maszyny oblegnicze --- */
@@ -661,7 +757,7 @@ function heavyAttack(u,t){
   u.facing=Math.atan2(t.y-u.y,t.x-u.x);
   if(u.faction==='ludzie'&&d>90&&UNITS[t.type]){ u.windup=.5; u.windupKind='boulder'; u.boulderTarget={x:t.x,y:t.y}; return; }
   u.windup=.42;
-  u.windupKind=u.faction==='orki'?'whirl':(u.faction==='nieumarli'?'quake':(u.faction==='demony'?'fire':'slam'));
+  u.windupKind=u.faction==='orki'?'whirl':(u.faction==='nieumarli'?'quake':(u.faction==='demony'?'fire':(u.faction==='elfy'?'roots':'slam')));
 }
 function resolveHeavy(u){
   const k=u.windupKind; u.windupKind=null;
@@ -679,6 +775,31 @@ function resolveHeavy(u){
     G.quakes.push({x:u.x,y:u.y,ang:u.facing,side:u.side,dmg:Math.round(dmg*.85),life:1.4,travel:0,hits:new Set()});
     shake(12); G.flash=.12; G.flashCol='#79e0d2';
     shockRing(u.x,u.y,120,'#79e0d2'); G.stats.slams++;
+    return;
+  }
+  if(k==='roots'){
+    // Ent: uderzenie konarem + korzenie wybijaja w linii przed nim
+    const fx=u.x+Math.cos(u.facing)*(u.r+18), fy=u.y+Math.sin(u.facing)*(u.r+18);
+    G.stats.slams++; shake(13); hitstop(.06); G.flash=.12; G.flashCol='#9ae6b8';
+    shockRing(fx,fy,130,'#9ae6b8');
+    floatText(u.x,u.y-u.r-18,'GNIEW BORÓW!','#9ae6b8',15);
+    for(const t of G.units){
+      if(t.dead||!isFoe(t,u)) continue;
+      const d=Math.hypot(t.x-fx,t.y-fy);
+      if(d>130) continue;
+      const nx=(t.x-fx)/(d||1), ny=(t.y-fy)/(d||1);
+      dealDamage(t,Math.round(dmg*(.75+.35*(1-d/130))),u.side,{n:8,power:1.3,dx:nx,dy:ny});
+      knockback(t,nx,ny,150,40,.2);
+      t.stun=Math.max(t.stun,1.6); t.slow=Math.max(t.slow,3);
+      for(let i=0;i<7;i++) G.parts.push({x:t.x+rand(-9,9),y:t.y+rand(-7,7),vx:rand(-22,22),vy:rand(-100,-34),
+        life:rand(.4,.9),max:.9,size:rand(3,7),col:pick(['#6b8f4a','#9ae6b8','#3f5c2c']),kind:'ember'});
+    }
+    for(const b of G.buildings){
+      if(b.dead||!foe(b.side,u.side)) continue;
+      if(Math.hypot(b.x-fx,b.y-fy)<130+b.r*.6) dealDamage(b,Math.round(dmg*2.2),u.side);
+    }
+    for(let i=0;i<16;i++) debris(fx+rand(-40,40),fy+rand(-30,30),2,'#5a6b3a');
+    crackDecal(fx,fy,70,'rgba(58,80,42,.45)');
     return;
   }
   if(k==='fire'){
@@ -729,7 +850,7 @@ function inSight(side,x,y){
 }
 function abilityTarget(side){
   const f=sideFaction(side);
-  if(f==='orki') return G.units.some(u=>u.side===side&&!u.dead);
+  if(f==='orki'||f==='elfy') return G.units.some(u=>u.side===side&&!u.dead);
   if(f==='nieumarli') return G.fallen[side]&&G.fallen[side].length>0;
   return G.units.some(u=>!u.dead&&foe(u.side,side)&&inSight(side,u.x,u.y));
 }
@@ -776,6 +897,19 @@ function useAbility(side){
         life:1.6,max:1.6,size:14,col:'#ff8a3a',side,dmg:Math.round(34+G.lvl[side].heavy*8),ty,hit:false,rot:rand(0,7),vrot:9});
     }
     ring(best.x,best.y,150,'rgba(255,158,61,.85)',.9,4);
+  } else if(f==='elfy'){
+    // Piesn Gaju: leczy i przyspiesza cala armie
+    G.buff[side]=9;
+    if(side==='player') banner('PIEŚŃ GAJU','#9ae6b8');
+    for(const u of G.units) if(u.side===side&&!u.dead){
+      const before=u.hp;
+      u.hp=Math.min(u.maxHp,u.hp+u.maxHp*.28);
+      u.slow=0;
+      ring(u.x,u.y,u.r+16,'rgba(154,230,184,.85)',.5,3);
+      for(let i=0;i<5;i++) G.parts.push({x:u.x+rand(-u.r,u.r),y:u.y+rand(-u.r*.4,u.r*.4),
+        vx:rand(-14,14),vy:rand(-54,-18),life:rand(.4,.8),max:.8,size:rand(2,5),col:pick(['#9ae6b8','#d6f7e2','#6fc48d']),kind:'ember'});
+      if(u.hp>before+1&&u.type!=='worker') floatText(u.x,u.y-u.r-8,'+pieśń','#9ae6b8',11);
+    }
   } else {
     if(side==='player') banner('WSKRZESZENIE','#79e0d2');
     const list=G.fallen[side].slice(-8);
@@ -831,6 +965,20 @@ function heroPower(u){
       t.stun=Math.max(t.stun,1.5);
     }
     for(let i=0;i<26;i++) debris(u.x+rand(-40,40),u.y+rand(-30,30),2);
+  } else if(u.faction==='elfy'){
+    // Gniew Borow: korzenie wybijaja z ziemi i trzymaja wrogow
+    for(const t of G.units){
+      if(t.dead||!isFoe(t,u)) continue;
+      const d=Math.hypot(t.x-u.x,t.y-u.y);
+      if(d>R) continue;
+      dealDamage(t,75,u.side,{n:6,power:1.2});
+      t.stun=Math.max(t.stun,3); t.slow=Math.max(t.slow,4);
+      ring(t.x,t.y,t.r+12,'rgba(154,230,184,.85)',.5,3);
+      for(let i=0;i<8;i++) G.parts.push({x:t.x+rand(-10,10),y:t.y+rand(-8,8),vx:rand(-20,20),vy:rand(-90,-30),
+        life:rand(.4,.9),max:.9,size:rand(3,6),col:pick(['#6b8f4a','#9ae6b8','#4a6b35']),kind:'ember'});
+      if(Math.random()<.6) decal(t.x,t.y,rand(8,14),'rgba(60,84,44,.45)');
+    }
+    for(let i=0;i<20;i++) debris(u.x+rand(-50,50),u.y+rand(-40,40),2,'#5a6b3a');
   } else {
     for(const t of G.units){
       if(t.dead||!isFoe(t,u)) continue;

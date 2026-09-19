@@ -14,7 +14,9 @@ const ARCH={
   nieumarli:{ stone:'#7c8881', stone2:'#4a544f', trim:'#d6ead6', wood:'#3f453e',
            glow:'#7fe3a6', roofCol:'#414d47', roof:'rib', win:'glow' },
   demony:{ stone:'#3c2028', stone2:'#1d1015', trim:'#ff7a2f', wood:'#2d1a19',
-           glow:'#ff6a22', roofCol:'#59120e', roof:'jag', win:'glow' }
+           glow:'#ff6a22', roofCol:'#59120e', roof:'jag', win:'glow' },
+  elfy:{   stone:'#e4ead6', stone2:'#c3d0b4', trim:'#e9d79a', wood:'#7d6a44',
+           glow:'#9ae6b8', roofCol:'#4f8f58', roof:'leaf', win:'lancet' }
 };
 const archOf=f=>ARCH[f]||ARCH.ludzie;
 
@@ -100,6 +102,87 @@ function crackedStone(x,y,w,hg,col,col2,seedv){
   // ciemny cień u podstawy
   cx.fillStyle='rgba(14,20,16,.28)';
   cx.fillRect(x-w/2,y-hg*.26,w,hg*.26);
+}
+
+/* ---------- zywe drewno i jasny kamien elfow ---------- */
+function liveWood(sx,sy,w,hg,base,base2,seedv){
+  // gladki, jasny kamien opleciony zywym drewnem i pnaczami
+  const g=cx.createLinearGradient(sx,sy-hg,sx,sy+hg*.1);
+  g.addColorStop(0,shade(base,.16)); g.addColorStop(.55,base); g.addColorStop(1,shade(base2,-.18));
+  cx.fillStyle=g;
+  cx.beginPath();
+  cx.moveTo(sx-w/2,sy);
+  cx.lineTo(sx-w/2,sy-hg*.72);
+  cx.quadraticCurveTo(sx,sy-hg*1.12,sx+w/2,sy-hg*.72);
+  cx.lineTo(sx+w/2,sy);
+  cx.closePath(); cx.fill();
+  cx.strokeStyle='rgba(28,40,30,.55)'; cx.lineWidth=1.5; cx.stroke();
+  // sloje kamienia
+  cx.strokeStyle='rgba(255,255,255,.22)'; cx.lineWidth=1;
+  for(let i=1;i<4;i++){
+    const yy=sy-hg*(.2+i*.2);
+    cx.beginPath(); cx.moveTo(sx-w*.46,yy); cx.quadraticCurveTo(sx,yy-hg*.06,sx+w*.46,yy); cx.stroke();
+  }
+  // filary z zywego drewna po bokach
+  for(const sd of [-1,1]){
+    const px=sx+sd*w*.44;
+    cx.strokeStyle=shade('#7d6a44',-.08); cx.lineWidth=Math.max(2.4,w*.06); cx.lineCap='round';
+    cx.beginPath(); cx.moveTo(px,sy); cx.quadraticCurveTo(px+sd*w*.03,sy-hg*.5,px-sd*w*.02,sy-hg*.92); cx.stroke();
+  }
+  // pnacza i listki
+  cx.strokeStyle='rgba(74,125,84,.75)'; cx.lineWidth=1.6;
+  const ph=(seedv||0)*.7;
+  for(let i=0;i<2;i++){
+    const xx=sx-w*.26+i*w*.5;
+    cx.beginPath(); cx.moveTo(xx,sy);
+    cx.quadraticCurveTo(xx+Math.sin(ph+i)*w*.12,sy-hg*.45,xx-Math.sin(ph+i)*w*.08,sy-hg*.85); cx.stroke();
+    cx.fillStyle='rgba(93,167,110,.85)';
+    for(let k=1;k<4;k++){
+      const yy=sy-hg*.22*k, lx=xx+Math.sin(ph+i+k)*w*.07;
+      cx.beginPath(); cx.ellipse(lx,yy,w*.035,hg*.05,k*.7,0,7); cx.fill();
+    }
+  }
+  cx.fillStyle='rgba(16,26,18,.22)';
+  cx.fillRect(sx-w/2,sy-hg*.2,w,hg*.2);
+  cx.lineCap='butt';
+}
+function roofLeaf(sx,sy,w,hh,col,trim){
+  // korona z wielu lisci — postrzepiona, warstwowa, z ciemnym obrysem
+  const layers=[[1.0,1.0,shade(col,-.34)],[.84,.8,shade(col,-.08)],[.62,.58,shade(col,.18)]];
+  for(const L of layers){
+    const n=7, ww=w*L[0], hgt=hh*L[1];
+    cx.fillStyle=L[2];
+    cx.beginPath();
+    for(let i=0;i<n;i++){
+      const t=i/(n-1), xx=sx-ww/2+ww*t;
+      const arc=Math.sin(t*Math.PI);
+      const yy=sy-hgt*(.25+arc*.85);
+      cx.ellipse(xx,yy,ww*.15,hgt*(.24+arc*.16),(t-.5)*1.1,0,7);
+    }
+    cx.ellipse(sx,sy-hgt*.18,ww*.46,hgt*.22,0,0,7);
+    cx.fill();
+    cx.strokeStyle='rgba(18,32,20,.5)'; cx.lineWidth=1.1; cx.stroke();
+  }
+  // pojedyncze jasne liscie na wierzchu
+  cx.fillStyle=shade(col,.3);
+  for(let i=0;i<5;i++){
+    const t=(i+.5)/5, xx=sx-w*.36+w*.72*t, arc=Math.sin(t*Math.PI);
+    cx.beginPath(); cx.ellipse(xx,sy-hh*(.5+arc*.6),w*.075,hh*.15,(t-.5)*1.6,0,7); cx.fill();
+    cx.strokeStyle='rgba(18,32,20,.35)'; cx.lineWidth=.9; cx.stroke();
+  }
+  // nerwy lisci
+  cx.strokeStyle='rgba(240,255,240,.18)'; cx.lineWidth=1;
+  for(let i=-2;i<=2;i++){
+    cx.beginPath(); cx.moveTo(sx,sy-hh*1.0); cx.lineTo(sx+i*w*.17,sy-hh*.16); cx.stroke();
+  }
+  if(trim){
+    cx.strokeStyle=hexA(trim,.85); cx.lineWidth=1.8;
+    cx.beginPath(); cx.moveTo(sx,sy-hh*1.02); cx.lineTo(sx,sy-hh*1.34); cx.stroke();
+    cx.fillStyle=hexA(trim,.95);
+    cx.beginPath(); cx.arc(sx,sy-hh*1.38,2.6,0,7); cx.fill();
+    cx.fillStyle=hexA(trim,.25);
+    cx.beginPath(); cx.arc(sx,sy-hh*1.38,6,0,7); cx.fill();
+  }
 }
 
 /* ---------- dachy ---------- */
@@ -199,12 +282,14 @@ function archRoof(A,sx,sy,w,hh,seedv){
   if(A.roof==='pitched') roofPitched(sx,sy,w,hh,A.roofCol,A.trim);
   else if(A.roof==='hide') roofHide(sx,sy,w,hh,A.roofCol,A.trim);
   else if(A.roof==='rib') roofRib(sx,sy,w,hh,A.roofCol,A.glow);
+  else if(A.roof==='leaf') roofLeaf(sx,sy,w,hh,A.roofCol,A.trim);
   else roofJag(sx,sy,w,hh,A.roofCol,A.glow);
 }
 function archBody(A,sx,sy,w,hg,seedv){
   if(A.roof==='hide') logWall(sx,sy,w,hg,A.wood);
   else if(A.roof==='rib') crackedStone(sx,sy,w,hg,A.stone,A.stone2,seedv);
   else if(A.roof==='jag') obsidian(sx,sy,w,hg,A.stone,A.stone2,seedv);
+  else if(A.roof==='leaf') liveWood(sx,sy,w,hg,A.stone,A.stone2,seedv);
   else stoneBlock(sx,sy,w,hg,A.stone,A.stone2,seedv,false);
 }
 
@@ -410,6 +495,81 @@ function soulAura(sx,sy,r,sd){
   cx.moveTo(sx-r*.09,sy-r*.06); cx.lineTo(sx+r*.09,sy-r*.06); cx.stroke();
 }
 
+/* ---------- warstwy klimatu: ZYCIE I GAJ ---------- */
+function groveGround(sx,sy,r,sd){
+  const gl=.5+.5*Math.sin(TIME*1.1+sd);
+  // bujna trawa i kwiaty wokol
+  cx.fillStyle='rgba(58,104,64,.34)';
+  cx.beginPath(); cx.ellipse(sx,sy+r*.3,r*1.5,r*.72,0,0,7); cx.fill();
+  cx.fillStyle='rgba(92,150,96,.3)';
+  cx.beginPath(); cx.ellipse(sx+r*.18,sy+r*.36,r*1.12,r*.5,0,0,7); cx.fill();
+  const g=cx.createRadialGradient(sx,sy+r*.3,r*.35,sx,sy+r*.3,r*1.55);
+  g.addColorStop(0,hexA('#9ae6b8',.05+gl*.04));
+  g.addColorStop(.62,hexA('#9ae6b8',.06+gl*.05));
+  g.addColorStop(1,hexA('#9ae6b8',0));
+  cx.fillStyle=g; cx.beginPath(); cx.ellipse(sx,sy+r*.3,r*1.55,r*.78,0,0,7); cx.fill();
+  // kepki trawy
+  cx.strokeStyle='rgba(74,125,84,.7)'; cx.lineWidth=1.4; cx.lineCap='round';
+  for(let i=0;i<9;i++){
+    const a=i/9*7+sd, d=r*(.8+(i%3)*.22);
+    const gx=sx+Math.cos(a)*d, gy=sy+r*.3+Math.sin(a)*d*.45;
+    for(let k=-1;k<=1;k++){
+      cx.beginPath(); cx.moveTo(gx+k*1.6,gy);
+      cx.lineTo(gx+k*2.6,gy-r*.12-Math.abs(k)*r*.02); cx.stroke();
+    }
+  }
+  // kwiaty
+  for(let i=0;i<6;i++){
+    const a=i/6*7+sd*1.7, d=r*(.9+(i%2)*.3);
+    const fx=sx+Math.cos(a)*d, fy=sy+r*.32+Math.sin(a)*d*.42;
+    cx.fillStyle=['#e9d79a','#f3e2ef','#d6f7e2','#f5d9c0'][i%4];
+    for(let k=0;k<4;k++){
+      cx.beginPath(); cx.ellipse(fx+Math.cos(k*1.57)*2.2,fy+Math.sin(k*1.57)*1.4,1.7,1.1,k*1.57,0,7); cx.fill();
+    }
+    cx.fillStyle='#f6efd0'; cx.beginPath(); cx.arc(fx,fy,1,0,7); cx.fill();
+  }
+  cx.lineCap='butt';
+}
+function groveAura(sx,sy,r,sd){
+  const gl=.5+.5*Math.sin(TIME*1.4+sd);
+  // swietliki i pylki unoszace sie w powietrzu
+  for(let i=0;i<5;i++){
+    const ph=(TIME*.35+i*.2+sd*.13)%1;
+    const ex=sx+Math.sin(ph*6+i*2+sd)*r*.8;
+    cx.fillStyle=hexA(i%2?'#d6f7e2':'#e9d79a',.7*(1-ph));
+    cx.beginPath(); cx.arc(ex,sy+r*.2-ph*r*1.5,1.3+(1-ph)*1.3,0,7); cx.fill();
+  }
+  // delikatna korona swiatla nad budynkiem
+  const g=cx.createRadialGradient(sx,sy-r*.5,2,sx,sy-r*.5,r*1.1);
+  g.addColorStop(0,hexA('#9ae6b8',.08+gl*.06)); g.addColorStop(1,hexA('#9ae6b8',0));
+  cx.fillStyle=g; cx.beginPath(); cx.ellipse(sx,sy-r*.5,r*1.1,r*.9,0,0,7); cx.fill();
+}
+function leafWin(A,x,y,w,hg){
+  // okno-liscien z zielona posiwiata
+  cx.fillStyle='#2b3b31';
+  cx.beginPath();
+  cx.moveTo(x,y); cx.quadraticCurveTo(x-w*.6,y-hg*.55,x,y-hg*1.15);
+  cx.quadraticCurveTo(x+w*.6,y-hg*.55,x,y); cx.closePath(); cx.fill();
+  cx.strokeStyle=hexA(A.trim,.85); cx.lineWidth=1.3; cx.stroke();
+  const g=cx.createRadialGradient(x,y-hg*.55,1,x,y-hg*.55,Math.max(w,hg)*.7);
+  g.addColorStop(0,hexA('#d6f7e2',.5)); g.addColorStop(1,hexA('#9ae6b8',0));
+  cx.fillStyle=g; cx.beginPath(); cx.ellipse(x,y-hg*.55,w*.7,hg*.7,0,0,7); cx.fill();
+  cx.strokeStyle=hexA('#9ae6b8',.6); cx.lineWidth=1;
+  cx.beginPath(); cx.moveTo(x,y); cx.lineTo(x,y-hg*1.1); cx.stroke();
+}
+function branchArm(sx,sy,len,ang,col){
+  cx.strokeStyle=col; cx.lineWidth=Math.max(2,len*.12); cx.lineCap='round';
+  cx.beginPath(); cx.moveTo(sx,sy);
+  cx.quadraticCurveTo(sx+Math.cos(ang)*len*.6,sy+Math.sin(ang)*len*.4,sx+Math.cos(ang)*len,sy+Math.sin(ang)*len);
+  cx.stroke();
+  cx.fillStyle='rgba(93,167,110,.9)';
+  for(let i=1;i<=2;i++){
+    const t=i/2.4, xx=sx+Math.cos(ang)*len*t, yy=sy+Math.sin(ang)*len*t;
+    cx.beginPath(); cx.ellipse(xx,yy-2,len*.14,len*.07,ang+.5,0,7); cx.fill();
+  }
+  cx.lineCap='butt';
+}
+
 /* ==========================================================================
    GŁÓWNY DISPATCH — zwraca true, jeśli typ obsłużony
    ========================================================================== */
@@ -417,10 +577,12 @@ function drawFactionBuilding(b,sx,sy,r,h,c){
   const ff=b.faction, big=r>18;
   if(ff==='demony'&&big) hellGround(sx,sy,r,b.seed);
   else if(ff==='nieumarli'&&big) soulGround(sx,sy,r,b.seed);
+  else if(ff==='elfy'&&big) groveGround(sx,sy,r,b.seed);
   const ok=drawFactionBuildingCore(b,sx,sy,r,h,c);
   if(ok&&b.done&&big){
     if(ff==='demony') hellAura(sx,sy,r,b.seed,b);
     else if(ff==='nieumarli') soulAura(sx,sy,r,b.seed);
+    else if(ff==='elfy') groveAura(sx,sy,r,b.seed);
   }
   return ok;
 }
@@ -482,6 +644,53 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
         cx.fillStyle=hexA(G1,.1+gl*.12);
         cx.beginPath(); cx.ellipse(sx,sy+r*.2,r*1.7,r*1,0,0,7); cx.fill();
       }
+    } else if(f==='elfy'){
+      // DRZEWO RADY: zywy pien wrosniety w jasny palac, korona zamiast dachu
+      liveWood(sx,sy+h*.44,r*1.62,h*1.06,A.stone,A.stone2,sd);
+      // potezny pien za budynkiem
+      cx.fillStyle=shade('#7d6a44',-.12);
+      cx.beginPath();
+      cx.moveTo(sx-r*.3,sy+h*.44);
+      cx.quadraticCurveTo(sx-r*.16,sy-h*.6,sx-r*.22,sy-h*1.5);
+      cx.lineTo(sx+r*.22,sy-h*1.5);
+      cx.quadraticCurveTo(sx+r*.16,sy-h*.6,sx+r*.3,sy+h*.44);
+      cx.closePath(); cx.fill();
+      cx.strokeStyle='rgba(30,40,28,.6)'; cx.lineWidth=1.5; cx.stroke();
+      cx.strokeStyle='rgba(40,50,34,.4)'; cx.lineWidth=1.4;
+      for(let i=-1;i<=1;i++){
+        cx.beginPath(); cx.moveTo(sx+i*r*.12,sy+h*.3);
+        cx.quadraticCurveTo(sx+i*r*.16,sy-h*.5,sx+i*r*.1,sy-h*1.45); cx.stroke();
+      }
+      // konary
+      for(const sdir of [-1,1]){
+        branchArm(sx+sdir*r*.2,sy-h*1.1,r*.6,sdir>0?-.35:Math.PI+.35,shade('#7d6a44',-.2));
+        branchArm(sx+sdir*r*.24,sy-h*.75,r*.42,sdir>0?.1:Math.PI-.1,shade('#7d6a44',-.26));
+      }
+      // wielka korona lisci
+      roofLeaf(sx,sy-h*1.4,r*2.3,h*.95,A.roofCol,A.trim);
+      roofLeaf(sx-r*.7,sy-h*1.0,r*1.2,h*.6,shade(A.roofCol,-.08),null);
+      roofLeaf(sx+r*.7,sy-h*1.05,r*1.25,h*.62,shade(A.roofCol,.06),null);
+      // skrzydla palacu
+      for(const sdir of [-1,1]){
+        liveWood(sx+sdir*r*.92,sy+h*.5,r*.46,h*1.2,A.stone,A.stone2,sd+sdir);
+        roofLeaf(sx+sdir*r*.92,sy-h*.7,r*.7,h*.45,A.roofCol,null);
+        leafWin(A,sx+sdir*r*.92,sy-h*.1,r*.2,h*.3);
+      }
+      // brama z pnaczy i swietlisty luk
+      cx.fillStyle='#24382c';
+      cx.beginPath(); cx.moveTo(sx-r*.26,sy+h*.5); cx.lineTo(sx-r*.26,sy+h*.06);
+      cx.quadraticCurveTo(sx,sy-h*.3,sx+r*.26,sy+h*.06); cx.lineTo(sx+r*.26,sy+h*.5); cx.closePath(); cx.fill();
+      const egl=.5+.5*Math.sin(TIME*1.6+sd);
+      const eg=cx.createLinearGradient(sx,sy+h*.5,sx,sy-h*.2);
+      eg.addColorStop(0,hexA('#d6f7e2',.4+egl*.25)); eg.addColorStop(1,hexA('#9ae6b8',0));
+      cx.fillStyle=eg;
+      cx.beginPath(); cx.moveTo(sx-r*.2,sy+h*.48); cx.lineTo(sx-r*.2,sy+h*.08);
+      cx.quadraticCurveTo(sx,sy-h*.22,sx+r*.2,sy+h*.08); cx.lineTo(sx+r*.2,sy+h*.48); cx.closePath(); cx.fill();
+      leafWin(A,sx,sy-h*.55,r*.3,h*.42);
+      if(done) drawFlag(sx+r*1.35,sy-h*.95,c,b.side,15);
+      if(done&&Math.random()<.14) G.parts.push({x:b.x+rand(-r*.9,r*.9),y:b.y-r*1.2,
+        vx:rand(-10,10),vy:rand(4,18),life:rand(1,1.8),max:1.8,size:rand(2.5,5),
+        col:pick(['#5da76e','#9ae6b8','#e9d79a']),kind:'ember'});
     } else {
       obsidian(sx,sy+h*.44,r*1.72,h*1.12,A.stone,A.stone2,sd);
       roofJag(sx,sy-h*.66,r*2.04,h*.86,A.roofCol,G1);
@@ -534,6 +743,13 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
       roofRib(sx,sy-hg*.5+h*.4,w*1.2,h*.56,A.roofCol,G1);
       archWin(A,sx,sy+h*.06,r*.22,h*.3);
       mistBand(sx,sy+h*.4,r*.8,sd,G1);
+    } else if(f==='elfy'){
+      liveWood(sx,sy+h*.4,w,hg,A.stone,A.stone2,sd);
+      roofLeaf(sx,sy-hg*.52+h*.4,w*1.24,h*.6,A.roofCol,null);
+      leafWin(A,sx,sy+h*.04,r*.22,h*.3);
+      branchArm(sx+w*.44,sy+h*.1,r*.38,-.5,shade('#7d6a44',-.2));
+      if(done&&Math.random()<.05) G.parts.push({x:b.x+rand(-r*.5,r*.5),y:b.y-r*.8,
+        vx:rand(-8,8),vy:rand(3,14),life:1.2,max:1.2,size:rand(2,4),col:'#5da76e',kind:'ember'});
     } else {
       obsidian(sx,sy+h*.4,w,hg,A.stone,A.stone2,sd);
       roofJag(sx,sy-hg*.5+h*.4,w*1.2,h*.6,A.roofCol,G1);
@@ -556,6 +772,10 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
     } else if(f==='nieumarli'){
       roofRib(sx,sy-hg*.5+h*.44,w*1.1,h*.54,A.roofCol,G1);
       mistBand(sx,sy+h*.44,r,sd,G1);
+    } else if(f==='elfy'){
+      roofLeaf(sx,sy-hg*.5+h*.44,w*1.12,h*.56,A.roofCol,A.trim);
+      for(const s of [-1,1]) leafWin(A,sx+s*r*.52,sy+h*.08,r*.2,h*.26);
+      branchArm(sx-w*.46,sy+h*.2,r*.4,-.7,shade('#7d6a44',-.22));
     } else {
       roofJag(sx,sy-hg*.5+h*.44,w*1.1,h*.54,A.roofCol,G1);
       lavaCracks(sx,sy+h*.5,r,sd,G1);
@@ -570,6 +790,8 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
         cx.beginPath(); cx.arc(sx,gy,r*.16,0,7); cx.stroke(); }
       if(f==='demony'){ cx.strokeStyle=hexA(G1,.8); cx.lineWidth=2;
         cx.beginPath(); cx.arc(sx,gy,r*.3,0,7); cx.stroke(); }
+      if(f==='elfy'){ cx.fillStyle=hexA('#9ae6b8',.85);
+        cx.beginPath(); cx.ellipse(sx,gy,r*.12,r*.26,0,0,7); cx.fill(); }
     } else {
       cx.strokeStyle=c.metal; cx.lineWidth=3;
       cx.beginPath(); cx.arc(sx,gy,r*.36,-1.25,1.25); cx.stroke();
@@ -588,6 +810,7 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
     if(f==='ludzie') roofPitched(sx,sy-hg*.5+h*.44,w*1.1,h*.42,A.roofCol,null);
     else if(f==='orki') roofHide(sx,sy-hg*.5+h*.44,w*1.1,h*.44,A.roofCol,A.trim);
     else if(f==='nieumarli') roofRib(sx,sy-hg*.5+h*.44,w*1.08,h*.46,A.roofCol,G1);
+    else if(f==='elfy') roofLeaf(sx,sy-hg*.5+h*.44,w*1.1,h*.5,A.roofCol,A.trim);
     else roofJag(sx,sy-hg*.5+h*.44,w*1.08,h*.5,A.roofCol,G1);
     // komin
     const chx=sx+r*.5;
@@ -595,7 +818,7 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
     cx.strokeStyle='rgba(14,11,9,.5)'; cx.lineWidth=1.2; cx.strokeRect(chx-r*.14,sy-h*.62,r*.28,h*.62);
     if(done){
       const gl=.5+.5*Math.sin(TIME*4+sd);
-      const fireCol=f==='nieumarli'?G1:(f==='demony'?'#ff6a22':'#e68c32');
+      const fireCol=f==='nieumarli'?G1:(f==='demony'?'#ff6a22':(f==='elfy'?'#d6f7e2':'#e68c32'));
       const g=cx.createRadialGradient(sx-r*.18,sy+h*.34,1,sx-r*.18,sy+h*.34,r*.6);
       g.addColorStop(0,hexA(fireCol,.9)); g.addColorStop(1,hexA(fireCol,0));
       cx.fillStyle=g; cx.beginPath(); cx.ellipse(sx-r*.18,sy+h*.34,r*.5,r*.3,0,0,7); cx.fill();
@@ -632,6 +855,16 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
         cx.beginPath(); cx.moveTo(sx+s*w*.45,sy-hg*.9+h*.3); cx.quadraticCurveTo(sx+s*w*.9,sy-hg*.6+h*.3,sx+s*w*.5,sy-hg*.3+h*.3); cx.stroke(); }
       archWin(A,sx,sy-hg*.6+h*.3,r*.2,h*.34);
       mistBand(sx,sy+h*.3,r*.9,sd,G1);
+    } else if(f==='elfy'){
+      // WIEZYCA: smukla, biala, z korona lisci i pnaczami
+      liveWood(sx,sy+h*.3,w*.92,hg,A.stone,A.stone2,sd);
+      roofLeaf(sx,sy-hg+h*.3,w*1.5,h*.5,A.roofCol,A.trim);
+      leafWin(A,sx,sy-hg*.58+h*.3,r*.2,h*.32);
+      leafWin(A,sx,sy-hg*.25+h*.3,r*.16,h*.24);
+      for(const s of [-1,1]) branchArm(sx+s*w*.4,sy-hg*.7+h*.3,r*.34,s>0?-.4:Math.PI+.4,shade('#7d6a44',-.2));
+      cx.strokeStyle='rgba(74,125,84,.7)'; cx.lineWidth=1.6;
+      cx.beginPath(); cx.moveTo(sx-w*.3,sy+h*.3);
+      cx.quadraticCurveTo(sx+w*.3,sy-hg*.5+h*.3,sx-w*.1,sy-hg*.92+h*.3); cx.stroke();
     } else {
       obsidian(sx,sy+h*.3,w,hg,A.stone,A.stone2,sd);
       cx.fillStyle='#1b1014';
@@ -650,6 +883,7 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
     if(f==='ludzie') roofPitched(sx,sy-hg*.52+h*.4,w*1.14,h*.56,A.roofCol,null);
     else if(f==='orki') roofHide(sx,sy-hg*.52+h*.4,w*1.16,h*.54,A.roofCol,A.trim);
     else if(f==='nieumarli') roofRib(sx,sy-hg*.5+h*.4,w*1.12,h*.56,A.roofCol,G1);
+    else if(f==='elfy') roofLeaf(sx,sy-hg*.52+h*.4,w*1.16,h*.56,A.roofCol,A.trim);
     else roofJag(sx,sy-hg*.5+h*.4,w*1.12,h*.58,A.roofCol,G1);
     // rusztowanie i koło
     cx.strokeStyle=shade(A.wood,.05); cx.lineWidth=3;
@@ -671,6 +905,7 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
     if(f==='orki') skullPike(sx+r*.78,sy+h*.4,h*.55);
     if(f==='nieumarli') mistBand(sx,sy+h*.4,r,sd,G1);
     if(f==='demony') lavaCracks(sx,sy+h*.46,r,sd,G1);
+    if(f==='elfy') branchArm(sx+r*.8,sy+h*.3,r*.4,-.6,shade('#7d6a44',-.22));
     if(done&&Math.sin(TIME*2.2+sd)>.4) spark(b.x+rand(-r*.3,r*.3),b.y-r*.1,f==='demony'?'#ffb070':'#ffd08a',1,.4);
     return true;
   }
@@ -702,6 +937,21 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
       obsidian(sx,sy+r*.3,seg*2,hh*1.05,A.stone,A.stone2,sd);
       spikeRow(sx,sy-hh*.8+r*.3,seg*1.8,4,'#191013',11);
       lavaCracks(sx,sy+r*.24,seg*.9,sd,G1);
+    } else if(f==='elfy'){
+      // ZYWOPLOT CIERNIOWY: splecione pnie i ciernie
+      liveWood(sx,sy+r*.3,seg*2,hh*1.02,A.stone,A.stone2,sd);
+      cx.strokeStyle='rgba(74,125,84,.85)'; cx.lineWidth=2.2; cx.lineCap='round';
+      for(let i=0;i<4;i++){
+        const xx=sx-seg+seg*2*(i+.5)/4;
+        cx.beginPath(); cx.moveTo(xx-seg*.2,sy+r*.3);
+        cx.quadraticCurveTo(xx,sy-hh*.6+r*.3,xx+seg*.2,sy-hh*.2+r*.3); cx.stroke();
+      }
+      cx.fillStyle='rgba(93,167,110,.9)';
+      for(let i=0;i<6;i++){
+        const xx=sx-seg*.9+seg*1.8*i/5;
+        cx.beginPath(); cx.ellipse(xx,sy-hh*.72+r*.3,seg*.09,hh*.1,(i-2)*.3,0,7); cx.fill();
+      }
+      cx.lineCap='butt';
     } else {
       stoneBlock(sx,sy+r*.3,seg*2,hh*1.05,A.stone,A.stone2,sd,false);
       cx.fillStyle=shade(A.stone,.12);
@@ -721,6 +971,7 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
       if(f==='orki') logWall(px,sy+hh*.35,seg*.5,hh*1.3,A.wood);
       else if(f==='nieumarli') crackedStone(px,sy+hh*.35,seg*.48,hh*1.3,A.stone,A.stone2,sd+sd2);
       else if(f==='demony') obsidian(px,sy+hh*.35,seg*.5,hh*1.32,A.stone,A.stone2,sd+sd2);
+      else if(f==='elfy') liveWood(px,sy+hh*.35,seg*.5,hh*1.3,A.stone,A.stone2,sd+sd2);
       else stoneBlock(px,sy+hh*.35,seg*.48,hh*1.3,A.stone,A.stone2,sd+sd2,false);
       if(f==='orki') skullPike(px,sy-hh*.95,13);
       if(f==='nieumarli') boneSpine(px,sy-hh*.95,15);
@@ -728,12 +979,15 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
         cx.beginPath(); cx.moveTo(px-4,sy-hh*.95); cx.lineTo(px+sd2*8,sy-hh*1.3); cx.lineTo(px+4,sy-hh*.92); cx.closePath(); cx.fill(); }
       if(f==='ludzie'){ cx.fillStyle=shade(A.stone,.16);
         cx.fillRect(px-seg*.3,sy-hh*1.12,seg*.6,hh*.2); }
+      if(f==='elfy'){ roofLeaf(px,sy-hh*.95,seg*.9,hh*.34,A.roofCol,null);
+        branchArm(px,sy-hh*.6,seg*.5,sd2>0?-.3:Math.PI+.3,shade('#7d6a44',-.22)); }
     };
     pillar(-1); pillar(1);
     // nadproże
     if(f==='demony') obsidian(sx,sy-hh*.7,seg*2.2,hh*.28,A.stone,A.stone2,sd);
     else if(f==='nieumarli') crackedStone(sx,sy-hh*.7,seg*2.2,hh*.26,A.stone,A.stone2,sd);
     else if(f==='orki') logWall(sx,sy-hh*.7,seg*2.2,hh*.26,A.wood);
+    else if(f==='elfy') liveWood(sx,sy-hh*.7,seg*2.2,hh*.28,A.stone,A.stone2,sd);
     else stoneBlock(sx,sy-hh*.7,seg*2.2,hh*.26,A.stone,A.stone2,sd,false);
     // wrota
     if(f==='nieumarli'){
@@ -751,6 +1005,24 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
       cx.strokeStyle=hexA(G1,.4+gl*.4); cx.lineWidth=2.4;
       for(let i=1;i<4;i++){ const xx=sx-seg*.6+seg*1.2*i/4;
         cx.beginPath(); cx.moveTo(xx,sy-hh*.66); cx.lineTo(xx,sy+hh*.28); cx.stroke(); }
+    } else if(f==='elfy'){
+      // WROTA ZE SPLECIONYCH DRZEW
+      cx.fillStyle='#5f7a52'; cx.beginPath(); cx.rect(sx-seg*.6,sy-hh*.7,seg*1.2,hh); cx.fill();
+      cx.strokeStyle='rgba(28,40,30,.6)'; cx.lineWidth=1.3; cx.stroke();
+      cx.strokeStyle='rgba(125,106,68,.9)'; cx.lineWidth=2.6; cx.lineCap='round';
+      for(let i=0;i<4;i++){
+        const xx=sx-seg*.46+seg*.92*i/3;
+        cx.beginPath(); cx.moveTo(xx,sy+hh*.3);
+        cx.quadraticCurveTo(xx+(i%2?seg*.16:-seg*.16),sy-hh*.2,xx,sy-hh*.66); cx.stroke();
+      }
+      cx.fillStyle='rgba(93,167,110,.9)';
+      for(let i=0;i<5;i++){
+        const xx=sx-seg*.4+seg*.8*i/4;
+        cx.beginPath(); cx.ellipse(xx,sy-hh*.34+((i%2)*hh*.2),seg*.09,hh*.07,i*.5,0,7); cx.fill();
+      }
+      cx.strokeStyle=hexA('#9ae6b8',.5); cx.lineWidth=2;
+      cx.beginPath(); cx.moveTo(sx-seg*.6,sy-hh*.2); cx.lineTo(sx+seg*.6,sy-hh*.2); cx.stroke();
+      cx.lineCap='butt';
     } else {
       cx.fillStyle=f==='orki'?'#6a4526':'#5a4126';
       cx.beginPath(); cx.rect(sx-seg*.6,sy-hh*.7,seg*1.2,hh); cx.fill();
@@ -765,6 +1037,7 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
     if(done&&f==='ludzie') drawFlag(sx,sy-hh*1.12,c,b.side,14);
     if(done&&f==='orki') hideBanner(sx,sy-hh*.86,seg*.8,hh*.4,shade(c.main,-.15),A.trim);
     if(done&&f==='demony') braziers(sx,sy,r,sd,'#ff8b32',2,1.15);
+    if(done&&f==='elfy') drawFlag(sx,sy-hh*1.3,c,b.side,13);
     return true;
   }
   return false;

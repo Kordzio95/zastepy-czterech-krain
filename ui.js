@@ -465,14 +465,16 @@ function drawHUD(){
       btn(px+156,py+66,150,44,'Wszyscy robotnicy','dokończcie to',true,()=>sendBuilders(b,99),true);
       btn(px+312,py+66,150,44,'Anuluj budowę','zwrot 60%',true,()=>cancelBuild(b),true);
     } else if(d.upgrades){
-      ['warrior','archer','heavy','worker','siege'].forEach((t,i)=>{
+      const UL=['warrior','guard','archer','crossbow','heavy','worker','siege'];
+      UL.forEach((t,i)=>{
         const lvl=G.lvl.player[t], maxed=lvl>=UPG[t].max, c=upgCost(t,lvl);
         const ok=!maxed&&canAfford('player',c);
-        btn(px+i*112,py+42,106,50,UPG[t].label+' '+lvl+'/'+UPG[t].max,
+        const col=i%4, row=Math.floor(i/4);
+        btn(px+col*112,py+30+row*56,106,50,UPG[t].label+' '+lvl+'/'+UPG[t].max,
           maxed?'maksimum':costStr(c),ok,()=>tryUpgrade('player',t),true);
       });
       cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.65)';
-      cx.fillText('Ulepszenia zmieniają wygląd i siłę oddziałów.',px,py+108);
+      cx.fillText('Ulepszenia zmieniają wygląd i siłę oddziałów.',px,py+146);
     } else if(trainsOf(d,b.faction).length){
       const TL=trainsOf(d,b.faction);
       TL.forEach((t,i)=>{
@@ -496,7 +498,7 @@ function drawHUD(){
       cx.font='600 12.5px Satoshi,sans-serif'; cx.fillStyle='#f1e2bf';
       cx.fillText(counts[t]+'× '+tierName(G.pf,t,u.lvl),px+i*180,py+38);
       cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.65)';
-      const dd=FACTIONS[G.pf].attackDesc[t];
+      const dd=FACTIONS[G.pf].attackDesc[t]||(typeof UDESC!=='undefined'?UDESC[t]:'');
       wrapText(dd||'Buduje i wydobywa surowce.',px+i*180,py+56,168,13);
       i++;
     }
@@ -606,7 +608,7 @@ function drawHUDMobile(){
     }
     else if(d.upgrades){
       info='Kuźnia — ulepszenia widoczne na jednostkach';
-      for(const t of ['warrior','archer','heavy','worker','siege']){
+      for(const t of ['warrior','guard','archer','crossbow','heavy','worker','siege']){
         const lvl=G.lvl.player[t], maxed=lvl>=UPG[t].max, c=upgCost(t,lvl);
         items.push({t:UPG[t].label+' '+lvl+'/'+UPG[t].max,s:maxed?'maksimum':costStr(c),
           ok:!maxed&&canAfford('player',c),a:()=>tryUpgrade('player',t)});

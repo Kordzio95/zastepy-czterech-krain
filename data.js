@@ -117,7 +117,53 @@ const FACTIONS={
       hero:'Cios podpala i leczy bohatera'},
     hero:{name:'Arcydemon Vhar', power:'Pieczęć Zagłady', cd:25, radius:210,
           desc:'Pieczęć wybucha: 80 obrażeń, odrzuca wrogów i podpala ich na 6s.'}
+  },
+  elfy:{
+    name:'Elfy', realm:'Przymierze Srebrnego Liścia',
+    desc:'Celne łuki, żywe drzewa i gniew starych borów.',
+    col:{main:'#3f8f78', dark:'#1c3a33', light:'#eaf4e4', metal:'#dbe6df', gold:'#e9d79a',
+         accent:'#9ae6b8', skin:'#f0dcc2', cloth:'#47775a', roof:'#6da05f', wall:'#e4ead6'},
+    ability:{name:'Pieśń Gaju', cost:100, cd:21, desc:'Pieśń leczy wszystkie oddziały i przyspiesza je o 30%.'},
+    gore:'#b8433f',
+    tiers:{
+      worker:['Sadziciel','Leśnik','Strażnik Korzeni'],
+      hero:['Aerith, Głos Gaju'],
+      warrior:['Zwiadowca','Klingopleciony','Ostrze Liścia','Mistrz Klingi','Czempion Srebrnego Liścia'],
+      archer:['Łucznik Gaju','Strzelec Liścia','Cichy Łucznik','Mistrz Długiego Łuku','Wiatr Strzał'],
+      heavy:['Ent','Starodrzew','Praojciec Borów'],
+      catapult:['Katapulta','Katapulta Oblężnicza','Wielka Katapulta'],
+      ballista:['Wielka Kusza','Balista','Balista Gaju'],
+      trebuchet:['Trebusz','Trebusz Ciężki','Trebusz Zagłady'],
+      cannon:['Działo','Ciężkie Działo','Bombarda'],
+      sling:['Wielka Proca','Wyrzutnia Kłów','Miotacz Skał']
+    },
+    attackDesc:{warrior:'Podwójne cięcie — co drugi cios jest krytyczny',archer:'Strzała przebija dwóch wrogów naraz',
+      heavy:'Ent miota konarem, a korzenie unieruchamiają wrogów',
+      hero:'Każdy cios leczy pobliskich sojuszników'},
+    hero:{name:'Aerith, Głos Gaju', power:'Gniew Borów', cd:24, radius:205,
+          desc:'Korzenie wybijają z ziemi: unieruchamiają wrogów na 3 s i ranią za 75.'}
   }
+};
+/* --- ciężka piechota, kusznicy i miotacze: nazwy poziomów dla każdej krainy --- */
+const FTIERS={
+  ludzie:{guard:['Halabardier','Gwardzista','Gwardia Królewska','Mur Astlandu'],
+          crossbow:['Kusznik','Kusznik Cechowy','Arbaletnik Królewski','Bełt Astlandu']},
+  orki:{  guard:['Żelazny Kieł','Pancerny Rębacz','Żelazna Ściana','Byk Hordy'],
+          crossbow:['Bełciarz','Kusznik Hordy','Czarny Bełt','Przebijacz Tarcz']},
+  nieumarli:{guard:['Kostny Gwardzista','Rycerz Grobu','Żelazna Mogiła','Straż Zimnego Snu'],
+          crossbow:['Kościany Kusznik','Mroźny Arbaletnik','Widmowy Bełt','Żniwiarz Bełtów']},
+  demony:{guard:['Piekielny Gwardzian','Pancerz Otchłani','Żelazny Diaboł','Kowadło Piekła'],
+          crossbow:['Siarkowy Kusznik','Arbalet Otchłani','Czarna Lufa','Oko Bełtów'],
+          flamer:['Miotacz Ognia','Piekielny Płomieniarz','Paszcza Otchłani','Gardziel Zagłady']},
+  elfy:{  guard:['Wartownik Gaju','Gwardia Korzeni','Tarcza Starodrzewu','Straż Wiecznego Liścia'],
+          crossbow:['Kusznik Liścia','Arbaletnik Gaju','Srebrny Bełt','Cichy Arbalet']}
+};
+for(const f in FTIERS) for(const t in FTIERS[f]) FACTIONS[f].tiers[t]=FTIERS[f][t];
+/* opisy nowych oddziałów — wspólne dla wszystkich krain */
+const UDESC={
+  guard:'Ciężka piechota — pancerz tłumi obrażenia, a tarcza odpycha wroga.',
+  crossbow:'Kusznik — wolny, ale bełt przebija zbroję i leci dalej niż strzała.',
+  flamer:'Miotacz ognia — zalewa wszystko przed sobą stożkiem płomieni i podpala.'
 };
 const FKEYS=Object.keys(FACTIONS);
 
@@ -134,20 +180,26 @@ const FBUILD={
     wall:'Wał Kostny',gate:'Brama Kości',workshop:'Kuźnia Oblężnicza'}},
   demony:{unique:'portal', names:{townhall:'Cytadela Otchłani',house:'Nora Chochlików',barracks:'Arena Krwi',range:'Ołtarz Ognia',
     forge:'Kuźnia Piekielna',lair:'Czeluść Kolosa',tower:'Wieża Siarki',portal:'Piekielny Portal',
-    wall:'Mur Obsydianowy',gate:'Wrota Otchłani',workshop:'Ludwisarnia Otchłani'}}
+    wall:'Mur Obsydianowy',gate:'Wrota Otchłani',workshop:'Ludwisarnia Otchłani'}},
+  elfy:{unique:'grove', names:{townhall:'Drzewo Rady',house:'Domostwo w Konarach',barracks:'Dziedziniec Klingi',range:'Taras Łuczników',
+    forge:'Kuźnia Srebrnego Liścia',lair:'Krąg Entów',tower:'Wieżyca Strażnicza',grove:'Gaj Wiecznego Liścia',
+    wall:'Żywopłot Cierniowy',gate:'Brama Splecionych Drzew',workshop:'Warsztat Leśny'}}
 };
 /* --- maszyny oblegnicze frakcji --- */
 const FSIEGE={
   ludzie:['catapult','ballista'],
   orki:['sling','cannon'],
   nieumarli:['trebuchet','ballista'],
-  demony:['cannon','trebuchet']
+  demony:['cannon','trebuchet'],
+  elfy:['ballista','catapult']
 };
 const siegeOf=f=>FSIEGE[f]||['catapult'];
 const bLabel=(f,t)=>(FBUILD[f]&&FBUILD[f].names[t])||BUILDINGS[t].label;
 const factionBuilds=f=>BUILD_ORDER.concat([FBUILD[f].unique]);
 
 /* --- kolory i nazwy stron --- */
+/* --- odziały szkolone w danym budynku zależnie od krainy --- */
+const FTRAIN={ demony:{ range:['archer','crossbow','flamer'] } };
 const SIDE_COL={player:'#7ec96a', e1:'#df5b4d', e2:'#8fb4ff', e3:'#e0a33c'};
 const SIDE_NAME={player:'Twoja osada', e1:'Wróg I', e2:'Wróg II', e3:'Wróg III'};
 
@@ -196,6 +248,9 @@ const UNITS={
   worker:{ label:'Robotnik', r:11,  hp:70,  dmg:5,  range:16, speed:66, ias:1.2, cost:{gold:50,wood:0},   time:6,  pop:1, build:true, gather:true },
   warrior:{label:'Wojownik',r:14, hp:150, dmg:16, range:18, speed:58, ias:1.0, cost:{gold:60,wood:20},  time:8,  pop:1 },
   archer:{ label:'Łucznik', r:13, hp:95,  dmg:17, range:150,speed:56, ias:1.4, cost:{gold:70,wood:45},  time:10, pop:1 },
+  guard:{  label:'Ciężki Piechur', r:16, hp:340, dmg:24, range:20, speed:42, ias:1.6, cost:{gold:120,wood:80}, time:15, pop:2, mass:3, armor:7 },
+  crossbow:{label:'Kusznik', r:14, hp:115, dmg:36, range:212,speed:48, ias:2.3, cost:{gold:100,wood:80},  time:14, pop:1, pierceArmor:true },
+  flamer:{ label:'Miotacz Ognia', r:15, hp:200, dmg:9, range:104, speed:52, ias:.45, cost:{gold:130,wood:60}, time:16, pop:2, mass:2, flame:{arc:.55} },
   heavy:{  label:'Kolos',   r:28, hp:1250,dmg:80, range:44, speed:40, ias:2.0, cost:{gold:340,wood:160},time:26, pop:4, mass:8 },
   hero:{   label:'Bohater', r:25, hp:1300,dmg:58, range:26, speed:72, ias:.85,cost:{gold:250,wood:120},time:22, pop:3, mass:3, hero:true },
   /* --- maszyny oblegnicze: wolne, kruche w zwarciu, niszczycielskie z daleka --- */
@@ -211,7 +266,7 @@ const UNITS={
              siege:{splash:126, bld:2.4, min:100, arc:110, shot:'rock', knock:1.4} }
 };
 const SIEGE_KEYS=['catapult','ballista','trebuchet','cannon','sling'];
-const UNIT_KEYS=['worker','warrior','archer','heavy','hero'].concat(SIEGE_KEYS);
+const UNIT_KEYS=['worker','warrior','guard','archer','crossbow','flamer','heavy','hero'].concat(SIEGE_KEYS);
 const HERO_LIMIT=1;
 
 /* --- budynki --- */
@@ -220,10 +275,10 @@ const BUILDINGS={
              desc:'Serce osady. Przyjmuje złoto i drewno, daje 10 ludności i wystawia bohatera.' },
   house:{    label:'Chata',       key:'2', r:22, hp:900,  cost:{gold:0,wood:90},   build:12, pop:6,  trains:[],
              desc:'Podnosi limit ludności o 6.' },
-  barracks:{ label:'Koszary',     key:'3', r:32, hp:2300, cost:{gold:60,wood:180}, build:22, pop:0,  trains:['warrior'],
-             desc:'Szkoli wojowników walki wręcz.' },
-  range:{    label:'Strzelnia',  key:'4', r:30, hp:2000, cost:{gold:90,wood:200}, build:24, pop:0,  trains:['archer'],
-             desc:'Szkoli łuczników i kuszników.' },
+  barracks:{ label:'Koszary',     key:'3', r:32, hp:2300, cost:{gold:60,wood:180}, build:22, pop:0,  trains:['warrior','guard'],
+             desc:'Szkoli wojowników i ciężką piechotę w pełnej zbroi.' },
+  range:{    label:'Strzelnia',  key:'4', r:30, hp:2000, cost:{gold:90,wood:200}, build:24, pop:0,  trains:['archer','crossbow'],
+             desc:'Szkoli łuczników i kuszników — u demonów także miotacze ognia.' },
   forge:{    label:'Kuźnia',      key:'5', r:30, hp:2100, cost:{gold:140,wood:160},build:26, pop:0,  trains:[], upgrades:true,
              desc:'Ulepsza oddziały — zmienia ich wygląd i siłę.' },
   lair:{     label:'Wielka Jama', key:'6', r:40, hp:3000, cost:{gold:260,wood:240},build:34, pop:0,  trains:['heavy'],
@@ -248,7 +303,10 @@ const BUILDINGS={
              desc:'Sama wystawia darmowe szkielety co 28 s.' },
   portal:{   label:'Piekielny Portal', key:'U', r:28, hp:1400, cost:{gold:220,wood:130}, build:26, pop:2, trains:[],
              spawner:{type:'warrior',every:30}, aura:{kind:'burn',range:170,dps:10},
-             desc:'Przyzywa chochliki i podpala wrogów, którzy podejdą za blisko.' }
+             desc:'Przyzywa chochliki i podpala wrogów, którzy podejdą za blisko.' },
+  grove:{    label:'Gaj Wiecznego Liścia', key:'U', r:28, hp:1600, cost:{gold:180,wood:120}, build:24, pop:3, trains:[],
+             aura:{kind:'heal',range:225,rate:20},
+             desc:'Żywy gaj leczy sojuszników w pobliżu i daje +3 ludności.' }
 };
 const BUILD_ORDER=['townhall','house','barracks','range','forge','lair','tower','workshop','wall','gate'];
 const WALL_SPACING=27;
@@ -256,7 +314,9 @@ const WALL_SPACING=27;
 /* --- ulepszenia (kuźnia) --- */
 const UPG={
   warrior:{label:'Zbrojownia',  baseCost:{gold:120,wood:80},  step:1.6, hp:.24, dmg:.22, max:5},
+  guard:{  label:'Pancerz',     baseCost:{gold:150,wood:110}, step:1.6, hp:.24, dmg:.18, max:4},
   archer:{ label:'Łucznictwo',  baseCost:{gold:140,wood:90},  step:1.6, hp:.20, dmg:.26, max:5},
+  crossbow:{label:'Kusznictwo', baseCost:{gold:150,wood:100}, step:1.6, hp:.18, dmg:.28, max:4},
   heavy:{  label:'Kult Kolosa', baseCost:{gold:320,wood:220}, step:1.8, hp:.22, dmg:.22, max:3},
   worker:{ label:'Rzemiosło',   baseCost:{gold:90,wood:60},   step:1.7, hp:.25, dmg:.1,  max:3},
   siege:{  label:'Inżynieria',  baseCost:{gold:260,wood:240}, step:1.75,hp:.2,  dmg:.25, max:3}
@@ -273,6 +333,11 @@ function look(type,lvl){
     bigWeapon:true, plate:true, plume:true, weaponGlow:true, banner:true, aura:true, hero:true};
   if(type==='heavy') return {scale:1+(lvl-1)*.09, armor:lvl>=2, trophies:lvl>=2, aura:lvl>=3, crown:lvl>=3, weaponGlow:lvl>=3};
   if(type==='worker') return {scale:1+(lvl-1)*.06, helmet:lvl>=2, plate:lvl>=3, aura:false, weaponGlow:false};
+  if(type==='guard') return {scale:1+(lvl-1)*.055, helmet:true, pauldrons:true, plate:lvl>=2,
+    bigWeapon:lvl>=2, cape:lvl>=3, plume:lvl>=3, weaponGlow:lvl>=4, aura:lvl>=4};
+  if(type==='crossbow') return {scale:1+(lvl-1)*.05, helmet:lvl>=2, pauldrons:lvl>=2,
+    plate:lvl>=3, bigWeapon:lvl>=3, weaponGlow:lvl>=4};
+  if(type==='flamer') return {scale:1+(lvl-1)*.055, helmet:lvl>=2, plate:lvl>=3, bigWeapon:lvl>=3, weaponGlow:true};
   return {
     scale:1+(lvl-1)*.055,
     helmet:lvl>=2, pauldrons:lvl>=2,
