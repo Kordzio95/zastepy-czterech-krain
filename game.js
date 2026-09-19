@@ -855,9 +855,12 @@ function zoraMaul(u,t,nx,ny,ang,dmg){
   for(let i=0;i<12;i++) G.parts.push({x:t.x+rand(-t.r*.5,t.r*.5),y:t.y+rand(-t.r*.5,t.r*.3),
     vx:rand(-110,110),vy:rand(-140,-20),life:rand(.3,.7),max:.7,size:rand(2,5),col:'#8a2b20',kind:'gore'});
   if(u.lvl>=3){
-    // rozgrzana paszcza podpala ofiare
-    ignite(t,3,u.side);
-    embers(t.x,t.y-t.r*.4,'#ffb257',6);
+    // przebudzona Zora: glebsze rany i wybuch pary z paszczy
+    bite(t,4,u.side);
+    dealDamage(t,Math.round(dmg*.45),u.side,{dx:nx,dy:ny,n:4,power:1});
+    for(let i=0;i<10;i++) G.parts.push({x:t.x+rand(-t.r*.5,t.r*.5),y:t.y-t.r*.3+rand(-6,6),
+      vx:nx*rand(40,150)+rand(-40,40),vy:ny*rand(40,150)+rand(-70,-10),
+      life:rand(.4,.9),max:.9,size:rand(4,9),col:'rgba(246,246,242,.62)',kind:'puff'});
   }
   spark(t.x,t.y,'#f2e0c6',8,1.2); shake(3,t.x,t.y,260); hitstopAt(.04,t.x,t.y,260);
   SND.play('heroHit',t.x,t.y);

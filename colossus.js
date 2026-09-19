@@ -1212,7 +1212,7 @@ function colDog(P){
       cx.beginPath(); cx.ellipse(xx,yy,linkR*.85,linkR*.62,i%2?.6:-.6,0,7); cx.stroke();
     }
     if(FIRE){
-      cx.strokeStyle=hexA('#ff7a2f',.26); cx.lineWidth=r*.09;
+      cx.strokeStyle=hexA('#f4f6f8',.3); cx.lineWidth=r*.09;
       cx.beginPath(); cx.moveTo(shXc-fwd*HW*.6,shYY+r*.06); cx.lineTo(shXc+fwd*HW*.8,hipYY-r*.04); cx.stroke();
     }
     // blizny
@@ -1289,7 +1289,7 @@ function colDog(P){
       cx.strokeStyle=hit?'#fff':hexA(i%2?iron:shade(iron,-.3),.95); cx.lineWidth=Math.max(1.3,lr*.55);
       cx.beginPath(); cx.ellipse(nkx+fwd*r*.02,nky+i*r*.11,lr,lr*.7,i%2?.5:-.5,0,7); cx.stroke();
     }
-    if(FIRE){ cx.fillStyle=hexA('#ff9a3c',.32);
+    if(FIRE){ cx.fillStyle=hexA('#f2f4f6',.22);
       cx.beginPath(); cx.arc(nkx,nky,r*.3,0,7); cx.fill(); }
   }
   // czaszka: szeroka, z wyraznymi miesniami zuchwy (amstaf)
@@ -1380,23 +1380,69 @@ function colDog(P){
       cx.fillStyle=g; cx.beginPath(); cx.arc(ex,ey,hr2*.55,0,7); cx.fill();
     }
   }
-  /* --- ULEPSZENIE 3: ogien z paszczy --- */
+  /* --- ULEPSZENIE 3 (przebudzenie): widoczny oddech, bez ognia --- */
   if(FIRE){
-    const pulse=.55+.45*Math.sin(t*4.5+seed);
-    const gg=cx.createRadialGradient(mx,hy+hr2*.26,1,mx,hy+hr2*.26,hr2*(.9+pulse*.4));
-    gg.addColorStop(0,hexA('#ffe08a',.55+pulse*.25));
-    gg.addColorStop(.5,hexA('#ff7a2f',.32));
-    gg.addColorStop(1,'rgba(255,90,20,0)');
-    cx.fillStyle=gg; cx.beginPath(); cx.arc(mx,hy+hr2*.26,hr2*(.9+pulse*.4),0,7); cx.fill();
-    const blast=.55+jaw*1.35;
-    for(let i=0;i<3;i++){
-      cFlame(mx+fwd*hr2*(.34+i*.42),hy+hr2*(.28-i*.06),hr2*(1.5-i*.3)*blast,hr2*(.5-i*.1),seed+i*3,'#ff5a12','#ffd24a',.85);
+    const breath=.5+.5*Math.sin(t*2.2+seed);          // rytm wdech-wydech
+    const push=.45+breath*.75+jaw*.9;
+    // dwa strumienie pary z nozdrzy
+    for(const sd of [-1,1]){
+      const bx=mx+fwd*hr2*.16, by=hy+hr2*(.02+sd*.1);
+      for(let i=0;i<4;i++){
+        const k=i/3, rr=hr2*(.2+k*.52)*push;
+        cx.fillStyle=hexA('#f7f8fa',(.3-k*.2)*(.5+breath*.6));
+        cx.beginPath();
+        cx.arc(bx+fwd*hr2*(.3+k*1.25)*push, by+hr2*(.1+k*.3)+Math.sin(t*3+i+sd)*hr2*.06, rr,0,7);
+        cx.fill();
+      }
     }
-    if(Math.random()<(jaw>.2?.85:.4)) embers(u.x+fwd*r*(.95+jaw*.5),u.y-r*.9,'#ffb257',2);
+    if(Math.random()<.5+breath*.4){
+      G.parts.push({x:u.x+fwd*r*(.95+jaw*.4),y:u.y-r*.9,vx:fwd*rand(40,120),vy:rand(-40,0),
+        life:rand(.5,1.1),max:1.1,size:rand(4,9),col:'rgba(247,248,250,.5)',kind:'puff'});
+    }
   }
+  // klebowisko pary wokol ciala (jak po przebudzeniu)
+  if(FIRE) zoraSteam(u,r,t,seed,moving);
   // ziajanie
   if(Math.random()<(moving?.22:.09)){
     G.parts.push({x:u.x+fwd*r*.8,y:u.y-r*.85,vx:fwd*rand(20,60),vy:rand(-16,6),
       life:rand(.3,.7),max:.7,size:rand(3,6),col:'rgba(236,228,208,.5)',kind:'puff'});
+  }
+}
+
+/* Bialy, puszysty oblok pary owijajacy przebudzona Zore. */
+function zoraSteam(u,r,t,seed,moving){
+  const breath=.5+.5*Math.sin(t*2.2+seed);
+  const spin=t*(moving?.75:.45)+seed;
+  const cy=-r*.55;
+  cx.save();
+  for(let ring=0;ring<2;ring++){
+    const rad=r*(.95+ring*.42), n=ring?11:9;
+    for(let i=0;i<n;i++){
+      const a=spin*(ring?-1:1)+i/n*Math.PI*2;
+      const wob=Math.sin(t*1.9+i*1.7+ring*2+seed)*r*.1;
+      const px=Math.cos(a)*(rad+wob)*1.05;
+      const py=cy+Math.sin(a)*(rad+wob)*.52;
+      const sz=r*(.3-ring*.05)*(.8+.35*Math.sin(t*2.4+i*2.1+seed))*(.85+breath*.3);
+      const g=cx.createRadialGradient(px,py,1,px,py,sz);
+      g.addColorStop(0,hexA('#ffffff',(ring?.26:.34)+breath*.1));
+      g.addColorStop(.6,hexA('#f0f3f6',(ring?.15:.21)));
+      g.addColorStop(1,'rgba(240,243,246,0)');
+      cx.fillStyle=g;
+      cx.beginPath(); cx.arc(px,py,sz,0,7); cx.fill();
+    }
+  }
+  // klaby u stop
+  for(let i=0;i<5;i++){
+    const a=-spin*1.3+i/5*Math.PI*2;
+    const px=Math.cos(a)*r*.85, py=r*.5+Math.sin(a)*r*.16;
+    const sz=r*.26*(.8+.3*Math.sin(t*3+i+seed));
+    cx.fillStyle=hexA('#f4f7fa',.2+breath*.07);
+    cx.beginPath(); cx.arc(px,py,sz,0,7); cx.fill();
+  }
+  cx.restore();
+  if(Math.random()<.35){
+    G.parts.push({x:u.x+rand(-r*1.1,r*1.1),y:u.y-r*(.2+Math.random()*.9),
+      vx:rand(-26,26),vy:rand(-50,-12),life:rand(.7,1.5),max:1.5,
+      size:rand(5,12),col:'rgba(248,250,252,.4)',kind:'puff'});
   }
 }
