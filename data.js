@@ -162,7 +162,7 @@ for(const f in FTIERS) for(const t in FTIERS[f]) FACTIONS[f].tiers[t]=FTIERS[f][
 /* opisy nowych oddziałów — wspólne dla wszystkich krain */
 const UDESC={
   guard:'Ciężka piechota — pancerz tłumi obrażenia, a tarcza odpycha wroga.',
-  crossbow:'Kusznik — wolny, ale bełt przebija zbroję i leci dalej niż strzała.',
+  crossbow:'Kusznicy — bełt przebija zbroję i szeregi.',
   flamer:'Miotacz ognia — zalewa wszystko przed sobą stożkiem płomieni i podpala.'
 };
 const FKEYS=Object.keys(FACTIONS);
@@ -245,13 +245,13 @@ const MODES={
 
 /* --- jednostki --- */
 const UNITS={
-  worker:{ label:'Robotnik', r:11,  hp:70,  dmg:5,  range:16, speed:66, ias:1.2, cost:{gold:50,wood:0},   time:6,  pop:1, build:true, gather:true },
-  warrior:{label:'Wojownik',r:14, hp:150, dmg:16, range:18, speed:58, ias:1.0, cost:{gold:60,wood:20},  time:8,  pop:1 },
-  archer:{ label:'Łucznik', r:13, hp:95,  dmg:17, range:150,speed:56, ias:1.4, cost:{gold:70,wood:45},  time:10, pop:1 },
-  guard:{  label:'Ciężki Piechur', r:16, hp:340, dmg:24, range:20, speed:42, ias:1.6, cost:{gold:120,wood:80}, time:15, pop:2, mass:3, armor:7 },
-  crossbow:{label:'Kusznik', r:14, hp:115, dmg:36, range:212,speed:48, ias:2.3, cost:{gold:100,wood:80},  time:14, pop:1, pierceArmor:true },
-  flamer:{ label:'Miotacz Ognia', r:15, hp:200, dmg:9, range:104, speed:52, ias:.45, cost:{gold:130,wood:60}, time:16, pop:2, mass:2, flame:{arc:.55} },
-  heavy:{  label:'Kolos',   r:28, hp:1250,dmg:80, range:44, speed:40, ias:2.0, cost:{gold:340,wood:160},time:26, pop:4, mass:8 },
+  worker:{ label:'Robotnik', plural:'Robotnicy', r:11,  hp:70,  dmg:5,  range:16, speed:66, ias:1.2, cost:{gold:50,wood:0},   time:6,  pop:1, build:true, gather:true },
+  warrior:{label:'Wojownik', plural:'Wojownicy',r:14, hp:150, dmg:16, range:18, speed:58, ias:1.0, cost:{gold:60,wood:20},  time:8,  pop:1 },
+  archer:{ label:'Łucznik', plural:'Łucznicy', r:13, hp:95,  dmg:17, range:150,speed:56, ias:1.4, cost:{gold:70,wood:45},  time:10, pop:1 },
+  guard:{  label:'Ciężki Piechur', plural:'Ciężka piechota', r:16, hp:340, dmg:24, range:20, speed:42, ias:1.6, cost:{gold:120,wood:80}, time:15, pop:2, mass:3, armor:7 },
+  crossbow:{label:'Kusznik', plural:'Kusznicy', r:15, hp:115, dmg:36, range:212,speed:48, ias:2.3, cost:{gold:100,wood:80},  time:14, pop:1, pierceArmor:true },
+  flamer:{ label:'Miotacz Ognia', plural:'Miotacze ognia', r:15, hp:200, dmg:9, range:104, speed:52, ias:.45, cost:{gold:130,wood:60}, time:16, pop:2, mass:2, flame:{arc:.55} },
+  heavy:{  label:'Kolos', plural:'Kolosy',   r:28, hp:1250,dmg:80, range:44, speed:40, ias:2.0, cost:{gold:340,wood:160},time:26, pop:4, mass:8 },
   hero:{   label:'Bohater', r:25, hp:1300,dmg:58, range:26, speed:72, ias:.85,cost:{gold:250,wood:120},time:22, pop:3, mass:3, hero:true },
   /* --- maszyny oblegnicze: wolne, kruche w zwarciu, niszczycielskie z daleka --- */
   catapult:{ label:'Katapulta',    r:24, hp:520, dmg:95,  range:330, speed:30, ias:5.0, cost:{gold:220,wood:260}, time:26, pop:3, mass:6,
@@ -335,8 +335,8 @@ function look(type,lvl){
   if(type==='worker') return {scale:1+(lvl-1)*.06, helmet:lvl>=2, plate:lvl>=3, aura:false, weaponGlow:false};
   if(type==='guard') return {scale:1+(lvl-1)*.055, helmet:true, pauldrons:true, plate:lvl>=2,
     bigWeapon:lvl>=2, cape:lvl>=3, plume:lvl>=3, weaponGlow:lvl>=4, aura:lvl>=4};
-  if(type==='crossbow') return {scale:1+(lvl-1)*.05, helmet:lvl>=2, pauldrons:lvl>=2,
-    plate:lvl>=3, bigWeapon:lvl>=3, weaponGlow:lvl>=4};
+  if(type==='crossbow') return {scale:1.08+(lvl-1)*.055, helmet:true, pauldrons:true,
+    plate:lvl>=2, bigWeapon:lvl>=3, cape:lvl>=4, weaponGlow:lvl>=4};
   if(type==='flamer') return {scale:1+(lvl-1)*.055, helmet:lvl>=2, plate:lvl>=3, bigWeapon:lvl>=3, weaponGlow:true};
   return {
     scale:1+(lvl-1)*.055,

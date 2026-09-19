@@ -1,3 +1,7 @@
+function groupName(t,lvl,n){
+  if(n>1&&typeof UNITS!=='undefined'&&UNITS[t]&&UNITS[t].plural) return UNITS[t].plural;
+  return tierName(G.pf,t,lvl);
+}
 /* ==========================================================================
    INTERFEJS, MYSZKA, KLAWIATURA, PĘTLA GRY
    ========================================================================== */
@@ -90,7 +94,7 @@ function tapWorld(px,py){
   const dbl=lastTap&&now-lastTap.t<340&&Math.hypot(px-lastTap.x,py-lastTap.y)<34;
   lastTap={t:now,x:px,y:py};
   if(u){
-    if(dbl){ selectAllOfType(u.type,false); warn('Zaznaczono wszystkich: '+tierName(G.pf,u.type,u.lvl)); }
+    if(dbl){ selectAllOfType(u.type,false); warn('Zaznaczono wszystkich: '+((UNITS[u.type]&&UNITS[u.type].plural)||tierName(G.pf,u.type,u.lvl))); }
     else selectUnits([u],addMode);
     buildMenuOpen=false; return;
   }
@@ -496,7 +500,7 @@ function drawHUD(){
     for(const t in counts){
       const u=G.sel.find(x=>x.type===t);
       cx.font='600 12.5px Satoshi,sans-serif'; cx.fillStyle='#f1e2bf';
-      cx.fillText(counts[t]+'× '+tierName(G.pf,t,u.lvl),px+i*180,py+38);
+      cx.fillText(counts[t]+'× '+groupName(t,u.lvl,counts[t]),px+i*180,py+38);
       cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.65)';
       const dd=FACTIONS[G.pf].attackDesc[t]||(typeof UDESC!=='undefined'?UDESC[t]:'');
       wrapText(dd||'Buduje i wydobywa surowce.',px+i*180,py+56,168,13);
@@ -627,7 +631,7 @@ function drawHUDMobile(){
     const parts=[];
     for(const t in counts){
       const u=G.sel.find(x=>x.type===t);
-      parts.push(counts[t]+'× '+tierName(G.pf,t,u.lvl));
+      parts.push(counts[t]+'× '+groupName(t,u.lvl,counts[t]));
     }
     info='Zaznaczono: '+parts.join(' · ');
     const sw=selWorkers(), hh=selHero();

@@ -322,6 +322,33 @@ function drawSoldierTop(u,c,L,r,ang,hit){
       cx.beginPath(); cx.moveTo(-face*shW*.9,hipY-r*.14);
       cx.lineTo(-face*shW*(.78+i*.16),hipY-r*.34); cx.stroke();
     }
+    /* --- CIEZKI KUSZNIK: paweż na plecach, hełm z rondem, korba, pas z beltami --- */
+    cx.save(); cx.translate(-face*shW*1.18,shY+r*.22); cx.rotate(face*.18);
+    cx.fillStyle=hit?'#fff':shade(c.dark,-.04);
+    cx.beginPath();
+    cx.moveTo(-r*.26,-r*.52); cx.lineTo(r*.26,-r*.52);
+    cx.quadraticCurveTo(r*.32,r*.1,0,r*.58);
+    cx.quadraticCurveTo(-r*.32,r*.1,-r*.26,-r*.52);
+    cx.closePath(); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.5; cx.stroke();
+    cx.strokeStyle=hit?'#fff':shade(c.metal,-.05); cx.lineWidth=r*.08;
+    cx.beginPath(); cx.moveTo(0,-r*.48); cx.lineTo(0,r*.52); cx.stroke();
+    cx.strokeStyle=hexA(c.gold||c.metal,.85); cx.lineWidth=1.4;
+    cx.beginPath(); cx.moveTo(-r*.21,-r*.24); cx.lineTo(r*.21,-r*.24);
+    cx.moveTo(-r*.18,r*.12); cx.lineTo(r*.18,r*.12); cx.stroke();
+    cx.restore();
+    cx.fillStyle=hit?'#fff':shade(c.metal,-.16);
+    cx.beginPath(); cx.ellipse(0,shY-r*.62,r*.44,r*.13,0,0,7); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.3; cx.stroke();
+    cx.strokeStyle=hit?'#fff':shade(c.metal,-.22); cx.lineWidth=r*.07;
+    cx.beginPath(); cx.arc(face*shW*.62,hipY+r*.04,r*.12,0,7); cx.stroke();
+    cx.strokeStyle=hit?'#fff':shade(c.dark,.24); cx.lineWidth=r*.13;
+    cx.beginPath(); cx.moveTo(-face*shW*.74,shY+r*.02); cx.lineTo(face*shW*.6,shY+r*.48); cx.stroke();
+    cx.strokeStyle='#cfc2a2'; cx.lineWidth=1.3;
+    for(let i=0;i<3;i++){
+      const t2=.25+i*.25, bxp=-face*shW*.74+(face*shW*1.34)*t2, byp=shY+r*.02+r*.46*t2;
+      cx.beginPath(); cx.moveTo(bxp,byp-r*.09); cx.lineTo(bxp,byp+r*.09); cx.stroke();
+    }
   } else if(u.type==='guard'){
     /* --- CIEZKA PIECHOTA: halabarda + tarcza wiezowa --- */
     const a=-1.15+swing*1.7;

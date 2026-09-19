@@ -27,7 +27,7 @@ function newGame(pf,mapKey,mode){
     if(s!=='player'){ f=pool.length?pick(pool):pick(FKEYS); pool.splice(pool.indexOf(f),1); }
     g.faction[s]=f;
     g.res[s]={gold:320,wood:380};
-    g.lvl[s]={worker:1,warrior:1,archer:1,heavy:1,hero:1,siege:1};
+    g.lvl[s]={worker:1,warrior:1,guard:1,archer:1,crossbow:1,flamer:1,heavy:1,hero:1,siege:1};
     g.buff[s]=0; g.fallen[s]=[];
     if(s!=='player') g.ais[s]={t:0,step:0,attackTimer:300+randi(20,70),wave:0,will:0,buildTimer:rand(1,4)};
   }
@@ -370,7 +370,7 @@ function tryUpgrade(side,type){
   const hasForge=G.buildings.some(b=>b.side===side&&!b.dead&&b.done&&b.type==='forge');
   if(!hasForge){ if(side==='player') warn('Potrzebna kuźnia'); return false; }
   pay(side,c);
-  G.lvl[side][type]++;
+  G.lvl[side][type]=(G.lvl[side][type]||1)+1;
   const nl=G.lvl[side][type], faction=sideFaction(side);
   for(const u of G.units) if(u.side===side&&!u.dead&&upgKeyOf(u.type)===type){
     const ns=unitStats(faction,u.type,nl), L=look(u.type,nl);
