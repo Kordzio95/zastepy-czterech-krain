@@ -38,6 +38,7 @@ function update(dt){
    JEDNOSTKI
    ========================================================================== */
 function updateUnits(dt){
+  if(typeof navUpdate==='function') navUpdate(dt);
   for(const u of G.units){
     if(u.dead){ u.fade-=dt*.8; u.rot+=dt*.4; continue; }
     u.anim+=dt;
@@ -95,12 +96,18 @@ function updateUnits(dt){
     }
     if(o&&o.kind==='move'){
       const d=Math.hypot(o.x-u.x,o.y-u.y);
-      if(d<8+u.r*.2){ u.order=null; u.state='idle'; u.stuck=0; u.lastD=0; }
+      if(d<8+u.r*.2){ u.order=null; u.state='idle'; u.stuck=0; u.pgOrd=null; }
       else {
-        // jesli od 2.5 s nie ma postepu (cel w budynku, tlok), uznaj ze dotarl
-        if(u.lastD===undefined||u.lastD===0||d<u.lastD-1.5){ u.lastD=d; u.stuck=0; }
-        else { u.stuck=(u.stuck||0)+dt; }
-        if(u.stuck>2.5){ u.order=null; u.state='idle'; u.stuck=0; u.lastD=0; u.avoid=null; }
+        // postep liczymy PO PRZEBYTEJ DRODZE, nie po odleglosci do celu —
+        // inaczej obchodzenie budynku lub rzeki wyglada jak zakleszczenie
+        if(u.pgOrd!==o){ u.pgOrd=o; u.pgX=u.x; u.pgY=u.y; u.pgT=0; u.stuck=0; }
+        u.pgT=(u.pgT||0)+dt;
+        if(u.pgT>1.1){
+          const moved=Math.hypot(u.x-u.pgX,u.y-u.pgY);
+          u.stuck=moved<18?(u.stuck||0)+u.pgT:0;
+          u.pgX=u.x; u.pgY=u.y; u.pgT=0;
+        }
+        if(u.stuck>4.5){ u.order=null; u.state='idle'; u.stuck=0; u.pgOrd=null; u.avoid=null; u.path=null; }
         else moveTo(u,o.x,o.y,dt);
       }
       // walcz w biegu, jeśli ktoś podejdzie bardzo blisko
@@ -138,6 +145,11 @@ function updateUnits(dt){
 }
 
 function moveTo(u,tx,ty,dt,ignore){
+  // nawigacja po siatce: omijanie budynkow i rzek w drodze do celu
+  if(typeof navStep==='function'&&!u.dead){
+    const wp=navStep(u,tx,ty,dt);
+    if(wp){ tx=wp.x; ty=wp.y; ignore=true; }
+  }
   const dxT=tx-u.x, dyT=ty-u.y, dT=Math.hypot(dxT,dyT);
   if(dT<.5) return;
   const ux=dxT/dT, uy=dyT/dT;

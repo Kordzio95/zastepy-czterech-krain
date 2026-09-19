@@ -95,6 +95,7 @@ function makeWorld(mapKey,mode){
         amount:RES.gold.amount, max:RES.gold.amount, seed:rand(0,7), s:rand(.9,1.2)});
     }
   }
+  if(typeof navBuild==='function'){ try{ navBuild(); }catch(e){} }
   return w;
 }
 
