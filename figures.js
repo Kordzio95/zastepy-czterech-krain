@@ -574,15 +574,41 @@ function drawHeavyTop(u,c,L,r,ang,hit){
   const dx=Math.cos(ang), dy=Math.sin(ang);
   const face=dx>=0?1:-1, prof=Math.min(1,Math.abs(dx));
   const f=u.faction;
-  const wind=u.windup>0?(1-u.windup/.42):0;
+  const wind=u.windup>0?Math.min(1,Math.max(0,1-u.windup/.42)):0;
   const step=u.state==='move'?Math.sin(u.walk)*1.1:0;
   const skin=f==='nieumarli'?'#e7e0c6':(f==='orki'?shade(c.skin,.06):(f==='demony'?'#7d2318':'#dcae82'));
   const moving=u.state==='move';
   /* ciezki chod: kolysanie calego ciala + oddech w spoczynku */
   const sway=moving?Math.sin(u.walk*.5)*.055:Math.sin(u.anim*.8+u.id)*.014;
+
+  /* ---- POZA ATAKU: zamach (windup) -> ciecie (swing) -> powrot ---- */
+  const A_REST=-.8, A_UP=-2.42, A_DOWN=.62;
+  const sMax=u.swingMax||.38;
+  const sv=u.swing>0?1-Math.max(0,u.swing)/sMax:-1;
+  let armA=A_REST, lean=0, drop=0, smear=0, stretch=1, squash=1, chargeP=0, stance=0;
+  if(u.windup>0){
+    const e=wind*wind*(3-2*wind);
+    armA=A_REST+(A_UP-A_REST)*e;
+    lean=-.2*e; drop=-r*.03*e; stretch=1+.05*e; squash=1-.03*e;
+    chargeP=e; stance=e;
+  } else if(sv>=0){
+    if(sv<.3){                      // blyskawiczne ciecie w dol
+      const k=Math.pow(sv/.3,.5);
+      armA=A_UP+(A_DOWN-A_UP)*k;
+      lean=-.2+.5*k; drop=r*.1*k; smear=1-k*.25;
+      stretch=1-.06*k; squash=1+.07*k; stance=1;
+    } else {                        // odrzut i powrot do postawy
+      const k=(sv-.3)/.7, ke=k*k*(3-2*k);
+      armA=A_DOWN+(A_REST-A_DOWN)*ke;
+      lean=.3*(1-ke); drop=r*.1*(1-ke); smear=.45*(1-ke);
+      squash=1+.07*(1-ke); stance=1-ke;
+    }
+  }
   cx.save();
-  cx.rotate(sway);
-  if(!moving) cx.scale(1+Math.sin(u.anim*1.15+u.id)*.012,1+Math.sin(u.anim*1.15+u.id+1.6)*.016);
+  cx.translate(0,drop);
+  cx.rotate(sway+lean*face*.55);
+  if(u.windup>0||sv>=0) cx.scale(stretch,squash);
+  else if(!moving) cx.scale(1+Math.sin(u.anim*1.15+u.id)*.012,1+Math.sin(u.anim*1.15+u.id+1.6)*.016);
 
   const GY=r*.62;
   const hipY=GY-r*.66;
@@ -636,7 +662,7 @@ function drawHeavyTop(u,c,L,r,ang,hit){
   }
   /* --- nogi: slupy, u demona kopytne (digitigrade) --- */
   for(const sd of [-1,1]){
-    const sw=step*sd*r*.24;
+    const sw=step*sd*r*.24+(sd===face?face*r*.16*stance:-face*r*.1*stance);
     if(f==='demony'){
       const hx=sd*r*.3*(1-.4*prof), kx=hx-face*r*.1+sw*.4, kY=hipY+r*.3;
       const ax=hx+face*r*.16+sw, aY=GY-r*.1;
@@ -862,14 +888,44 @@ function drawHeavyTop(u,c,L,r,ang,hit){
 
   /* --- broń w przedniej ręce --- */
   const hsx=face*shW*.8, hsy=shY+r*.06;
-  const a=-.8+wind*1.5;
-  const hx2=hsx+face*Math.cos(a)*r*.55, hy2=hsy+Math.sin(a)*r*.55;
-  limb(hsx,hsy,hx2,hy2,r*.28,shade(skin,-.06),hit);
+  const a=armA;
+  // lokiec: ramie zgina sie, nie jest patykiem
+  const elx=hsx+face*Math.cos(a+.45)*r*.34, ely=hsy+Math.sin(a+.45)*r*.34;
+  const hx2=hsx+face*Math.cos(a)*r*.62, hy2=hsy+Math.sin(a)*r*.62;
+  limb(hsx,hsy,elx,ely,r*.3,shade(skin,-.1),hit);
+  limb(elx,ely,hx2,hy2,r*.24,shade(skin,-.02),hit);
+  // naramiennik nadgarstka
+  cx.fillStyle=hit?'#fff':shade(c.metal||'#8d8474',-.1);
+  cx.beginPath(); cx.ellipse(hx2,hy2,r*.14,r*.11,a,0,7); cx.fill();
   const bAng=Math.atan2(Math.sin(a-.9),face*Math.cos(a-.9));
   const len=r*1.05;
-  if(wind>.05){
-    cx.strokeStyle='rgba(255,255,255,'+(wind*.3)+')'; cx.lineWidth=r*.4;
-    cx.beginPath(); cx.arc(hsx,hsy,len*.8,bAng-1.1*face,bAng+.2*face,face<0); cx.stroke();
+  // ladowanie zamachu: pulsujaca poswiata i telegraf na ziemi
+  if(chargeP>.08){
+    const pz=.6+.4*Math.sin(TIME*22);
+    cx.strokeStyle=hexA(c.accent,.18+chargeP*.32*pz); cx.lineWidth=r*(.1+chargeP*.16);
+    cx.beginPath(); cx.arc(hsx,hsy,len*.85,bAng-1.5*face,bAng+.25*face,face<0); cx.stroke();
+    cx.strokeStyle=hexA(c.accent,.2+chargeP*.35); cx.lineWidth=2.5;
+    cx.beginPath(); cx.ellipse(0,GY+r*.04,r*(1.1+chargeP*.65),r*(.5+chargeP*.3),0,0,7); cx.stroke();
+    cx.strokeStyle=hexA('#fff',.1+chargeP*.2); cx.lineWidth=1.4;
+    cx.beginPath(); cx.ellipse(0,GY+r*.04,r*(.8+chargeP*.5),r*(.36+chargeP*.22),0,0,7); cx.stroke();
+  }
+  // smuga po ciosie: kilka zanikajacych lukow = rozmycie ruchu
+  if(smear>.04){
+    for(let i=0;i<4;i++){
+      const off=i*.34*face, al=smear*(.3-i*.06);
+      if(al<=0) continue;
+      cx.strokeStyle='rgba(255,255,255,'+al+')'; cx.lineWidth=r*(.42-i*.07);
+      cx.beginPath(); cx.arc(hsx,hsy,len*(.86-i*.03),bAng-off-1.0*face,bAng-off+.1*face,face<0); cx.stroke();
+    }
+    cx.strokeStyle=hexA(c.accent,smear*.3); cx.lineWidth=r*.16;
+    cx.beginPath(); cx.arc(hsx,hsy,len*.9,bAng-1.25*face,bAng+.15*face,face<0); cx.stroke();
+    if(u.swingKind==='whirl'){
+      // mlyniec: smuga obiega cale cialo
+      cx.strokeStyle=hexA(c.accent,smear*.32); cx.lineWidth=r*.3;
+      cx.beginPath(); cx.arc(0,torY+r*.1,r*1.15,0,7); cx.stroke();
+      cx.strokeStyle='rgba(255,255,255,'+(smear*.2)+')'; cx.lineWidth=r*.12;
+      cx.beginPath(); cx.arc(0,torY+r*.1,r*1.3,0,7); cx.stroke();
+    }
   }
   if(L.weaponGlow){
     cx.strokeStyle=hexA(c.accent,.4); cx.lineWidth=r*.55; cx.lineCap='round';
@@ -910,10 +966,7 @@ function drawHeavyTop(u,c,L,r,ang,hit){
       cx.closePath(); cx.fill();
     }
   }
-  if(u.windup>0){
-    cx.strokeStyle=hexA(c.accent,.6); cx.lineWidth=3;
-    cx.beginPath(); cx.ellipse(0,GY,r*(1.5+wind*.6),r*(.8+wind*.3),0,0,7); cx.stroke();
-  }
+
   cx.lineCap='butt';
   cx.restore();
 }
@@ -924,7 +977,7 @@ function drawHeavyTop(u,c,L,r,ang,hit){
 function drawEntTop(u,c,L,r,ang,hit){
   const dx=Math.cos(ang), dy=Math.sin(ang);
   const face=dx>=0?1:-1, prof=Math.min(1,Math.abs(dx));
-  const wind=u.windup>0?(1-u.windup/.42):0;
+  const wind=u.windup>0?Math.min(1,Math.max(0,1-u.windup/.42)):0;
   const step=u.state==='move'?Math.sin(u.walk)*1.1:0;
   const sway=Math.sin(TIME*1.1+u.id)*r*.04;          // lekkie kolysanie korony
   const bark='#6b543a', bark2='#4c3b28', bark3='#7d6544';
@@ -936,6 +989,26 @@ function drawEntTop(u,c,L,r,ang,hit){
   const shY=torY-r*.5;
   const torW=r*.66*(1-.14*prof), shW=r*.9*(1-.14*prof);
 
+  /* ---- POZA ATAKU Enta ---- */
+  const E_REST=-1.2, E_UP=-2.5, E_DOWN=.5;
+  const eMax=u.swingMax||.38;
+  const esv=u.swing>0?1-Math.max(0,u.swing)/eMax:-1;
+  let eArm=E_REST, eLean=0, eDrop=0, eSmear=0, eStance=0, eCharge=0, eSq=1;
+  if(u.windup>0){
+    const e=wind*wind*(3-2*wind);
+    eArm=E_REST+(E_UP-E_REST)*e; eLean=-.17*e; eDrop=-r*.03*e; eCharge=e; eStance=e; eSq=1-.03*e;
+  } else if(esv>=0){
+    if(esv<.3){ const k=Math.pow(esv/.3,.5);
+      eArm=E_UP+(E_DOWN-E_UP)*k; eLean=-.17+.46*k; eDrop=r*.09*k; eSmear=1-k*.25; eStance=1; eSq=1+.06*k;
+    } else { const k=(esv-.3)/.7, ke=k*k*(3-2*k);
+      eArm=E_DOWN+(E_REST-E_DOWN)*ke; eLean=.28*(1-ke); eDrop=r*.09*(1-ke); eSmear=.45*(1-ke); eStance=1-ke; eSq=1+.06*(1-ke);
+    }
+  }
+  cx.save();
+  cx.translate(0,eDrop);
+  cx.rotate(eLean*face*.5);
+  if(u.windup>0||esv>=0) cx.scale(1/eSq,eSq);
+
   /* --- aura zycia --- */
   const gr=cx.createRadialGradient(0,torY,r*.5,0,torY,r*1.7);
   gr.addColorStop(0,'rgba(154,230,184,0)'); gr.addColorStop(.72,'rgba(154,230,184,.16)'); gr.addColorStop(1,'rgba(154,230,184,0)');
@@ -943,7 +1016,7 @@ function drawEntTop(u,c,L,r,ang,hit){
 
   /* --- korzenie-stopy --- */
   for(const sd of [-1,1]){
-    const sw=step*sd*r*.22;
+    const sw=step*sd*r*.22+(sd===face?face*r*.14*eStance:-face*r*.09*eStance);
     const kx=sd*r*.3*(1-.35*prof)+sw*.5, fx=sd*r*.34*(1-.35*prof)+sw;
     limb(sd*r*.26*(1-.35*prof),hipY,kx,hipY+r*.36,r*.34,shade(bark,-.06),hit);
     limb(kx,hipY+r*.36,fx,GY,r*.3,bark2,hit);
@@ -1037,15 +1110,28 @@ function drawEntTop(u,c,L,r,ang,hit){
   }
 
   /* --- przedni konar: maczuga z galezi --- */
-  const a=-1.2+wind*2.2;
+  const a=eArm;
   const hsx=face*shW*.72, hsy=shY+r*.06;
-  const hx2=hsx+face*Math.cos(a)*r*.5, hy2=hsy+Math.sin(a)*r*.5;
-  limb(hsx,hsy,hx2,hy2,r*.26,bark,hit);
+  const elx=hsx+face*Math.cos(a+.4)*r*.3, ely=hsy+Math.sin(a+.4)*r*.3;
+  const hx2=hsx+face*Math.cos(a)*r*.56, hy2=hsy+Math.sin(a)*r*.56;
+  limb(hsx,hsy,elx,ely,r*.28,bark,hit);
+  limb(elx,ely,hx2,hy2,r*.23,shade(bark,.04),hit);
   const len=r*1.25, wa=a-.9;
   const bAng=Math.atan2(Math.sin(wa),face*Math.cos(wa));
-  if(wind>.25){
-    cx.strokeStyle='rgba(214,247,226,'+(wind*.4).toFixed(2)+')'; cx.lineWidth=r*.34;
-    cx.beginPath(); cx.arc(hsx,hsy,len*.8,bAng-.9*face,bAng+.2*face,face<0); cx.stroke();
+  if(eCharge>.08){
+    const pz=.6+.4*Math.sin(TIME*20);
+    cx.strokeStyle='rgba(214,247,226,'+(eCharge*.4*pz).toFixed(2)+')'; cx.lineWidth=r*.34;
+    cx.beginPath(); cx.arc(hsx,hsy,len*.8,bAng-1.3*face,bAng+.2*face,face<0); cx.stroke();
+    cx.strokeStyle='rgba(154,230,184,'+(.2+eCharge*.35).toFixed(2)+')'; cx.lineWidth=2.5;
+    cx.beginPath(); cx.ellipse(0,GY+r*.04,r*(1.1+eCharge*.7),r*(.5+eCharge*.3),0,0,7); cx.stroke();
+  }
+  if(eSmear>.04){
+    for(let i=0;i<4;i++){
+      const off=i*.32*face, al=eSmear*(.3-i*.06);
+      if(al<=0) continue;
+      cx.strokeStyle='rgba(214,247,226,'+al.toFixed(3)+')'; cx.lineWidth=r*(.4-i*.07);
+      cx.beginPath(); cx.arc(hsx,hsy,len*(.84-i*.03),bAng-off-.95*face,bAng-off+.1*face,face<0); cx.stroke();
+    }
   }
   limb(hx2,hy2,hx2+Math.cos(bAng)*len*.9,hy2+Math.sin(bAng)*len*.9,r*.19,shade(bark3,-.06),hit);
   const tx=hx2+Math.cos(bAng)*len*.9, ty=hy2+Math.sin(bAng)*len*.9;
@@ -1066,4 +1152,5 @@ function drawEntTop(u,c,L,r,ang,hit){
     G.parts.push({x:u.x+rand(-r*.7,r*.7),y:u.y-r*.5,vx:rand(-14,14),vy:rand(6,26),
       life:rand(.8,1.4),max:1.4,size:rand(2.5,5),col:pick([leaf1,leaf2,'#9ae6b8']),kind:'ember'});
   cx.lineCap='butt';
+  cx.restore();
 }

@@ -120,7 +120,7 @@ function spawnUnit(side,type,x,y,lvlOpt){
     hp:st.hp, maxHp:st.hp, dmg:st.dmg, range:st.range, speed:st.speed, ias:st.ias,
     facing:rand(0,7), state:'idle', order:null, carry:null, gatherAcc:0,
     atk:rand(0,.5), anim:rand(0,6), walk:0, stun:0, slow:0, hitFlash:0,
-    windup:0, windupKind:null, volley:0, hcd:0, hbuff:0, avoid:null, stuck:0, lastD:0,
+    windup:0, windupKind:null, swing:0, swingMax:.38, swingKind:null, volley:0, hcd:0, hbuff:0, avoid:null, stuck:0, lastD:0,
     burn:0, burnSide:null, burnAcc:0,
     z:0, vz:0, vx:0, vy:0, rot:0, vrot:0,
     dead:false, fade:1, sel:false

@@ -84,7 +84,19 @@ function updateUnits(dt){
 
     if(u.stun>0){ u.stun-=dt; continue; }
     u.atk=Math.max(-.05,u.atk-dt);
-    if(u.windup>0){ u.windup-=dt; if(u.windup<=0){ if(u.windupKind==='siege'){ u.windupKind=null; launchSiege(u); } else resolveHeavy(u); } continue; }
+    if(u.swing>0) u.swing-=dt;
+    if(u.windup>0){
+      u.windup-=dt;
+      if(u.type==='heavy'&&u.windup>0&&Math.random()<dt*9){
+        // kurz zbierany pod stopami w trakcie zamachu
+        puff(u.x+rand(-u.r*.5,u.r*.5),u.y+u.r*.5,.7,'#c2b7a0');
+      }
+      if(u.windup<=0){
+        if(u.windupKind==='siege'){ u.windupKind=null; launchSiege(u); }
+        else { if(u.type==='heavy'){ u.swingKind=u.windupKind; u.swing=.38; u.swingMax=.38; } resolveHeavy(u); }
+      }
+      continue;
+    }
 
     const o=u.order;
     if(o&&o.kind==='gather'){ doGather(u,dt); continue; }
