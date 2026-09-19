@@ -462,7 +462,8 @@ function drawFlag(x,y,c,side,h){
 function drawUnit(u){
   const sx=toScreenX(u.x), sy=toScreenY(u.y)-u.z*.6;
   const c=FACTIONS[u.faction].col, L=look(u.type,u.lvl), r=u.r;
-  const bob=u.state==='move'?Math.sin(u.walk)*1.6:Math.sin(u.anim*2+u.id)*.6;
+  let bob=u.state==='move'?Math.sin(u.walk)*1.6:Math.sin(u.anim*2+u.id)*.6;
+  if(u.type==='heavy') bob=u.state==='move'?-Math.abs(Math.sin(u.walk))*3.2+1.6:Math.sin(u.anim*1.1+u.id)*1.1;
   cx.save();
   cx.globalAlpha=u.dead?Math.max(0,u.fade):1;
   // cień

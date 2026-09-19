@@ -586,6 +586,34 @@ function drawFactionBuilding(b,sx,sy,r,h,c){
   }
   return ok;
 }
+/* --- nadbudowa Twierdzy: bastiony, blanki i sztandary --- */
+function keepCrest(b,sx,sy,r,h,c,A,f){
+  const sd=b.seed||1, stone=A.stone||'#8d8474', st2=A.stone2||shade(stone,-.12);
+  for(const s of [-1,1]){
+    const bx=sx+s*r*1.42;
+    cx.fillStyle=lit3d(bx,sy+h*.3,r*.5,stone);
+    cx.beginPath(); cx.moveTo(bx-r*.3,sy+h*.62); cx.lineTo(bx-r*.24,sy-h*.5);
+    cx.lineTo(bx+r*.24,sy-h*.5); cx.lineTo(bx+r*.3,sy+h*.62); cx.closePath(); cx.fill();
+    cx.strokeStyle='rgba(18,20,18,.6)'; cx.lineWidth=1.6; cx.stroke();
+    // blanki
+    cx.fillStyle=shade(st2,-.08);
+    for(let i=-1;i<=1;i++) cx.fillRect(bx+i*r*.18-r*.06,sy-h*.62,r*.12,h*.14);
+    cx.fillStyle=shade(st2,-.25); cx.fillRect(bx-r*.26,sy-h*.52,r*.52,h*.05);
+    if(f==='demony'){
+      const g=.5+.5*Math.sin(TIME*3+sd+s);
+      cx.fillStyle=hexA(A.glow||'#ff7a2f',.25+g*.3);
+      cx.beginPath(); cx.arc(bx,sy-h*.66,r*.16,0,7); cx.fill();
+    } else if(f==='nieumarli'){ boneSpine(bx,sy-h*.66,11); }
+    else if(f==='orki'){ skullPike(bx,sy-h*.7,11); }
+    else if(f==='elfy'){ branchArm(bx,sy-h*.58,r*.42,s>0?-.5:Math.PI+.5,A.wood||'#7a6a48'); }
+    if(b.done) drawFlag(bx,sy-h*.86,c,b.side,13);
+  }
+  // zloty gzyms nad brama
+  cx.fillStyle=hexA(A.trim||'#c8a45a',.85);
+  cx.fillRect(sx-r*1.02,sy-h*.06,r*2.04,h*.07);
+  cx.fillStyle=hexA(A.trim||'#c8a45a',.55);
+  for(let i=-3;i<=3;i++){ cx.beginPath(); cx.moveTo(sx+i*r*.3,sy-h*.06); cx.lineTo(sx+i*r*.3-r*.07,sy+h*.04); cx.lineTo(sx+i*r*.3+r*.07,sy+h*.04); cx.closePath(); cx.fill(); }
+}
 function drawFactionBuildingCore(b,sx,sy,r,h,c){
   const A=archOf(b.faction), f=b.faction, t=b.type, sd=b.seed, done=b.done;
   const G1=A.glow;
@@ -721,6 +749,7 @@ function drawFactionBuildingCore(b,sx,sy,r,h,c){
       braziers(sx,sy,r,sd,'#ff8b32',3,1.0);
       if(done&&Math.random()<.3) embers(b.x+rand(-r*.7,r*.7),b.y-r*.5,'#ff7a2f',1);
     }
+    if(b.keep) keepCrest(b,sx,sy,r,h,c,A,f);
     return true;
   }
 

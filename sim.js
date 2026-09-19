@@ -185,7 +185,12 @@ function moveTo(u,tx,ty,dt,ignore){
   const sp=u.speed*spdMul(u);
   if(typeof waterAdjust==='function') ang=waterAdjust(u,tx,ty,ang,sp*dt);
   u.x+=Math.cos(ang)*sp*dt; u.y+=Math.sin(ang)*sp*dt;
-  u.facing=ang; u.walk+=dt*9; u.state='move';
+  u.facing=ang; u.walk+=dt*(u.type==='heavy'?4.3:9); u.state='move';
+  if(u.type==='heavy'){
+    const ph=Math.floor(u.walk/Math.PI);
+    if(u.stepPh===undefined) u.stepPh=ph;
+    else if(u.stepPh!==ph){ u.stepPh=ph; stompStep(u); }
+  }
   if(Math.random()<dt*7) puff(u.x-Math.cos(ang)*u.r,u.y-Math.sin(ang)*u.r,.45,'#c0b191');
 }
 
@@ -655,6 +660,7 @@ function aiTick(side,ai,dt){
       const workers=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='worker').length;
       if(workers<10) trainUnit(th,'worker');
       if(ai.step>=3&&!G.units.some(u=>u.side===side&&!u.dead&&u.type==='hero')&&G.res[side].gold>320) trainUnit(th,'hero');
+      if(!G.keep[side]&&ai.step>=3&&canAfford(side,KEEP_COST)) upgradeKeep(side);
     }
     // przyspieszona budowa u AI (ma niewidzialnych pomocników)
     for(const b of G.buildings) if(b.side===side&&!b.dead&&!b.done){
@@ -662,15 +668,19 @@ function aiTick(side,ai,dt){
       b.hp=Math.max(b.hp,b.maxHp*(.2+.8*b.progress));
       if(b.progress>=1){ b.done=true; b.hp=b.maxHp; ring(b.x,b.y,b.r*1.6,'rgba(230,194,115,.7)',.6,4); }
     }
+    // AI oszczedza na Twierdze, gdy ma juz legowisko kolosa
+    const saving=!G.keep[side]&&ai.step>=3&&G.buildings.some(x=>x.side===side&&!x.dead&&x.done&&x.type==='lair');
     for(const b of G.buildings){
       if(b.side!==side||b.dead||!b.done) continue;
       const tr=trainsOf(BUILDINGS[b.type],sideFaction(side));
       if(!tr||!tr.length) continue;
       if(tr[0]==='worker') continue;
+      if(saving&&G.res[side].gold<KEEP_COST.gold+70) continue;
       const want=tr[Math.floor(Math.random()*tr.length)];
       if(b.queue.length<2) trainUnit(b,want);
     }
-    if(Math.random()<.5) tryUpgrade(side,pick(['warrior','guard','archer','crossbow','heavy','siege']));
+    if(Math.random()<.5&&!saving) tryUpgrade(side,pick(['warrior','guard','archer','crossbow','heavy','siege']));
+    if(saving&&canAfford(side,KEEP_COST)) upgradeKeep(side);
   }
   for(const u of G.units) if(u.side===side&&u.type==='worker'&&!u.order&&!u.dead){
     const nr=nearestRes(u.x,u.y,Math.random()<.5?'gold':'wood',900);

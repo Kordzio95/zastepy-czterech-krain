@@ -1,3 +1,9 @@
+let pendDem=null;
+function demolishBtnAction(b){
+  if(pendDem&&pendDem.b===b&&TIME-pendDem.t<3.5){ pendDem=null; demolish(b); }
+  else { pendDem={b,t:TIME}; if(b.side==='player') floatText(b.x,b.y-14,'Kliknij ponownie, aby zburzyć','#e6c273',12); }
+}
+function demolishPending(b){ return !!(pendDem&&pendDem.b===b&&TIME-pendDem.t<3.5); }
 function groupName(t,lvl,n){
   if(n>1&&typeof UNITS!=='undefined'&&UNITS[t]&&UNITS[t].plural) return UNITS[t].plural;
   return tierName(G.pf,t,lvl);
@@ -491,6 +497,19 @@ function drawHUD(){
         cx.fillText('Kolejka: '+b.queue.length+'  ('+Math.ceil(b.trainLeft)+'s)',px+TL.length*150,py+64);
       }
     }
+    if(b.done){
+      if(b.type==='townhall'){
+        if(!G.keep.player) btn(px+pw-272,py+34,134,50,'Ulepsz Twierdzę','kolosy · '+costStr(KEEP_COST),canAfford('player',KEEP_COST),()=>upgradeKeep('player'),true);
+        else {
+          cx.font='600 12px Satoshi,sans-serif'; cx.fillStyle='rgba(230,194,115,.85)';
+          cx.fillText(keepName(G.pf),px+pw-272,py+56);
+          cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.6)';
+          cx.fillText('kolosy dostępne',px+pw-272,py+72);
+        }
+      }
+      const cf=demolishPending(b);
+      btn(px+pw-132,py+34,128,50,cf?'Potwierdź':'Rozbierz',cf?'kliknij = zburz':'zwrot 50%',true,()=>demolishBtnAction(b),true);
+    }
   } else if(G.sel.length){
     const counts={};
     for(const u of G.sel) counts[u.type]=(counts[u.type]||0)+1;
@@ -625,6 +644,12 @@ function drawHUDMobile(){
           ok:canAfford('player',du.cost)&&popUsed('player')+du.pop<=popMax('player'),a:()=>trainUnit(b,t)});
       }
     } else info=d.label+'  ·  HP '+Math.max(0,Math.round(b.hp))+'/'+b.maxHp;
+    if(b.done){
+      if(b.type==='townhall'&&!G.keep.player)
+        items.push({t:'Twierdza',s:'kolosy',ok:canAfford('player',KEEP_COST),a:()=>upgradeKeep('player')});
+      const cf=demolishPending(b);
+      items.push({t:cf?'Potwierdź':'Rozbierz',s:cf?'zburz teraz':'zwrot 50%',ok:true,a:()=>demolishBtnAction(b)});
+    }
   } else if(G.sel.length){
     const counts={};
     for(const u of G.sel) counts[u.type]=(counts[u.type]||0)+1;

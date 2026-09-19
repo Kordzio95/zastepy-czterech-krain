@@ -12,7 +12,7 @@ function newGame(pf,mapKey,mode){
   const pool=FKEYS.filter(f=>f!==pf);
   const g={
     phase:'play', t:0, pf, id:1, mode, mapKey, sides, team:Object.assign({},M.team),
-    faction:{}, res:{}, lvl:{}, buff:{}, fallen:{}, ais:{},
+    faction:{}, res:{}, lvl:{}, buff:{}, fallen:{}, ais:{}, keep:{},
     units:[], buildings:[], arrows:[], parts:[], texts:[], decals:[], quakes:[],
     sel:[], selBuilding:null, placing:null,
     will:40, willMax:150, willRate:6, abilityCd:0,
@@ -28,7 +28,7 @@ function newGame(pf,mapKey,mode){
     g.faction[s]=f;
     g.res[s]={gold:320,wood:380};
     g.lvl[s]={worker:1,warrior:1,guard:1,archer:1,crossbow:1,flamer:1,heavy:1,hero:1,siege:1};
-    g.buff[s]=0; g.fallen[s]=[];
+    g.buff[s]=0; g.fallen[s]=[]; g.keep[s]=0;
     if(s!=='player') g.ais[s]={t:0,step:0,attackTimer:300+randi(20,70),wave:0,will:0,buildTimer:rand(1,4)};
   }
   g.ef=g.faction[sides.find(s=>g.team[s]!==g.team.player)]||pf;
@@ -172,7 +172,7 @@ function addBuilding(side,type,x,y,done){
    ========================================================================== */
 function popMax(side){
   let m=0;
-  for(const b of G.buildings) if(b.side===side&&!b.dead&&b.done) m+=BUILDINGS[b.type].pop||0;
+  for(const b of G.buildings) if(b.side===side&&!b.dead&&b.done){ m+=BUILDINGS[b.type].pop||0; if(b.type==='townhall'&&b.keep) m+=4; }
   return Math.min(80,m);
 }
 function popUsed(side){
@@ -279,6 +279,38 @@ function cancelBuild(b){
   if(b.side==='player'){ if(G.selBuilding===b) G.selBuilding=null; floatText(b.x,b.y-14,'Budowa przerwana — zwrot 60%','#e6c273',13); }
   return true;
 }
+/* --- krok kolosa: kurz, odlamki i drgnienie ziemi --- */
+function stompStep(u){
+  const fy=u.y+u.r*.5;
+  for(let i=0;i<3;i++) puff(u.x+rand(-u.r*.5,u.r*.5),fy+rand(-3,4),.85,'#c9bda6');
+  if(Math.random()<.5) debris(u.x+rand(-u.r*.4,u.r*.4),fy,2,'#8b7a60');
+  if(Math.random()<.35) decal(u.x+rand(-u.r*.4,u.r*.4),fy,u.r*.2,'rgba(60,50,38,.18)');
+  if(u.faction==='demony'&&Math.random()<.6) embers(u.x+rand(-u.r*.4,u.r*.4),fy,'#ff8b32',2);
+  if(u.faction==='nieumarli'&&Math.random()<.4) puff(u.x,fy,.8,'rgba(150,190,160,.45)');
+  if(u.faction==='elfy'&&Math.random()<.4) puff(u.x,fy,.8,'rgba(120,160,90,.4)');
+  const d=Math.hypot(u.x-(CAM.x+CAM.w/2),u.y-(CAM.y+CAM.h/2));
+  if(d<560) G.shake=Math.max(G.shake,1.3);
+}
+/* --- ROZBIORKA gotowego budynku: 50% zwrotu --- */
+function demolish(b){
+  if(!b||b.dead) return false;
+  if(!b.done) return cancelBuild(b);
+  if(b.type==='townhall'){
+    const halls=G.buildings.filter(x=>x.side===b.side&&!x.dead&&x.type==='townhall');
+    if(halls.length<=1){ if(b.side==='player') floatText(b.x,b.y-14,'Nie możesz zburzyć jedynego ratusza','#ff9b7a',13); return false; }
+  }
+  const c=BUILDINGS[b.type].cost;
+  G.res[b.side].gold+=Math.round((c.gold||0)*.5);
+  G.res[b.side].wood+=Math.round((c.wood||0)*.5);
+  for(const u of buildersOn(b)) u.order=null;
+  for(const u of G.units) if(!u.dead&&u.target===b){ u.target=null; u.order=null; u.state='idle'; }
+  b.dead=true; b.fade=.6; b.hp=0;
+  for(let i=0;i<14;i++) puff(b.x+rand(-b.r,b.r),b.y+rand(-b.r*.6,b.r*.6),1.2,'#cdbfa6');
+  debris(b.x,b.y,10,'#8b7a60'); decal(b.x,b.y,b.r*.8,'rgba(60,50,38,.3)');
+  if(typeof navStamp==='function'){ try{ navStamp(); }catch(e){} }
+  if(b.side==='player'){ if(G.selBuilding===b) G.selBuilding=null; floatText(b.x,b.y-14,'Rozebrano — zwrot 50%','#e6c273',13); }
+  return true;
+}
 function commandBuildHelp(units,b){
   for(const u of units){
     if(!UNITS[u.type].build){ u.order={kind:'move',x:b.x+rand(-40,40),y:b.y+b.r+24}; u.state='move'; continue; }
@@ -353,12 +385,30 @@ function trainUnit(b,type){
       +G.buildings.filter(x=>x.side===side&&!x.dead).reduce((n,x)=>n+x.queue.filter(q=>q==='hero').length,0);
     if(have>=HERO_LIMIT){ if(side==='player') warn('Masz już bohatera'); return false; }
   }
+  if(type==='heavy'&&!G.keep[side]){ if(side==='player') warn('Najpierw ulepsz ratusz do Twierdzy'); return false; }
   if(b.queue.length>=5) return false;
   if(popUsed(side)+def.pop>popMax(side)){ if(side==='player') warn('Limit ludności — postaw chatę'); return false; }
   if(!canAfford(side,def.cost)){ if(side==='player') warn('Brakuje surowców na '+def.label); return false; }
   pay(side,def.cost);
   b.queue.push(type);
   if(b.queue.length===1){ b.trainLeft=def.time; b.trainTotal=def.time; }
+  return true;
+}
+const KEEP_COST={gold:300,wood:260};
+function keepName(f){ return ({ludzie:'Twierdza Astlandu',orki:'Warownia Hordy',nieumarli:'Cytadela Kości',demony:'Piekielna Twierdza',elfy:'Warownia Srebrnego Liścia'})[f]||'Twierdza'; }
+function upgradeKeep(side){
+  if(G.keep[side]) return false;
+  const th=G.buildings.find(b=>b.side===side&&!b.dead&&b.done&&b.type==='townhall');
+  if(!th){ if(side==='player') warn('Potrzebny gotowy ratusz'); return false; }
+  if(!canAfford(side,KEEP_COST)){ if(side==='player') warn('Brakuje surowców na Twierdzę'); return false; }
+  pay(side,KEEP_COST);
+  G.keep[side]=1;
+  for(const b of G.buildings) if(b.side===side&&!b.dead&&b.type==='townhall'){
+    b.keep=1; b.maxHp=Math.round(b.maxHp*1.35); b.hp=Math.min(b.maxHp,b.hp+2000);
+  }
+  ring(th.x,th.y,th.r*2.2,FACTIONS[G.faction[side]].col.gold,.7,7);
+  for(let i=0;i<16;i++) puff(th.x+rand(-th.r,th.r),th.y+rand(-th.r*.6,th.r*.6),1.1,'#e6d3a8');
+  if(side==='player') floatText(th.x,th.y-20,keepName(G.pf)+' — kolosy dostępne','#e6c273',15);
   return true;
 }
 function tryUpgrade(side,type){
