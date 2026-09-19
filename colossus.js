@@ -1269,7 +1269,7 @@ function colDog(P){
 
   /* --- kark, obroza, glowa --- */
   const nkx=shXc+fwd*HW*.5, nky=shYY-r*.1;
-  const hr2=r*(.34+(lvl-1)*.025)*bulk;
+  const hr2=r*(.42+(lvl-1)*.025)*bulk;
   const hx=nkx+fwd*(r*.34+bite*r*.1), hy=headY-r*.12+bite*r*.05+bounce;
   limb(nkx,nky,hx-fwd*hr2*.2,hy+hr2*.4,r*.28*bulk,fur,hit);
   // grzywa wilkolaka
@@ -1292,88 +1292,120 @@ function colDog(P){
     if(FIRE){ cx.fillStyle=hexA('#f2f4f6',.22);
       cx.beginPath(); cx.arc(nkx,nky,r*.3,0,7); cx.fill(); }
   }
-  // czaszka: szeroka, z wyraznymi miesniami zuchwy (amstaf)
-  cx.fillStyle=hit?'#fff':lit3d(hx,hy,hr2*1.7,fur);
-  cx.beginPath(); cx.ellipse(hx,hy,hr2*1.0,hr2*.92,fwd*.1,0,7); cx.fill();
-  cx.strokeStyle=OUT; cx.lineWidth=1.9; cx.stroke();
-  // potezne policzki amstafa
+  /* ====== GLOWA AMSTAFA ======
+     klinowata, szeroka czaszka z plaskim czolem, wyrazny stop,
+     krotki prostokatny pysk, mocna zuchwa, male przylegajace uszy. */
+  const jaw=bite;
+  const mx=hx+fwd*hr2*.86, my=hy+hr2*.2;
+  // uszy: male, wysoko po bokach, polstojace z zalamanym czubkiem
   for(const sd of [-1,1]){
-    if(prof>.82&&sd===-1) continue;
-    cx.fillStyle=hit?'#fff':shade(fur,-.1);
-    cx.beginPath(); cx.ellipse(hx+fwd*hr2*.4,hy+hr2*.34+sd*hr2*.16*(1-prof*.5),hr2*.52,hr2*.34,fwd*.16,0,7); cx.fill();
-    cx.strokeStyle=OUT; cx.lineWidth=1.3; cx.stroke();
-  }
-  // male, przylegajace uszy amstafa (zalamane do przodu)
-  for(const sd of [-1,1]){
-    const ex=hx-fwd*hr2*.42+sd*hr2*.08*(1-prof*.5), ey=hy-hr2*.66;
-    cx.fillStyle=hit?'#fff':(sd>0?fur2:shade(fur2,-.14));
+    if(prof>.86&&sd===-1) continue;
+    const ex=hx-fwd*hr2*.24+sd*hr2*.1*(1-prof*.5);
+    const ey=hy-hr2*(.72-Math.abs(sd)*0)+sd*hr2*.06;
+    cx.fillStyle=hit?'#fff':(sd>0?shade(fur,-.06):shade(fur,-.2));
     cx.beginPath();
-    cx.moveTo(ex,ey+hr2*.2);
-    cx.quadraticCurveTo(ex-fwd*hr2*.16,ey-hr2*.42, ex+fwd*hr2*.3,ey-hr2*.24);
-    cx.quadraticCurveTo(ex+fwd*hr2*.46,ey+hr2*.04, ex+fwd*hr2*.16,ey+hr2*.26);
+    cx.moveTo(ex-fwd*hr2*.12,ey+hr2*.3);
+    cx.quadraticCurveTo(ex-fwd*hr2*.22,ey-hr2*.24, ex+fwd*hr2*.04,ey-hr2*.38);
+    cx.quadraticCurveTo(ex+fwd*hr2*.3,ey-hr2*.3, ex+fwd*hr2*.24,ey-hr2*.04); // zalamany czubek do przodu
+    cx.quadraticCurveTo(ex+fwd*hr2*.32,ey+hr2*.22, ex+fwd*hr2*.1,ey+hr2*.32);
     cx.closePath(); cx.fill();
     cx.strokeStyle=OUT; cx.lineWidth=1.2; cx.stroke();
-    cx.fillStyle=hexA(shade(fur2,-.3),.45);
-    cx.beginPath(); cx.ellipse(ex+fwd*hr2*.14,ey-hr2*.04,hr2*.1,hr2*.16,fwd*.3,0,7); cx.fill();
+    cx.fillStyle=hexA('#2a1d1a',.5);
+    cx.beginPath(); cx.ellipse(ex+fwd*hr2*.04,ey+hr2*.02,hr2*.08,hr2*.16,fwd*.2,0,7); cx.fill();
     if(lvl>=3){ cx.fillStyle=hexA(gold,.85);
-      cx.beginPath(); cx.arc(ex+fwd*hr2*.26,ey-hr2*.16,hr2*.08,0,7); cx.fill(); }
+      cx.beginPath(); cx.arc(ex+fwd*hr2*.2,ey+hr2*.2,hr2*.07,0,7); cx.fill(); }
   }
-  // KROTKI, SZEROKI PYSK AMSTAFA
-  const jaw=bite;
-  const mx=hx+fwd*hr2*1.04, my=hy+hr2*.24;
-  cx.fillStyle=hit?'#fff':shade(fur,.07);
+  // czaszka: szeroka, kwadratowa, z plaskim czolem
+  cx.fillStyle=hit?'#fff':lit3d(hx,hy,hr2*1.8,fur);
   cx.beginPath();
-  cx.moveTo(hx+fwd*hr2*.38,hy-hr2*.22);
-  cx.quadraticCurveTo(hx+fwd*hr2*.95,hy-hr2*.3, mx+fwd*hr2*.08,hy+hr2*.02);
-  cx.quadraticCurveTo(mx+fwd*hr2*.12,hy+hr2*.5, hx+fwd*hr2*.78,hy+hr2*.58);
-  cx.quadraticCurveTo(hx+fwd*hr2*.46,hy+hr2*.5, hx+fwd*hr2*.38,hy+hr2*.2);
+  cx.moveTo(hx-fwd*hr2*.78,hy-hr2*.46);                       // tyl czola
+  cx.quadraticCurveTo(hx-fwd*hr2*.24,hy-hr2*.94, hx+fwd*hr2*.28,hy-hr2*.8); // plaskie czolo
+  cx.quadraticCurveTo(hx+fwd*hr2*.56,hy-hr2*.7, hx+fwd*hr2*.54,hy-hr2*.32); // stop (zalamanie do pyska)
+  cx.quadraticCurveTo(hx+fwd*hr2*.66,hy+hr2*.36, hx+fwd*hr2*.5,hy+hr2*.76);
+  cx.quadraticCurveTo(hx+fwd*hr2*.02,hy+hr2*1.0, hx-fwd*hr2*.56,hy+hr2*.7); // masywna zuchwa
+  cx.quadraticCurveTo(hx-fwd*hr2*.96,hy+hr2*.2, hx-fwd*hr2*.78,hy-hr2*.46);
+  cx.closePath(); cx.fill();
+  cx.strokeStyle=OUT; cx.lineWidth=1.9; cx.stroke();
+  hi3d(hx-fwd*hr2*.1,hy-hr2*.5,hr2*.5,hr2*.2,.14);
+  // bruzda na srodku czola
+  cx.strokeStyle=hexA(shade(fur,-.5),.55); cx.lineWidth=1.5;
+  cx.beginPath(); cx.moveTo(hx-fwd*hr2*.1,hy-hr2*.62); cx.lineTo(hx+fwd*hr2*.36,hy-hr2*.4); cx.stroke();
+  // stop: nawis brwiowy nad nasada pyska
+  cx.fillStyle=hit?'#fff':shade(fur,-.24);
+  cx.beginPath(); cx.ellipse(hx+fwd*hr2*.44,hy-hr2*.34,hr2*.2,hr2*.12,fwd*.35,0,7); cx.fill();
+  // potezne miesnie policzkowe
+  for(const sd of [-1,1]){
+    if(prof>.82&&sd===-1) continue;
+    cx.fillStyle=hit?'#fff':shade(fur,sd>0?-.08:-.2);
+    cx.beginPath(); cx.ellipse(hx-fwd*hr2*.06,hy+hr2*.3+sd*hr2*.22*(1-prof*.5),hr2*.46,hr2*.32,fwd*.1,0,7); cx.fill();
+    cx.strokeStyle=OUT; cx.lineWidth=1.3; cx.stroke();
+  }
+  // KROTKI, PROSTOKATNY PYSK AMSTAFA — rowna gora, plaski przod, gleboka zuchwa
+  const m0x=hx+fwd*hr2*.42;                     // nasada przy stopie
+  cx.fillStyle=hit?'#fff':shade(fur,.16);
+  cx.beginPath();
+  cx.moveTo(m0x,hy-hr2*.26);
+  cx.lineTo(mx-fwd*hr2*.04,hy-hr2*.26);                        // prosty grzbiet nosa
+  cx.quadraticCurveTo(mx+fwd*hr2*.14,hy-hr2*.2, mx+fwd*hr2*.14,hy+hr2*.06); // plaski, pionowy przod
+  cx.lineTo(mx+fwd*hr2*.1,hy+hr2*.46);
+  cx.quadraticCurveTo(mx+fwd*hr2*.02,hy+hr2*.66, mx-fwd*hr2*.2,hy+hr2*.68);
+  cx.lineTo(m0x+fwd*hr2*.04,hy+hr2*.66);                       // gleboka, kwadratowa zuchwa
+  cx.quadraticCurveTo(m0x-fwd*hr2*.06,hy+hr2*.16, m0x,hy-hr2*.3);
   cx.closePath(); cx.fill();
   cx.strokeStyle=OUT; cx.lineWidth=1.7; cx.stroke();
-  // fafle i bruzda nad nosem
-  cx.strokeStyle=hexA(shade(fur,-.45),.7); cx.lineWidth=1.5;
-  cx.beginPath(); cx.moveTo(hx+fwd*hr2*.52,hy-hr2*.12);
-  cx.quadraticCurveTo(hx+fwd*hr2*.8,hy-hr2*.16, mx,hy-hr2*.02); cx.stroke();
-  // wnetrze paszczy
+  hi3d(m0x+fwd*hr2*.3,hy-hr2*.16,hr2*.4,hr2*.12,.12);
+  // ciasne fafle (linia warg) i podbrodek
+  cx.strokeStyle=hexA(shade(fur,-.5),.75); cx.lineWidth=1.6;
+  cx.beginPath(); cx.moveTo(m0x+fwd*hr2*.04,hy+hr2*.3);
+  cx.quadraticCurveTo(mx-fwd*hr2*.2,hy+hr2*.34, mx+fwd*hr2*.04,hy+hr2*.2); cx.stroke();
+  cx.fillStyle=hexA(shade(fur,.2),.4);
+  cx.beginPath(); cx.ellipse(mx-fwd*hr2*.14,hy+hr2*.48,hr2*.2,hr2*.12,fwd*.1,0,7); cx.fill();
+  // wnetrze paszczy przy ugryzieniu
   if(jaw>.05){
     cx.fillStyle=hexA('#5c1a1a',.95);
     cx.beginPath();
-    cx.moveTo(hx+fwd*hr2*.44,hy+hr2*.1);
-    cx.lineTo(mx+fwd*hr2*.08,hy+hr2*.02-jaw*hr2*.5);
-    cx.lineTo(mx+fwd*hr2*.08,hy+hr2*.5+jaw*hr2*.6);
+    cx.moveTo(m0x+fwd*hr2*.06,hy+hr2*.16);
+    cx.lineTo(mx+fwd*hr2*.06,hy+hr2*.06-jaw*hr2*.5);
+    cx.lineTo(mx+fwd*hr2*.02,hy+hr2*.56+jaw*hr2*.6);
     cx.closePath(); cx.fill();
     cx.strokeStyle=OUT; cx.lineWidth=1.3; cx.stroke();
     cx.fillStyle=hexA('#c4525c',.95);
-    cx.beginPath(); cx.ellipse(mx-fwd*hr2*.16,hy+hr2*.42+jaw*hr2*.26,hr2*.28,hr2*.12,0,0,7); cx.fill();
+    cx.beginPath(); cx.ellipse(mx-fwd*hr2*.22,hy+hr2*.46+jaw*hr2*.26,hr2*.26,hr2*.11,0,0,7); cx.fill();
   }
   // kly
   cx.fillStyle=hit?'#fff':'#fdf6e0';
   if(jaw>.05){
     for(let i=0;i<3;i++){
-      const tx2=hx+fwd*hr2*(.58+i*.24), up=hy+hr2*.06-jaw*hr2*.4;
-      cx.beginPath(); cx.moveTo(tx2-hr2*.08,up); cx.lineTo(tx2,up+hr2*.36); cx.lineTo(tx2+hr2*.08,up); cx.closePath(); cx.fill();
-      const dn=hy+hr2*.5+jaw*hr2*.5;
-      cx.beginPath(); cx.moveTo(tx2-hr2*.07,dn); cx.lineTo(tx2,dn-hr2*.3); cx.lineTo(tx2+hr2*.07,dn); cx.closePath(); cx.fill();
+      const tx2=m0x+fwd*hr2*(.2+i*.26), up=hy+hr2*.1-jaw*hr2*.4;
+      cx.beginPath(); cx.moveTo(tx2-hr2*.08,up); cx.lineTo(tx2,up+hr2*.34); cx.lineTo(tx2+hr2*.08,up); cx.closePath(); cx.fill();
+      const dn=hy+hr2*.54+jaw*hr2*.5;
+      cx.beginPath(); cx.moveTo(tx2-hr2*.07,dn); cx.lineTo(tx2,dn-hr2*.28); cx.lineTo(tx2+hr2*.07,dn); cx.closePath(); cx.fill();
     }
   } else {
     for(const i of [0,1]){
-      const tx2=hx+fwd*hr2*(.66+i*.26), yy=hy+hr2*.46;
-      cx.beginPath(); cx.moveTo(tx2-hr2*.07,yy-hr2*.06); cx.lineTo(tx2,yy+hr2*.22); cx.lineTo(tx2+hr2*.07,yy-hr2*.06); cx.closePath(); cx.fill();
+      const tx2=m0x+fwd*hr2*(.4+i*.22), yy=hy+hr2*.48;
+      cx.beginPath(); cx.moveTo(tx2-hr2*.05,yy-hr2*.02); cx.lineTo(tx2,yy+hr2*.13); cx.lineTo(tx2+hr2*.05,yy-hr2*.02); cx.closePath(); cx.fill();
     }
-    cx.strokeStyle=hexA(shade(fur,-.4),.8); cx.lineWidth=1.5;
-    cx.beginPath(); cx.moveTo(hx+fwd*hr2*.46,hy+hr2*.44); cx.lineTo(mx+fwd*hr2*.04,hy+hr2*.34); cx.stroke();
   }
-  // szeroki, czarny nos
-  cx.fillStyle=hit?'#fff':'#241a14';
-  cx.beginPath(); cx.ellipse(mx+fwd*hr2*.06,hy+hr2*.06,hr2*.22,hr2*.17,fwd*.25,0,7); cx.fill();
+  // szeroki, kwadratowy czarny nos amstafa
+  cx.fillStyle=hit?'#fff':'#1d1512';
+  cx.beginPath(); cx.ellipse(mx+fwd*hr2*.02,hy+hr2*.02,hr2*.24,hr2*.2,fwd*.1,0,7); cx.fill();
   cx.strokeStyle=OUT; cx.lineWidth=1.1; cx.stroke();
-  // slepia
+  cx.strokeStyle=hexA('#000',.55); cx.lineWidth=1.3;
+  cx.beginPath(); cx.moveTo(mx-fwd*hr2*.02,hy-hr2*.12); cx.lineTo(mx-fwd*hr2*.04,hy+hr2*.18); cx.stroke();
+  cx.fillStyle=hexA('#fff',.22);
+  cx.beginPath(); cx.ellipse(mx+fwd*hr2*.02,hy-hr2*.06,hr2*.08,hr2*.05,fwd*.3,0,7); cx.fill();
+  // slepia: okragle, szeroko rozstawione, nisko przy stopie
   for(const sd of [-1,1]){
-    const ex=hx+fwd*hr2*.16, ey=hy-hr2*.3+sd*hr2*.3*(1-prof*.45);
+    const ex=hx+fwd*hr2*.3, ey=hy-hr2*.22+sd*hr2*.34*(1-prof*.45);
     if(prof>.8&&sd===-1) continue;
     cx.fillStyle=hexA(eyeC,.95);
-    cx.beginPath(); cx.ellipse(ex,ey,hr2*.18,hr2*.14,0,0,7); cx.fill();
+    cx.beginPath(); cx.arc(ex,ey,hr2*.19,0,7); cx.fill();
+    cx.strokeStyle=hexA('#120d0a',.85); cx.lineWidth=1.4; cx.stroke();
     cx.fillStyle='#17110d';
-    cx.beginPath(); cx.ellipse(ex+fwd*hr2*.02,ey,hr2*.07,hr2*.11,0,0,7); cx.fill();
+    cx.beginPath(); cx.arc(ex+fwd*hr2*.02,ey,hr2*.095,0,7); cx.fill();
+    cx.fillStyle=hexA('#fff',.5);
+    cx.beginPath(); cx.arc(ex+fwd*hr2*.06,ey-hr2*.05,hr2*.03,0,7); cx.fill();
     if(lvl>=3){
       const g=cx.createRadialGradient(ex,ey,1,ex,ey,hr2*.55);
       g.addColorStop(0,hexA(eyeC,.5)); g.addColorStop(1,hexA(eyeC,0));
