@@ -11,10 +11,10 @@ const ARCH={
            glow:null, roofCol:'#3f5fa8', roof:'pitched', win:'lancet' },
   orki:{   stone:'#8f7a52', stone2:'#6a5837', trim:'#8a6a44', wood:'#7b4a24',
            glow:null, roofCol:'#7b4a24', roof:'hide', win:'slit' },
-  nieumarli:{ stone:'#a9b3ac', stone2:'#79857e', trim:'#cfe0cf', wood:'#4a4a42',
-           glow:'#7fe3a6', roofCol:'#54605a', roof:'rib', win:'glow' },
-  demony:{ stone:'#4a3038', stone2:'#2c1c22', trim:'#ff7a2f', wood:'#3a2422',
-           glow:'#ff6a22', roofCol:'#6b1f18', roof:'jag', win:'glow' }
+  nieumarli:{ stone:'#7c8881', stone2:'#4a544f', trim:'#d6ead6', wood:'#3f453e',
+           glow:'#7fe3a6', roofCol:'#414d47', roof:'rib', win:'glow' },
+  demony:{ stone:'#3c2028', stone2:'#1d1015', trim:'#ff7a2f', wood:'#2d1a19',
+           glow:'#ff6a22', roofCol:'#59120e', roof:'jag', win:'glow' }
 };
 const archOf=f=>ARCH[f]||ARCH.ludzie;
 
@@ -90,6 +90,16 @@ function crackedStone(x,y,w,hg,col,col2,seedv){
     for(let k=0;k<4;k++){ px+=Math.sin(seedv+i*2+k)*w*.07; py+=hg*.22; cx.lineTo(px,py); }
     cx.stroke();
   }
+  // plamy zbutwienia i mchu
+  for(let k=0;k<5;k++){
+    const px=x-w/2+(Math.sin(seedv*3+k*2.3)*.5+.5)*w;
+    const py=y-hg+(Math.sin(seedv*5+k*1.7)*.5+.5)*hg;
+    cx.fillStyle=k%2?'rgba(34,44,38,.34)':'rgba(92,110,88,.2)';
+    cx.beginPath(); cx.ellipse(px,py,w*.11,hg*.1,0,0,7); cx.fill();
+  }
+  // ciemny cień u podstawy
+  cx.fillStyle='rgba(14,20,16,.28)';
+  cx.fillRect(x-w/2,y-hg*.26,w,hg*.26);
 }
 
 /* ---------- dachy ---------- */
@@ -138,9 +148,21 @@ function roofRib(sx,sy,w,hh,col,glow){
   cx.strokeStyle='#e2e7dd'; cx.lineWidth=2;
   cx.beginPath(); cx.moveTo(sx-w*.5,sy-hh*.1); cx.quadraticCurveTo(sx,sy-hh*.95,sx+w*.5,sy-hh*.1); cx.stroke();
   if(glow){
-    const g=cx.createRadialGradient(sx,sy-hh*.5,2,sx,sy-hh*.5,w*.5);
-    g.addColorStop(0,hexA(glow,.4)); g.addColorStop(1,hexA(glow,0));
-    cx.fillStyle=g; cx.beginPath(); cx.ellipse(sx,sy-hh*.5,w*.5,hh*.6,0,0,7); cx.fill();
+    // żebra klatki wzdłuż kalenicy
+    cx.strokeStyle='rgba(236,242,230,.75)'; cx.lineWidth=1.8;
+    for(let i=0;i<4;i++){ const t=(i+1)/5;
+      cx.beginPath();
+      cx.moveTo(sx-w*.44*(1-t*.5),sy-hh*.2-t*hh*.5);
+      cx.quadraticCurveTo(sx,sy-hh*(.5+t*.5),sx+w*.44*(1-t*.5),sy-hh*.2-t*hh*.5);
+      cx.stroke();
+    }
+    const fl=.6+.4*Math.sin(TIME*3.4+sx*.02);
+    const g=cx.createRadialGradient(sx,sy-hh*.6,2,sx,sy-hh*.6,w*.55);
+    g.addColorStop(0,hexA(glow,.3+fl*.25)); g.addColorStop(1,hexA(glow,0));
+    cx.fillStyle=g; cx.beginPath(); cx.ellipse(sx,sy-hh*.6,w*.55,hh*.8,0,0,7); cx.fill();
+    // zimny ogień na szczycie
+    cx.fillStyle=hexA('#c9ffdf',.75);
+    cx.beginPath(); cx.ellipse(sx,sy-hh*(1.0+fl*.12),w*.05,hh*(.24+fl*.1),0,0,7); cx.fill();
   }
 }
 function roofJag(sx,sy,w,hh,col,glow){
@@ -156,8 +178,22 @@ function roofJag(sx,sy,w,hh,col,glow){
   g.addColorStop(0,shade(col,.24)); g.addColorStop(1,shade(col,-.34));
   cx.fillStyle=g; cx.fill();
   cx.strokeStyle='rgba(10,4,6,.7)'; cx.lineWidth=1.4; cx.stroke();
-  if(glow){ cx.strokeStyle=hexA(glow,.5); cx.lineWidth=1.6;
-    cx.beginPath(); cx.moveTo(sx-w*.28,sy-hh*.95); cx.lineTo(sx+w*.14,sy-hh*1.12); cx.stroke(); }
+  if(glow){
+    const gl=.5+.5*Math.sin(TIME*2.6+sx*.01);
+    cx.strokeStyle=hexA(glow,.4+gl*.45); cx.lineWidth=2.2;
+    cx.beginPath();
+    cx.moveTo(sx-w/2,sy); cx.lineTo(sx-w*.28,sy-hh*.95); cx.lineTo(sx-w*.08,sy-hh*.5);
+    cx.lineTo(sx+w*.14,sy-hh*1.12); cx.lineTo(sx+w*.34,sy-hh*.55); cx.lineTo(sx+w/2,sy);
+    cx.stroke();
+    const g2=cx.createRadialGradient(sx,sy-hh*.8,2,sx,sy-hh*.8,w*.6);
+    g2.addColorStop(0,hexA(glow,.2+gl*.15)); g2.addColorStop(1,hexA(glow,0));
+    cx.fillStyle=g2; cx.beginPath(); cx.ellipse(sx,sy-hh*.8,w*.6,hh*.8,0,0,7); cx.fill();
+    // żelazne kolce na szczytach
+    cx.fillStyle='#120a0c';
+    for(const p of [[-w*.28,-hh*.95],[w*.14,-hh*1.12]]){
+      cx.beginPath(); cx.moveTo(sx+p[0]-2.4,sy+p[1]); cx.lineTo(sx+p[0],sy+p[1]-hh*.42); cx.lineTo(sx+p[0]+2.4,sy+p[1]); cx.closePath(); cx.fill();
+    }
+  }
 }
 function archRoof(A,sx,sy,w,hh,seedv){
   if(A.roof==='pitched') roofPitched(sx,sy,w,hh,A.roofCol,A.trim);
@@ -253,10 +289,142 @@ function hideBanner(x,y,w,hg,col,trim){
   cx.beginPath(); cx.moveTo(x-w*.16,y+hg*.3); cx.lineTo(x+w*.16,y+hg*.7); cx.moveTo(x+w*.16,y+hg*.3); cx.lineTo(x-w*.16,y+hg*.7); cx.stroke();
 }
 
+/* ---------- warstwy klimatu: PIEKŁO i ŚMIERĆ ---------- */
+function hellGround(sx,sy,r,sd){
+  const gl=.5+.5*Math.sin(TIME*1.8+sd);
+  // wypalona ziemia
+  cx.fillStyle='rgba(28,14,12,.5)';
+  cx.beginPath(); cx.ellipse(sx,sy+r*.3,r*1.5,r*.72,0,0,7); cx.fill();
+  cx.fillStyle='rgba(58,26,18,.4)';
+  cx.beginPath(); cx.ellipse(sx-r*.2,sy+r*.34,r*1.15,r*.52,0,0,7); cx.fill();
+  // stopiony pierścień
+  const g=cx.createRadialGradient(sx,sy+r*.32,r*.5,sx,sy+r*.32,r*1.6);
+  g.addColorStop(0,hexA('#ff5a18',.05+gl*.05));
+  g.addColorStop(.62,hexA('#ff7a2f',.16+gl*.12));
+  g.addColorStop(1,hexA('#ff7a2f',0));
+  cx.fillStyle=g; cx.beginPath(); cx.ellipse(sx,sy+r*.32,r*1.6,r*.8,0,0,7); cx.fill();
+  // szczeliny promieniste
+  cx.lineCap='round';
+  for(let i=0;i<5;i++){
+    const a=sd*1.3+i*1.256+Math.sin(sd+i)*.3;
+    let px=sx+Math.cos(a)*r*.5, py=sy+r*.32+Math.sin(a)*r*.24;
+    cx.strokeStyle=hexA('#ff8a34',.22+gl*.3); cx.lineWidth=2.8;
+    cx.beginPath(); cx.moveTo(px,py);
+    for(let k=1;k<=3;k++){
+      const aa=a+Math.sin(sd*2+i+k)*.45;
+      px+=Math.cos(aa)*r*.28; py+=Math.sin(aa)*r*.15;
+      cx.lineTo(px,py);
+    }
+    cx.stroke();
+    cx.strokeStyle=hexA('#ffe2b8',.1+gl*.14); cx.lineWidth=1.1; cx.stroke();
+  }
+}
+function hellAura(sx,sy,r,sd,b){
+  const gl=.5+.5*Math.sin(TIME*2.2+sd);
+  // żelazne kolce z łańcuchami
+  for(const s of [-1,1]){
+    const px=sx+s*r*1.02, py=sy+r*.16;
+    cx.fillStyle='#160c0f';
+    cx.beginPath(); cx.moveTo(px-3,py); cx.lineTo(px,py-r*.68); cx.lineTo(px+3,py); cx.closePath(); cx.fill();
+    cx.strokeStyle=hexA('#ff7a2f',.3);
+    cx.lineWidth=1.2; cx.stroke();
+  }
+  cx.strokeStyle='rgba(22,12,14,.8)'; cx.lineWidth=2;
+  cx.beginPath(); cx.moveTo(sx-r*1.02,sy-r*.5);
+  cx.quadraticCurveTo(sx,sy-r*.2+Math.sin(TIME*1.2+sd)*3,sx+r*1.02,sy-r*.5); cx.stroke();
+  // dymne pióra
+  for(let i=0;i<3;i++){
+    const ph=(TIME*.42+sd*.3+i*.33)%1;
+    cx.fillStyle=hexA('#3a2022',.22*(1-ph));
+    cx.beginPath(); cx.ellipse(sx+Math.sin(ph*5+i)*r*.3,sy-r*(.9+ph*1.5),r*(.2+ph*.35),r*(.14+ph*.28),0,0,7); cx.fill();
+  }
+  // unoszący się żar
+  for(let i=0;i<4;i++){
+    const ph=(TIME*.7+i*.25+sd*.17)%1;
+    cx.fillStyle=hexA(i%2?'#ffb15e':'#ff6a22',.6*(1-ph));
+    const ex=sx+Math.sin(ph*7+i*2+sd)*r*.6;
+    cx.beginPath(); cx.arc(ex,sy+r*.2-ph*r*1.5,1.5+ph*1.2,0,7); cx.fill();
+  }
+  // pieczęć na ziemi
+  cx.strokeStyle=hexA('#ff6a22',.08+gl*.09); cx.lineWidth=1.2;
+  cx.beginPath(); cx.ellipse(sx,sy+r*.34,r*.66,r*.31,0,0,7); cx.stroke();
+}
+function soulGround(sx,sy,r,sd){
+  const gl=.5+.5*Math.sin(TIME*1.2+sd);
+  // martwa, zszarzała ziemia
+  cx.fillStyle='rgba(30,36,32,.42)';
+  cx.beginPath(); cx.ellipse(sx,sy+r*.3,r*1.5,r*.72,0,0,7); cx.fill();
+  const g=cx.createRadialGradient(sx,sy+r*.3,r*.4,sx,sy+r*.3,r*1.6);
+  g.addColorStop(0,hexA('#7fe3a6',.04+gl*.05));
+  g.addColorStop(.6,hexA('#7fe3a6',.07+gl*.06));
+  g.addColorStop(1,hexA('#7fe3a6',0));
+  cx.fillStyle=g; cx.beginPath(); cx.ellipse(sx,sy+r*.3,r*1.6,r*.8,0,0,7); cx.fill();
+  // nagrobki i kości wokół
+  for(let i=0;i<3;i++){
+    const a=sd*1.7+i*2.1, px=sx+Math.cos(a)*r*1.18, py=sy+r*.34+Math.sin(a)*r*.5;
+    if(i%2===0){
+      cx.fillStyle='#6f7a73';
+      cx.beginPath(); cx.moveTo(px-4,py); cx.lineTo(px-4,py-9);
+      cx.quadraticCurveTo(px,py-15,px+4,py-9); cx.lineTo(px+4,py); cx.closePath(); cx.fill();
+      cx.strokeStyle='rgba(14,18,16,.6)'; cx.lineWidth=1.1; cx.stroke();
+      cx.strokeStyle=hexA('#7fe3a6',.35); cx.lineWidth=1;
+      cx.beginPath(); cx.moveTo(px-2,py-7); cx.lineTo(px+2,py-7); cx.moveTo(px,py-9.5); cx.lineTo(px,py-4); cx.stroke();
+    } else {
+      cx.strokeStyle='#d7ded2'; cx.lineWidth=2;
+      cx.beginPath(); cx.moveTo(px-5,py); cx.lineTo(px+4,py-3); cx.stroke();
+      cx.beginPath(); cx.arc(px+5,py-4,2.2,0,7); cx.fillStyle='#e6ecdf'; cx.fill();
+    }
+  }
+}
+function soulAura(sx,sy,r,sd){
+  // dryfujące duszki
+  for(let i=0;i<4;i++){
+    const ph=(TIME*.24+i*.25+sd*.13)%1;
+    const a=sd+i*1.6+ph*2.2;
+    const px=sx+Math.cos(a)*r*(.7+ph*.5), py=sy+r*.2-ph*r*1.4;
+    const al=.55*Math.sin(ph*Math.PI);
+    cx.fillStyle=hexA('#c9ffdf',al);
+    cx.beginPath(); cx.arc(px,py,1.9,0,7); cx.fill();
+    cx.fillStyle=hexA('#7fe3a6',al*.35);
+    cx.beginPath(); cx.arc(px,py,5.5,0,7); cx.fill();
+  }
+  // świece na gzymsie
+  for(const s of [-1,1]){
+    const px=sx+s*r*.96, py=sy-r*.08;
+    cx.fillStyle='#d9ded3'; cx.fillRect(px-2,py-7,4,7);
+    const fl=.6+.4*Math.sin(TIME*6+sd+s);
+    cx.fillStyle=hexA('#7fe3a6',.85);
+    cx.beginPath(); cx.ellipse(px,py-9.5,1.7,3.2*fl,0,0,7); cx.fill();
+    cx.fillStyle=hexA('#7fe3a6',.16);
+    cx.beginPath(); cx.arc(px,py-9,8,0,7); cx.fill();
+  }
+  // zwisające łańcuchy z kością
+  cx.strokeStyle='rgba(180,190,180,.35)'; cx.lineWidth=1.2;
+  cx.beginPath(); cx.moveTo(sx-r*.5,sy-r*.62);
+  cx.quadraticCurveTo(sx,sy-r*.34+Math.sin(TIME*.9+sd)*2.5,sx+r*.5,sy-r*.62); cx.stroke();
+  // runa na fasadzie
+  const gl=.4+.4*Math.sin(TIME*1.8+sd);
+  cx.strokeStyle=hexA('#7fe3a6',.25+gl*.3); cx.lineWidth=1.6;
+  cx.beginPath();
+  cx.moveTo(sx-r*.14,sy+r*.02); cx.lineTo(sx,sy-r*.2); cx.lineTo(sx+r*.14,sy+r*.02);
+  cx.moveTo(sx-r*.09,sy-r*.06); cx.lineTo(sx+r*.09,sy-r*.06); cx.stroke();
+}
+
 /* ==========================================================================
    GŁÓWNY DISPATCH — zwraca true, jeśli typ obsłużony
    ========================================================================== */
 function drawFactionBuilding(b,sx,sy,r,h,c){
+  const ff=b.faction, big=r>18;
+  if(ff==='demony'&&big) hellGround(sx,sy,r,b.seed);
+  else if(ff==='nieumarli'&&big) soulGround(sx,sy,r,b.seed);
+  const ok=drawFactionBuildingCore(b,sx,sy,r,h,c);
+  if(ok&&b.done&&big){
+    if(ff==='demony') hellAura(sx,sy,r,b.seed,b);
+    else if(ff==='nieumarli') soulAura(sx,sy,r,b.seed);
+  }
+  return ok;
+}
+function drawFactionBuildingCore(b,sx,sy,r,h,c){
   const A=archOf(b.faction), f=b.faction, t=b.type, sd=b.seed, done=b.done;
   const G1=A.glow;
 
@@ -292,6 +460,21 @@ function drawFactionBuilding(b,sx,sy,r,h,c){
         crackedStone(sx+s*r*.84,sy+h*.5,r*.4,h*1.5,A.stone,A.stone2,sd+s);
         boneSpine(sx+s*r*.84,sy-h*1.0,16);
       }
+      // centralna iglica z czaszką w obręczy dusz
+      cx.fillStyle=shade(A.stone2,-.2);
+      cx.beginPath(); cx.moveTo(sx-r*.2,sy-h*.5); cx.lineTo(sx-r*.12,sy-h*1.55);
+      cx.lineTo(sx+r*.12,sy-h*1.55); cx.lineTo(sx+r*.2,sy-h*.5); cx.closePath(); cx.fill();
+      cx.strokeStyle='rgba(14,20,16,.7)'; cx.lineWidth=1.4; cx.stroke();
+      const sgl=.5+.5*Math.sin(TIME*1.7+sd);
+      cx.strokeStyle=hexA(G1,.4+sgl*.4); cx.lineWidth=2;
+      cx.beginPath(); cx.ellipse(sx,sy-h*1.62,r*.3,r*.14,0,0,7); cx.stroke();
+      cx.fillStyle='#e9eee1';
+      cx.beginPath(); cx.arc(sx,sy-h*1.66,r*.16,0,7); cx.fill();
+      cx.strokeStyle='rgba(20,26,22,.6)'; cx.lineWidth=1.1; cx.stroke();
+      cx.fillStyle=hexA(G1,.85);
+      cx.beginPath(); cx.arc(sx-r*.06,sy-h*1.68,r*.045,0,7); cx.arc(sx+r*.06,sy-h*1.68,r*.045,0,7); cx.fill();
+      cx.fillStyle=hexA(G1,.14);
+      cx.beginPath(); cx.arc(sx,sy-h*1.66,r*.5,0,7); cx.fill();
       archWin(A,sx,sy-h*.06,r*.36,h*.5);
       mistBand(sx,sy+h*.4,r,sd,G1);
       if(done){
@@ -307,7 +490,24 @@ function drawFactionBuilding(b,sx,sy,r,h,c){
         cx.fillStyle='#1c1216';
         cx.beginPath(); cx.moveTo(sx+s*r*.88-4,sy-h*.94); cx.lineTo(sx+s*r*.88+s*7,sy-h*1.3); cx.lineTo(sx+s*r*.88+4,sy-h*.9); cx.closePath(); cx.fill();
       }
-      archWin(A,sx,sy-h*.08,r*.4,h*.56);
+      // rogaty łuk nad wrotami + żarzące się wnętrze
+      cx.fillStyle='#0f080a';
+      cx.beginPath(); cx.moveTo(sx-r*.3,sy+h*.5); cx.lineTo(sx-r*.3,sy+h*.02);
+      cx.quadraticCurveTo(sx,sy-h*.34,sx+r*.3,sy+h*.02); cx.lineTo(sx+r*.3,sy+h*.5); cx.closePath(); cx.fill();
+      const dgl=.5+.5*Math.sin(TIME*2.8+sd);
+      const gg=cx.createLinearGradient(sx,sy+h*.5,sx,sy-h*.2);
+      gg.addColorStop(0,hexA('#ff9a3c',.55+dgl*.3)); gg.addColorStop(1,hexA('#ff5a18',0));
+      cx.fillStyle=gg;
+      cx.beginPath(); cx.moveTo(sx-r*.22,sy+h*.48); cx.lineTo(sx-r*.22,sy+h*.04);
+      cx.quadraticCurveTo(sx,sy-h*.24,sx+r*.22,sy+h*.04); cx.lineTo(sx+r*.22,sy+h*.48); cx.closePath(); cx.fill();
+      for(const s of [-1,1]){
+        cx.fillStyle='#180d10';
+        cx.beginPath(); cx.moveTo(sx+s*r*.3,sy+h*.04);
+        cx.quadraticCurveTo(sx+s*r*.62,sy-h*.34,sx+s*r*.36,sy-h*.62);
+        cx.quadraticCurveTo(sx+s*r*.42,sy-h*.22,sx+s*r*.22,sy-h*.02);
+        cx.closePath(); cx.fill();
+        cx.strokeStyle=hexA('#ff7a2f',.3+dgl*.2); cx.lineWidth=1.2; cx.stroke();
+      }
       lavaCracks(sx,sy+h*.5,r,sd,G1);
       braziers(sx,sy,r,sd,'#ff8b32',3,1.0);
       if(done&&Math.random()<.3) embers(b.x+rand(-r*.7,r*.7),b.y-r*.5,'#ff7a2f',1);
