@@ -317,6 +317,7 @@ const UNITS={
   bandit:{ label:'Rozbójnik', r:13, hp:230, dmg:22, range:20, speed:60, ias:1.0, pop:0, mass:1, armor:1, cost:{gold:90,wood:30} },
   banditArcher:{ label:'Rozbójnik z łukiem', r:13, hp:160, dmg:20, range:165, speed:58, ias:1.5, pop:0, mass:1, cost:{gold:100,wood:40} },
   kraken:{ label:'Kraken', r:150, hp:16000, dmg:250, range:150, speed:46, ias:2.6, pop:0, mass:99, armor:12, boss:true },
+  crownling:{ label:'Stworek z Koroną', r:12, hp:380, dmg:0, range:0, speed:40, ias:1, pop:0, mass:1 },
   legend:{ label:'Tytan', plural:'Tytani', r:44, hp:9500, dmg:250, range:46, speed:60, ias:1.05, cost:{gold:650,wood:450}, time:32, pop:0, mass:30, armor:14 }
 };
 const SIEGE_KEYS=['catapult','ballista','trebuchet','cannon','sling'];
@@ -393,7 +394,7 @@ const UPG={
   archer:{ label:'Łucznictwo',  baseCost:{gold:140,wood:90},  step:1.6, hp:.20, dmg:.26, max:5},
   crossbow:{label:'Kusznictwo', baseCost:{gold:150,wood:100}, step:1.6, hp:.18, dmg:.28, max:4},
   heavy:{  label:'Kult Kolosa', baseCost:{gold:320,wood:220}, step:1.8, hp:.22, dmg:.22, max:3},
-  worker:{ label:'Rzemiosło',   baseCost:{gold:90,wood:60},   step:1.7, hp:.25, dmg:.1,  max:3},
+  worker:{ label:'Zbieractwo',  baseCost:{gold:80,wood:50},   step:1.6, hp:.2,  dmg:.1,  max:4},
   siege:{  label:'Inżynieria',  baseCost:{gold:260,wood:240}, step:1.75,hp:.2,  dmg:.25, max:3}
 };
 function upgCost(type,lvl){
@@ -412,7 +413,7 @@ const tierName=(f,t,l)=>{
   const T=FACTIONS[f]&&FACTIONS[f].tiers[t];
   if(t==='legend'&&typeof titanName==='function') return titanName(f);
   if(!T||!T.length) return t==='beast'?(BEAST_NAMES[f]||'Bestia'):((UNITS[t]&&UNITS[t].label)||t);
-  return T[Math.min(l,T.length)-1];
+  return T[Math.max(1,Math.min(l||1,T.length))-1];
 };
 
 /* wygląd zależny od poziomu — to sprawia, że ulepszenia widać */
@@ -454,8 +455,8 @@ const vetOf=xp=>{let i=0; for(let k=1;k<VET.length;k++) if(xp>=VET[k].xp) i=k; r
 
 /* --- surowce na mapie --- */
 const RES={
-  gold:{label:'Kopalnia złota', amount:3200, rate:8,  carry:16, col:'#e6c273', icon:'moneta', short:'złoto'},
-  wood:{label:'Drzewo',         amount:520,  rate:7,  carry:16, col:'#6f8f4a', icon:'kłoda',  short:'drewno'}
+  gold:{label:'Kopalnia złota', amount:3200, rate:5,  carry:10, col:'#e6c273', icon:'moneta', short:'złoto'},
+  wood:{label:'Drzewo',         amount:520,  rate:4.5,carry:10, col:'#6f8f4a', icon:'kłoda',  short:'drewno'}
 };
 
 /* ==========================================================================

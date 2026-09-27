@@ -148,7 +148,7 @@ function unitStats(faction,type,lvl){
 }
 function spawnUnit(side,type,x,y,lvlOpt){
   const faction=sideFaction(side);
-  const lvl=lvlOpt||G.lvl[side][type]||1;
+  const lvl=lvlOpt||G.lvl[side][type]||G.lvl[side][upgKeyOf(type)]||1;
   const st=unitStats(faction,type,lvl), def=UNITS[type];
   const u={
     id:G.id++, side, faction, type, lvl,
@@ -466,7 +466,15 @@ function upgradeKeep(side){
   if(!th){ if(side==='player') warn('Potrzebny gotowy ratusz'); return false; }
   const KC=cur?KEEP_COST2:KEEP_COST;
   if(!canAfford(side,KC)){ if(side==='player') warn('Brakuje surowców na ulepszenie ratusza'); return false; }
+  if(th.upg){ if(side==='player') warn('Ratusz już się rozbudowuje'); return false; }
   pay(side,KC);
+  const T=keepTime(cur); th.upg={kind:'keep',left:T,total:T};
+  if(side==='player') floatText(th.x,th.y-th.r-14,'Rozbudowa ratusza ('+T+'s)','#e6c273',14);
+  return true;
+}
+function finishKeep(side){
+  const cur=G.keep[side]||0; if(cur>=2) return;
+  const th=G.buildings.find(b=>b.side===side&&!b.dead&&b.type==='townhall'); if(!th) return;
   G.keep[side]=cur+1;
   for(const b of G.buildings) if(b.side===side&&!b.dead&&b.type==='townhall'){
     b.keep=G.keep[side]; b.lvl=1+b.keep;
@@ -488,6 +496,8 @@ function bUpgBlock(side,b){
   if(!b.done||b.dead) return 'Budynek jeszcze nie gotowy';
   const lvl=b.lvl||1;
   if(b.type==='townhall') return 'Ratusz ulepszasz przyciskiem Twierdzy';
+  if(b.upg) return 'Trwa ulepszanie';
+  if(b.res) return 'Kuźnia prowadzi badanie';
   if(lvl>=bMaxLvl(b.type)) return 'Najwyższy poziom';
   if(b.type==='lair'){
     if(!G.keep[side]) return 'Potrzebna Twierdza (ulepsz ratusz)';
@@ -504,6 +514,12 @@ function upgradeBuilding(side,b){
   const lvl=b.lvl||1, c=bUpgCost(b.type,lvl);
   if(!canAfford(side,c)){ if(side==='player') warn('Brakuje surowców na ulepszenie budynku'); return false; }
   pay(side,c);
+  const T=bUpgTime(b.type,lvl); b.upg={kind:'b',left:T,total:T};
+  if(side==='player') floatText(b.x,b.y-b.r-14,'Ulepszanie ('+T+'s)','#e6c273',13);
+  return true;
+}
+function finishBuildingUpg(side,b){
+  const lvl=b.lvl||1;
   b.lvl=lvl+1;
   b.maxHp=Math.round(b.maxHp*1.4); b.hp=Math.min(b.maxHp,b.hp+b.maxHp*.3);
   ring(b.x,b.y,b.r*2.1,FACTIONS[b.faction].col.gold,.7,6);
@@ -532,7 +548,29 @@ function tryUpgrade(side,type){
   const forge=G.buildings.find(b=>b.side===side&&!b.dead&&b.done&&b.type==='forge');
   if(!forge){ if(side==='player') warn('Potrzebna kuźnia'); return false; }
   if(type==='heavy'&&(forge.lvl||1)<2){ if(side==='player') warn('Kult Kolosa wymaga Wielkiej Kuźni (ulepsz kuźnię)'); return false; }
+  if(G.buildings.some(b=>b.side===side&&!b.dead&&b.res&&b.res.k===type)){ if(side==='player') warn('To ulepszenie już trwa'); return false; }
+  const free=G.buildings.find(b=>b.side===side&&!b.dead&&b.done&&b.type==='forge'&&!b.res&&!b.upg&&(type!=='heavy'||(b.lvl||1)>=2));
+  if(!free){ if(side==='player') warn('Kuźnia jest zajęta — poczekaj na koniec badania'); return false; }
   pay(side,c);
+  const T=resTime(type,lvl);
+  free.res={k:type,left:T,total:T};
+  if(side==='player'){ floatText(free.x,free.y-free.r-14,'Badanie: '+UPG[type].label+' ('+T+'s)','#e6c273',13); SND.play('upgrade',free.x,free.y,{reach:900,vol:.6}); }
+  return true;
+}
+function resTime(type,lvl){ return Math.round(20+lvl*12+(type==='heavy'||type==='siege'?10:0)); }
+function bUpgTime(type,lvl){ return Math.round(30+lvl*12); }
+function keepTime(cur){ return cur?70:45; }
+function upgSpeed(side){ return G.god&&side==='player'?6:1; }
+function workerCarry(u,kind){ return RES[kind].carry+4*((u&&u.lvl||1)-1); }
+function tickUpgrades(b,dt){
+  if(b.upg){ b.upg.left-=dt*upgSpeed(b.side);
+    if(Math.random()<dt*3) puff(b.x+rand(-b.r,b.r),b.y+rand(-b.r*.5,b.r*.5),.7,'#d8c9a4');
+    if(b.upg.left<=0){ const k=b.upg.kind; b.upg=null; if(k==='keep') finishKeep(b.side); else finishBuildingUpg(b.side,b); } }
+  if(b.res){ b.res.left-=dt*upgSpeed(b.side);
+    if(Math.random()<dt*4) G.parts.push({x:b.x+rand(-b.r*.4,b.r*.4),y:b.y-b.r*.4,vx:rand(-30,30),vy:rand(-90,-40),life:.5,max:.5,size:rand(1.5,3),col:'#ffcf6a',kind:'spark'});
+    if(b.res.left<=0){ const k=b.res.k; b.res=null; finishUpgrade(b.side,k); } }
+}
+function finishUpgrade(side,type){
   G.lvl[side][type]=(G.lvl[side][type]||1)+1;
   const nl=G.lvl[side][type], faction=sideFaction(side);
   for(const u of G.units) if(u.side===side&&!u.dead&&upgKeyOf(u.type)===type){
@@ -630,6 +668,7 @@ function findEnemy(u,radius){
 function dealDamage(t,amount,fromSide,opts={}){
   if(t.dead) return;
   if(t.hidden) return;
+  if(t.finishing&&!opts.fin) return;
   if(t.sleep&&typeof bossWake==='function'&&isBoss(t)) bossWake(t);
   if((t.chief||t.yield)&&typeof chiefGuard==='function'&&chiefGuard(t,amount,fromSide)) return;
   if(fromSide) t.lastHitSide=fromSide;
@@ -658,6 +697,7 @@ function dealDamage(t,amount,fromSide,opts={}){
   gore(t.x,t.y,t.faction,Math.round(2+(opts.n||5)*.4),(opts.power||1)*.7,opts.dx||0,opts.dy||0);
   if(opts.dx||opts.dy) bloodCone(t.x,t.y,t.faction,opts.dx||0,opts.dy||0,(opts.power||1)*.8);
   if(Math.random()<.4) decal(t.x+rand(-7,7),t.y+rand(-5,5),rand(4,9),FACTIONS[t.faction].gore);
+  if(t.hp<=0&&!opts.fin&&opts.src&&opts.src.type==='legend'&&(t.type==='legend'||isBoss(t))&&typeof titanFinisher==='function'&&titanFinisher(opts.src,t)) return;
   if(t.hp<=0){
     t.dead=true; t.rot=rand(-1.4,1.4);
     awardXp(t,fromSide);
@@ -685,7 +725,8 @@ function dealDamage(t,amount,fromSide,opts={}){
     if(t.type==='giant') giantDied(t,fromSide);
     if(t.type==='troll'||t.type==='bandit'||t.type==='banditArcher'){ if(t.cave) campMemberDied(t,fromSide); }
     if(t.type==='kraken'&&typeof krakenDied==='function') krakenDied(t,fromSide);
-    if(isBoss(t)&&typeof relicDrop==='function') relicDrop(t);
+    if(t.type==='crownling'&&typeof crownlingDied==='function') crownlingDied(t,fromSide);
+    if(t.fin&&!t.fin.filter) t.fin=null;
     if(fromSide&&G.res[fromSide]&&foe(fromSide,t.side)){
       const loot=8+(t.type==='heavy'?60:0)+(t.type==='troll'?(t.chief?70:40):0)+t.lvl*2;
       G.res[fromSide].gold+=loot;
@@ -1344,7 +1385,7 @@ function godMode(){
   for(const u of G.units) if(u.side===side&&!u.dead&&UPG[upgKeyOf(u.type)]){
     const nl=G.lvl[side][upgKeyOf(u.type)], ns=unitStats(faction,u.type,nl), L=look(u.type,nl);
     u.maxHp=ns.hp; u.hp=ns.hp; u.dmg=ns.dmg; u.lvl=nl; u.r=UNITS[u.type].r*(L?L.scale:1); }
-  // nagroda z bossa: Pradawna Korona i Koronowany Wladca od razu
+  // Pradawna Korona i Tytan od razu
   G.crown=G.crown||{}; G.crown[side]=true;
   const th=G.buildings.find(b=>b.side===side&&!b.dead&&b.type==='townhall');
   if(th&&!G.units.some(o=>!o.dead&&o.side===side&&o.type==='legend')){

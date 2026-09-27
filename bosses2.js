@@ -188,7 +188,7 @@ function krakenDied(u,side){
   ring(u.x,u.y,700,'rgba(220,240,255,.9)',1.8,14);
   if(mainSide(side)){ G.res[side].gold+=800; G.res[side].wood+=500;
     if(side==='player'){ floatText(u.x,u.y-120,'+800 złota  +500 drewna','#e6c273',22); G.will=G.willMax; } }
-  G.banner={txt:'KRAKEN POKONANY! Z głębin wypłynęła Pradawna Korona.',life:5,max:5};
+  G.banner={txt:'KRAKEN POKONANY!',life:5,max:5};
 }
 
 /* ---------------- FLAGI JEZIORA ---------------- */
@@ -312,7 +312,8 @@ function drawLegendCrown(u,r){
   cx.beginPath(); cx.ellipse(0,r*.56,r*(1.7+p*.15),r*(.95+p*.08),0,0,7); cx.stroke();
 }
 function legendTick(dt){
-  for(const u of G.units){ if(u.dead||u.type!=='legend') continue; if(typeof titanTick==='function') titanTick(u,dt); }
+  for(const u of G.units){ if(u.dead||u.type!=='legend') continue; if(typeof legendAct==='function') legendAct(u,dt); }
+  if(typeof updateFinishers==='function') updateFinishers(dt);
   if(typeof updateTitanFx==='function') updateTitanFx(dt);
 }
 
@@ -346,11 +347,12 @@ function drawBfx(e){
 function updateBosses2(dt){
   if(G.giant&&G.giant.titan) titanTick(G.giant,dt);
   updateFlags(dt); updateRelic(dt); relicAI(dt); legendTick(dt); updateBfx(dt);
+  if(typeof updateCrownling==='function'){ updateCrownling(dt); crownAI(dt); }
 }
 function bossEnts(ents){
   if(typeof campEnts==='function') campEnts(ents);
   for(const f of G.world.flags||[]) if(vis(f.x,f.y,160)) ents.push({y:f.y,f:()=>drawFlag(f)});
   if(G.relic&&G.relic.state!=='done'&&vis(G.relic.x,G.relic.y,80)) ents.push({y:G.relic.y+(G.relic.state==='carried'?30:0),f:drawRelic});
   for(const e of G.bfx||[]) if(vis(e.x,e.y,300)) ents.push({y:e.y+(e.done?40:-200),f:()=>drawBfx(e)});
-  if(typeof titanEnts==='function') titanEnts(ents);
+  if(typeof titanEnts==='function') titanEnts(ents); if(typeof finEnts==='function') finEnts(ents);
 }

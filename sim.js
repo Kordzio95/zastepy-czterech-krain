@@ -43,6 +43,7 @@ function updateUnits(dt){
     if(u.dead){ u.fade-=dt*.8; u.rot+=dt*.4; continue; }
     u.anim+=dt;
     u.hitFlash=Math.max(0,u.hitFlash-dt);
+    if(u.finishing) continue;
     if(u.sayT>0){ u.sayT-=dt; if(u.sayT<=0) u.say=null; }
     if(u.slow>0) u.slow-=dt;
     if(u.hcd>0) u.hcd-=dt;
@@ -96,6 +97,7 @@ function updateUnits(dt){
     if(u.type==='troll'&&u.side==='wild'){ updateTroll(u,dt); continue; }
     if((u.type==='bandit'||u.type==='banditArcher')&&u.side==='wild'){ updateBandit(u,dt); continue; }
     if(u.type==='villager'){ updateVillager(u,dt); continue; }
+    if(u.type==='crownling') continue;
     if(u.stun>0){ u.stun-=dt; continue; }
     u.atk=Math.max(-.05,u.atk-dt);
     if(u.swing>0) u.swing-=dt;
@@ -270,7 +272,7 @@ function doGather(u,dt){
     else { u.order=null; u.state='idle'; }
     return;
   }
-  const full=u.carry&&u.carry.amount>=RES[r.kind].carry;
+  const full=u.carry&&u.carry.amount>=workerCarry(u,r.kind);
   if(full){
     const drop=nearestDrop(u.side,u.x,u.y);
     if(!drop){ u.state='idle'; return; }
@@ -310,11 +312,11 @@ function doGather(u,dt){
     }
     if(Math.random()<.22) decal(ix,iy+4,5,r.kind==='wood'?'rgba(80,60,34,.3)':'rgba(120,112,96,.3)');
   }
-  const rate=RES[r.kind].rate*(1+.25*(u.lvl-1));
+  const rate=RES[r.kind].rate*(1+.35*(u.lvl-1));
   u.gatherAcc+=dt*rate;
   if(!u.carry) u.carry={kind:r.kind,amount:0};
   if(u.gatherAcc>=1){
-    const take=Math.min(Math.floor(u.gatherAcc),r.amount,RES[r.kind].carry-u.carry.amount);
+    const take=Math.min(Math.floor(u.gatherAcc),r.amount,workerCarry(u,r.kind)-u.carry.amount);
     u.gatherAcc-=Math.floor(u.gatherAcc);
     u.carry.amount+=take; r.amount-=take;
     SND.play(r.kind==='wood'?'chop':'mine',r.x,r.y,{reach:420});
@@ -402,6 +404,7 @@ function updateBuildings(dt){
         vx:rand(-14,14),vy:rand(-40,-14),life:1.2,max:1.2,size:rand(6,14),col:'#5b5347',kind:'dust'});
       continue; }
     b.flash=Math.max(0,b.flash-dt);
+    if(b.done) tickUpgrades(b,dt);
     if(!b.done){
       if(Math.random()<dt*2.5) puff(b.x+rand(-b.r,b.r),b.y+rand(-b.r*.6,b.r*.6),.7,'#cbbb9a');
       continue;
@@ -740,7 +743,7 @@ function aiTick(side,ai,dt){
       const want=tr[Math.floor(Math.random()*tr.length)];
       if(b.queue.length<2) trainUnit(b,want);
     }
-    if(Math.random()<.5&&!saving) tryUpgrade(side,pick(['warrior','guard','archer','crossbow','heavy','siege']));
+    if(Math.random()<.5&&!saving) tryUpgrade(side,pick(['warrior','guard','archer','crossbow','heavy','siege','worker','worker']));
     // AI ulepsza budynki: najpierw jame (kolosy), potem kuznie i reszte
     if(!saving&&typeof upgradeBuilding==='function'){
       const mine=G.buildings.filter(b=>b.side===side&&!b.dead&&b.done&&(b.lvl||1)<bMaxLvl(b.type)&&b.type!=='townhall');

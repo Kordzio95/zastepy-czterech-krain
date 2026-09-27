@@ -491,20 +491,23 @@ function drawHUD(){
       btn(px+312,py+66,150,44,'Anuluj budowę','zwrot 60%',true,()=>cancelBuild(b),true);
     } else if(d.upgrades){
       const UL=['warrior','guard','archer','crossbow','heavy','worker','siege'];
+      const RS=b.res;
       UL.forEach((t,i)=>{
         const lvl=G.lvl.player[t], maxed=lvl>=UPG[t].max, c=upgCost(t,lvl);
-        const ok=!maxed&&canAfford('player',c);
+        const busy=RS&&RS.k===t;
+        const ok=!maxed&&!RS&&!b.upg&&canAfford('player',c);
         const col=i%4, row=Math.floor(i/4);
-        btn(px+col*112,py+30+row*56,106,50,UPG[t].label+' '+lvl+'/'+UPG[t].max,
-          maxed?'maksimum':costStr(c),ok,()=>tryUpgrade('player',t),true);
+        btn(px+col*84,py+38+row*42,80,40,UPG[t].label+' '+lvl+'/'+UPG[t].max,
+          busy?'bada… '+Math.ceil(RS.left)+'s':(maxed?'maksimum':costStr(c)+' · '+resTime(t,lvl)+'s'),ok||busy,()=>{ if(!busy) tryUpgrade('player',t); },true);
+        if(busy){ const bx=px+col*84, by=py+38+row*42; cx.fillStyle='rgba(0,0,0,.5)'; cx.fillRect(bx+4,by+34,72,4); cx.fillStyle='#7fc4ff'; cx.fillRect(bx+4,by+34,72*(1-RS.left/RS.total),4); }
       });
-      cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.65)';
-      cx.fillText('Ulepszenia zmieniają wygląd i siłę oddziałów.',px,py+146);
+      cx.font='500 10.5px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.6)';
+      cx.fillText(RS?'jedno badanie':'badania trwają,',px+3*84+4,py+96); cx.fillText(RS?'naraz':'jedno naraz',px+3*84+4,py+110);
     } else if(trainsOf(d,b.faction,b.side).length){
       const TL=trainsOf(d,b.faction,b.side);
       TL.forEach((t,i)=>{
         const du=UNITS[t], ok=canAfford('player',du.cost)&&popUsed('player')+du.pop<=popMax('player');
-        btn(px+i*150,py+44,144,50,tierName(G.pf,t,G.lvl.player[t]),
+        btn(px+i*150,py+44,144,50,tierName(G.pf,t,G.lvl.player[upgKeyOf(t)]||1),
           costStr(du.cost)+' · '+du.time+'s · '+du.pop+' lud.',ok,()=>trainUnit(b,t),true);
       });
       if(b.queue.length){
@@ -515,7 +518,9 @@ function drawHUD(){
     if(b.done){
       if(b.type==='townhall'){
         const kp=G.keep.player||0;
-        if(kp<2){
+        if(b.upg){
+          upgBar(px+pw-272,py+34,134,'Rozbudowa ratusza',b.upg);
+        } else if(kp<2){
           const KC=keepCost('player');
           btn(px+pw-272,py+34,134,50,kp?'Ratusz poziom 3':'Ulepsz Twierdzę',
             (kp?'kuźnia II · ':'Wielka Jama · ')+costStr(KC),canAfford('player',KC),()=>upgradeKeep('player'),true);
@@ -527,7 +532,9 @@ function drawHUD(){
         }
       } else if(bMaxLvl(b.type)>1){
         const lvl=b.lvl||1, block=bUpgBlock('player',b), c=bUpgCost(b.type,lvl);
-        if(lvl<bMaxLvl(b.type)){
+        if(b.upg){
+          upgBar(px+pw-272,py+34,134,'Ulepszanie budynku',b.upg);
+        } else if(lvl<bMaxLvl(b.type)){
           btn(px+pw-272,py+34,134,50,'Ulepsz budynek',
             block?block.slice(0,26):(BLVL_GAIN[b.type]||'mocniejszy')+' · '+costStr(c),
             !block&&canAfford('player',c),()=>upgradeBuilding('player',b),true);
@@ -675,22 +682,24 @@ function drawHUDMobile(){
       info='Kuźnia — ulepszenia widoczne na jednostkach';
       for(const t of ['warrior','guard','archer','crossbow','heavy','worker','siege']){
         const lvl=G.lvl.player[t], maxed=lvl>=UPG[t].max, c=upgCost(t,lvl);
-        items.push({t:UPG[t].label+' '+lvl+'/'+UPG[t].max,s:maxed?'maksimum':costStr(c),
-          ok:!maxed&&canAfford('player',c),a:()=>tryUpgrade('player',t)});
+        const busy=b.res&&b.res.k===t;
+        items.push({t:UPG[t].label+' '+lvl+'/'+UPG[t].max,s:busy?'bada… '+Math.ceil(b.res.left)+'s':(maxed?'maksimum':costStr(c)+' · '+resTime(t,lvl)+'s'),
+          ok:!maxed&&!b.res&&canAfford('player',c),a:()=>{ if(!busy) tryUpgrade('player',t); }});
       }
     } else if(trainsOf(d,b.faction,b.side).length){
       info=dl+(b.queue.length?'  ·  kolejka '+b.queue.length+' ('+Math.ceil(b.trainLeft)+'s)':'');
       for(const t of trainsOf(d,b.faction,b.side)){
         const du=UNITS[t];
-        items.push({t:tierName(G.pf,t,G.lvl.player[t]),s:costStr(du.cost)+' · '+du.pop+' lud.',
+        items.push({t:tierName(G.pf,t,G.lvl.player[upgKeyOf(t)]||1),s:costStr(du.cost)+' · '+du.pop+' lud.',
           ok:canAfford('player',du.cost)&&popUsed('player')+du.pop<=popMax('player'),a:()=>trainUnit(b,t)});
       }
     } else info=d.label+'  ·  HP '+Math.max(0,Math.round(b.hp))+'/'+b.maxHp;
     if(b.done){
-      if(b.type==='townhall'&&(G.keep.player||0)<2)
+      if(b.upg) items.push({t:'Ulepszanie',s:Math.ceil(b.upg.left)+'s · '+Math.round((1-b.upg.left/b.upg.total)*100)+'%',ok:false,a:()=>{}});
+      else if(b.type==='townhall'&&(G.keep.player||0)<2)
         items.push({t:G.keep.player?'Ratusz III':'Twierdza',s:costStr(keepCost('player')),
           ok:canAfford('player',keepCost('player')),a:()=>upgradeKeep('player')});
-      if(b.type!=='townhall'&&bMaxLvl(b.type)>1&&(b.lvl||1)<bMaxLvl(b.type)){
+      if(!b.upg&&b.type!=='townhall'&&bMaxLvl(b.type)>1&&(b.lvl||1)<bMaxLvl(b.type)){
         const bl=bUpgBlock('player',b), cc=bUpgCost(b.type,b.lvl||1);
         items.push({t:'Ulepsz',s:bl?'brak warunku':costStr(cc),ok:!bl&&canAfford('player',cc),
           a:()=>upgradeBuilding('player',b)});
@@ -863,7 +872,8 @@ function drawMinimap(){
   }
   if(typeof drawNeutralsMini==='function') drawNeutralsMini(m,sx,sy);
   for(const u of G.units){
-    if(u.dead||u.sleep||u.type==='villager') continue;
+    if(u.dead||u.sleep||u.hidden||u.type==='villager') continue;
+    if(u.type==='crownling'){ cx.fillStyle='#ffd35a'; cx.beginPath(); cx.arc(m.x+u.x*sx,m.y+u.y*sy,3.2,0,7); cx.fill(); continue; }
     cx.fillStyle=isBoss(u)?bossGlow(u):(u.side==='player'&&u.type==='worker'?'#cfe7b8':sideCol(u.side));
     const s=isBoss(u)?8:(u.type==='heavy'?4:(u.type==='troll'?3:2.4));
     cx.fillRect(m.x+u.x*sx-s/2,m.y+u.y*sy-s/2,s,s);
@@ -1231,4 +1241,14 @@ function bannerText(txt,y,size,col){
   lines.forEach((l,i)=>{ const yy=y+i*fs*1.15-(lines.length-1)*fs*.3;
     cx.fillStyle='rgba(0,0,0,.6)'; cx.fillText(l,VW/2+2,yy+2);
     cx.fillStyle=col||'#f1e7cf'; cx.fillText(l,VW/2,yy); });
+}
+
+function upgBar(x,y,w,label,U){
+  const f=1-U.left/U.total;
+  cx.fillStyle='rgba(20,16,10,.8)'; cx.fillRect(x,y,w,50);
+  cx.strokeStyle='rgba(230,194,115,.55)'; cx.lineWidth=1; cx.strokeRect(x+.5,y+.5,w-1,49);
+  cx.font='600 12px Satoshi,sans-serif'; cx.fillStyle='#e6c273'; cx.fillText(label,x+7,y+17);
+  cx.fillStyle='rgba(0,0,0,.55)'; cx.fillRect(x+7,y+26,w-14,8);
+  cx.fillStyle='#e6c273'; cx.fillRect(x+7,y+26,(w-14)*f,8);
+  cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.75)'; cx.fillText(Math.ceil(U.left)+' s · '+Math.round(f*100)+'%',x+7,y+46);
 }

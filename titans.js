@@ -39,7 +39,9 @@ function tAreaHit(u,x,y,R,dmg,opts){
     const d=Math.hypot(o.x-x,o.y-y); if(d>R+o.r) continue;
     const nx=(o.x-x)/(d||1), ny=(o.y-y)/(d||1);
     const hp0=o.hp;
-    dealDamage(o,Math.round(dmg*(isBoss(o)?1.2:1)),u.side,{n:10,power:1.5,dx:nx,dy:ny});
+    const big=o.type==='legend'||isBoss(o);
+    dealDamage(o,Math.round(dmg*(isBoss(o)?1.35:(o.type==='legend'?1.15:1))),u.side,{n:10,power:1.5,dx:nx,dy:ny,src:u});
+    if(big&&!o.dead&&!o.finishing&&typeof titanClash==='function') titanClash(u,o,x,y);
     dealt+=Math.max(0,hp0-Math.max(0,o.hp));
     if(!o.dead&&!isBoss(o)&&opts.kb) knockback(o,nx,ny,opts.kb,opts.lift||60,opts.stun||.3);
     if(!o.dead&&opts.burn) ignite(o,opts.burn,u.side);
@@ -59,8 +61,10 @@ function tImpactFx(x,y,R,col,big){
 }
 function titanFront(u,d){ return {x:u.x+Math.cos(u.facing)*(u.r+d),y:u.y+Math.sin(u.facing)*(u.r+d)}; }
 
-function titanTick(u,dt){
+function legendAct(u,dt){
   u.tAnim=(u.tAnim||0)+dt;
+  if(u.finishing) return;
+  if(typeof legendSeek==='function') legendSeek(u,dt);
   const A=u.tA; if(!A) return;
   if(A.tg&&!A.tg.dead){ A.tx=A.tg.x; A.ty=A.tg.y; }
   A.t+=dt; const p=A.t/A.dur, f=u.faction, dmg=unitDmg(u), col=(TITANS[f]||TITANS.ludzie).col;

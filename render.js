@@ -483,6 +483,15 @@ function drawBuilding(b){
       cx.textAlign='left';
     }
   }
+  // pasek ulepszania / badania
+  const UP=b.upg||b.res;
+  if(UP&&b.done&&!b.dead){
+    const f=1-UP.left/UP.total, bw=Math.max(56,r*1.6), yy=sy-r*1.5-24;
+    cx.fillStyle='rgba(0,0,0,.65)'; cx.fillRect(sx-bw/2-1,yy-1,bw+2,7);
+    cx.fillStyle=b.res?'#7fc4ff':'#e6c273'; cx.fillRect(sx-bw/2,yy,bw*f,5);
+    if(ZOOM>.6){ cx.font='700 9.5px Satoshi,sans-serif'; cx.textAlign='center'; const tx=(b.res?'Badanie ':'Ulepszanie ')+Math.ceil(UP.left)+'s';
+      cx.fillStyle='rgba(0,0,0,.65)'; cx.fillText(tx,sx+.5,yy-3.5); cx.fillStyle='#f1e7cf'; cx.fillText(tx,sx,yy-4); cx.textAlign='left'; }
+  }
   // znacznik poziomu budynku (ulepszenie)
   if(b.done&&!b.dead&&(b.lvl||1)>=2&&ZOOM>.7){
     const n=Math.min(3,(b.lvl||1)-1), yy=sy-r*1.5-(b.queue.length?16:7);
@@ -518,7 +527,8 @@ function drawFlag(x,y,c,side,h){
 
 /* ---------- jednostki ---------- */
 function drawUnit(u){
-  if(u.type==='kraken'){ if(typeof drawKraken==='function') drawKraken(u); return; }
+  if(u.type==='kraken'){ if(typeof drawKraken==='function'){ cx.save(); if(u.fin){ if(u.fin.filter) cx.filter=u.fin.filter; if(u.fin.al<.02){ cx.restore(); return; } } drawKraken(u); cx.restore(); } return; }
+  if(u.type==='crownling'){ if(typeof drawCrownling==='function') drawCrownling(u); return; }
   const sx=toScreenX(u.x), sy=toScreenY(u.y)-u.z*.6;
   const c=FACTIONS[u.faction].col, L=look(u.type,u.lvl), r=u.r;
   let bob=u.state==='move'?Math.sin(u.walk)*1.6:Math.sin(u.anim*2+u.id)*.6;
@@ -529,6 +539,7 @@ function drawUnit(u){
   if(u.type==='villager'||u.type==='troll'||u.type==='bandit'||u.type==='banditArcher') bob=u.state==='move'?-Math.abs(Math.sin(u.walk))*1.6:0;
   cx.save();
   cx.globalAlpha=u.dead?Math.max(0,u.fade):1;
+  if(u.fin){ const F=u.fin; cx.globalAlpha*=F.al; if(F.filter) cx.filter=F.filter; if(F.rot||F.sc!==1){ const px=sx, py=sy+r*.5; cx.translate(px,py); cx.rotate(F.rot||0); cx.scale(F.sc||1,F.sc||1); cx.translate(-px,-py); } }
   // cień
   const shadeS=1/(1+u.z/90);
   cx.fillStyle='rgba(0,0,0,'+(.3*shadeS)+')';
@@ -634,6 +645,15 @@ function drawUnit(u){
       cx.fillText(Math.ceil(u.hp)+'/'+u.maxHp,sx,yy-4);
       cx.textAlign='left';
     }
+  }
+  // podpis maszyn oblezniczych i tytanow
+  if(!u.dead&&(UNITS[u.type].siege||u.type==='legend')&&ZOOM>.55&&typeof tierName==='function'&&!(u.sel&&G.sel.length<=4&&ZOOM>.8)){
+    const nm=tierName(u.faction,u.type,u.lvl);
+    cx.font=(u.type==='legend'?'700 12px Cinzel,Georgia,serif':'700 10px Satoshi,sans-serif'); cx.textAlign='center';
+    const ny=sy+r*.56+(u.type==='legend'?r*.7+10:r*.5+12);
+    cx.fillStyle='rgba(0,0,0,.6)'; cx.fillText(nm,sx+.6,ny+.6);
+    cx.fillStyle=u.type==='legend'?'#ffe7a0':'#f1e7cf'; cx.fillText(nm,sx,ny);
+    cx.textAlign='left';
   }
   // nazwa jednostki pod zaznaczeniem — krotki opis kto to jest
   if(u.sel&&!u.dead&&ZOOM>.8&&G.sel.length<=4&&typeof tierName==='function'){
