@@ -206,6 +206,7 @@ function bindInput(){
       return;
     }
     if(G.placing){ const wallM=BUILDINGS[G.placing].wallSeg; placeBuilding(toWorldX(p.x),toWorldY(p.y)); if(!keys['Shift']&&!wallM) G.placing=null; return; }
+    if(e.button===0&&typeof campUIClick==='function'&&campUIClick(toWorldX(p.x),toWorldY(p.y))) return;
     mouse.down=true; mouse.drag=false; mouse.dragX=p.x; mouse.dragY=p.y;
   });
   cv.addEventListener('mousemove',e=>{
@@ -498,8 +499,8 @@ function drawHUD(){
       });
       cx.font='500 11px Satoshi,sans-serif'; cx.fillStyle='rgba(220,210,190,.65)';
       cx.fillText('Ulepszenia zmieniają wygląd i siłę oddziałów.',px,py+146);
-    } else if(trainsOf(d,b.faction).length){
-      const TL=trainsOf(d,b.faction);
+    } else if(trainsOf(d,b.faction,b.side).length){
+      const TL=trainsOf(d,b.faction,b.side);
       TL.forEach((t,i)=>{
         const du=UNITS[t], ok=canAfford('player',du.cost)&&popUsed('player')+du.pop<=popMax('player');
         btn(px+i*150,py+44,144,50,tierName(G.pf,t,G.lvl.player[t]),
@@ -612,9 +613,7 @@ function drawHUD(){
   if(G.banner){
     const t=clamp(G.banner.life/G.banner.max,0,1);
     cx.textAlign='center'; cx.globalAlpha=Math.min(1,t*2);
-    cx.font='700 40px Cinzel,Georgia,serif';
-    cx.fillStyle='rgba(0,0,0,.6)'; cx.fillText(G.banner.txt,VW/2+2,120+2);
-    cx.fillStyle=G.banner.col; cx.fillText(G.banner.txt,VW/2,120);
+    bannerText(G.banner.txt,120,40,G.banner.col);
     cx.globalAlpha=1;
   }
   if(paused){
@@ -678,9 +677,9 @@ function drawHUDMobile(){
         items.push({t:UPG[t].label+' '+lvl+'/'+UPG[t].max,s:maxed?'maksimum':costStr(c),
           ok:!maxed&&canAfford('player',c),a:()=>tryUpgrade('player',t)});
       }
-    } else if(trainsOf(d,b.faction).length){
+    } else if(trainsOf(d,b.faction,b.side).length){
       info=dl+(b.queue.length?'  ·  kolejka '+b.queue.length+' ('+Math.ceil(b.trainLeft)+'s)':'');
-      for(const t of trainsOf(d,b.faction)){
+      for(const t of trainsOf(d,b.faction,b.side)){
         const du=UNITS[t];
         items.push({t:tierName(G.pf,t,G.lvl.player[t]),s:costStr(du.cost)+' · '+du.pop+' lud.',
           ok:canAfford('player',du.cost)&&popUsed('player')+du.pop<=popMax('player'),a:()=>trainUnit(b,t)});
@@ -822,9 +821,7 @@ function drawHUDMobile(){
   if(G.banner){
     const t=clamp(G.banner.life/G.banner.max,0,1);
     cx.textAlign='center'; cx.globalAlpha=Math.min(1,t*2);
-    cx.font='700 '+Math.round(clamp(VW*.062,20,34))+'px Cinzel,Georgia,serif';
-    cx.fillStyle='rgba(0,0,0,.6)'; cx.fillText(G.banner.txt,VW/2+2,topBarH+52);
-    cx.fillStyle=G.banner.col; cx.fillText(G.banner.txt,VW/2,topBarH+50);
+    bannerText(G.banner.txt,topBarH+50,Math.round(clamp(VW*.062,20,34)),G.banner.col);
     cx.globalAlpha=1;
   }
   if(paused){
@@ -851,6 +848,7 @@ function drawMinimap(){
   cx.strokeStyle='rgba(230,194,115,.45)'; cx.strokeRect(m.x+.5,m.y+.5,m.w-1,m.h-1);
   const sx=m.w/MAP_W, sy=m.h/MAP_H;
   if(typeof drawRiversMini==='function') drawRiversMini(m,sx,sy);
+  if(typeof drawLandMini==='function') drawLandMini(m);
   for(const r of G.world.res){
     if(r.amount<=0) continue;
     cx.fillStyle=r.kind==='gold'?'rgba(230,194,115,.85)':'rgba(96,140,64,.8)';
@@ -895,13 +893,15 @@ function renderScene(){
   const ents=[];
   if(G.world.props) for(const p of G.world.props) if(vis(p.x,p.y,110)) ents.push({y:p.y,p});
   for(const b of G.buildings) if(vis(b.x,b.y,b.r*2)) ents.push({y:b.y,b});
-  for(const u of G.units) if(vis(u.x,u.y,isBoss(u)?280:60)) ents.push({y:u.y,u});
+  for(const u of G.units) if(vis(u.x,u.y,u.type==='kraken'?560:(isBoss(u)?280:60))) ents.push({y:u.y,u});
+  if(typeof bossEnts==='function') bossEnts(ents);
   ents.sort((a,b)=>a.y-b.y);
-  for(const e of ents){ if(e.b) drawBuilding(e.b); else if(e.p){ try{ drawProp(e.p); }catch(er){} } else drawUnit(e.u); }
+  for(const e of ents){ if(e.b) drawBuilding(e.b); else if(e.p){ try{ drawProp(e.p); }catch(er){} } else if(e.f){ try{ e.f(); }catch(er){} } else drawUnit(e.u); }
   drawEffects();
   drawPlacementGhost();
   drawSelectionBox();
   drawHoverHints();
+  if(typeof drawCampUI==='function') drawCampUI();
   cx.restore();
   if(G.flash>0){
     cx.globalAlpha=Math.min(.45,G.flash);
@@ -1212,3 +1212,20 @@ window.render_game_to_text=()=>JSON.stringify({
 window.setAddMode=v=>{ addMode=!!v; };
 window.getUI=()=>({addMode,boxMode,buildMenuOpen,buildPick,btns:hudBtns.map(b=>b.title)});
 window.startGame=startGame;
+
+/* baner: zmniejsza czcionke i lamie tekst, zeby zawsze miescil sie na ekranie */
+function bannerText(txt,y,size,col){
+  const maxW=VW*.9;
+  let fs=size; cx.font='700 '+fs+'px Cinzel,Georgia,serif';
+  let lines=[txt];
+  if(cx.measureText(txt).width>maxW){
+    const w=txt.split(' '); let best=null;
+    for(let i=1;i<w.length;i++){ const a=w.slice(0,i).join(' '), b=w.slice(i).join(' '); const m=Math.max(cx.measureText(a).width,cx.measureText(b).width); if(!best||m<best.m) best={a,b,m}; }
+    if(best){ lines=[best.a,best.b]; fs=Math.max(13,Math.min(size,Math.floor(size*maxW/best.m))); }
+    else fs=Math.max(13,Math.floor(size*maxW/cx.measureText(txt).width));
+  }
+  cx.font='700 '+fs+'px Cinzel,Georgia,serif';
+  lines.forEach((l,i)=>{ const yy=y+i*fs*1.15-(lines.length-1)*fs*.3;
+    cx.fillStyle='rgba(0,0,0,.6)'; cx.fillText(l,VW/2+2,yy+2);
+    cx.fillStyle=col||'#f1e7cf'; cx.fillText(l,VW/2,yy); });
+}

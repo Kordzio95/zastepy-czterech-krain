@@ -49,7 +49,7 @@ function newGame(pf,mapKey,mode){
 /* --- strony, drużyny, frakcje --- */
 const sideFaction=s=>(G.faction&&G.faction[s])||G.pf;
 function foe(a,b){ return a!==b && a!=='neutral' && b!=='neutral' && G.team[a]!==G.team[b]; }
-const isFoe=(x,y)=>foe(x.side,y.side)&&!x.sleep&&!y.sleep;
+const isFoe=(x,y)=>foe(x.side,y.side)&&!x.sleep&&!y.sleep&&!x.yield&&!y.yield&&!x.hidden&&!y.hidden;
 const allySide=(a,b)=>a===b||G.team[a]===G.team[b];
 function foeSides(side){ return G.sides.filter(s=>foe(s,side)); }
 function teamHasTownhall(team){ return G.buildings.some(b=>!b.dead&&b.type==='townhall'&&G.team[b.side]===team); }
@@ -369,7 +369,11 @@ function issueOrder(units,wx,wy,shift){
 /* ==========================================================================
    PLACEMENT / PRODUKCJA / ULEPSZENIA
    ========================================================================== */
-function trainsOf(def,faction){
+function trainsOf(def,faction,side){
+  if(side&&G&&G.crown&&G.crown[side]&&def===BUILDINGS.townhall) return trainsOf0(def,faction).concat(['legend']);
+  return trainsOf0(def,faction);
+}
+function trainsOf0(def,faction){
   if(def.trains==='siege') return siegeOf(faction);
   if(FTRAIN[faction]){
     for(const k in FTRAIN[faction]) if(BUILDINGS[k]===def) return FTRAIN[faction][k];
@@ -418,6 +422,12 @@ function trainUnit(b,type){
   if(!b.done||b.dead) return false;
   const side=b.side, def=UNITS[type];
   if(!def) return false;
+  if(type==='legend'){
+    if(!G.crown||!G.crown[side]){ if(side==='player') warn('Potrzebujesz Pradawnej Korony'); return false; }
+    const have=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='legend').length
+      +G.buildings.filter(x=>x.side===side&&!x.dead).reduce((n,x)=>n+x.queue.filter(q=>q==='legend').length,0);
+    if(have>=1){ if(side==='player') warn('Koronowany Władca może być tylko jeden'); return false; }
+  }
   if(type==='hero'){
     const have=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='hero').length
       +G.buildings.filter(x=>x.side===side&&!x.dead).reduce((n,x)=>n+x.queue.filter(q=>q==='hero').length,0);
@@ -573,9 +583,10 @@ function awardXp(victim,side){
    ========================================================================== */
 function spawnDragon(){
   const k=dragonKindFor(G.mapKey);
-  const u=spawnUnit('wild','dragon',MAP_W/2,MAP_H/2,1);
+  const P=(G.world&&G.world.giantSpot)||{x:MAP_W/2,y:MAP_H/2};
+  const u=spawnUnit('wild','dragon',P.x,P.y,1);
   u.dk=k; u.kind=k.key; u.faction=k.faction;
-  u.home={x:MAP_W/2,y:MAP_H/2};
+  u.home={x:P.x,y:P.y}; u.sleep=true; u.facing=Math.PI/2; u.idleT=0;
   u.breathCd=rand(4,9); u.roarCd=rand(6,14); u.wingCd=6;
   u.dragAnim=0; u.wingPh=rand(0,6); u.headPh=rand(0,6); u.breath=0; u.breathAng=0;
   G.dragon=u;
@@ -596,7 +607,7 @@ function gatherCount(side,kind){
   return G.units.filter(u=>u.side===side&&!u.dead&&u.type==='worker'&&
     u.order&&u.order.kind==='gather'&&u.order.res&&u.order.res.kind===kind).length;
 }
-function spdMul(u){ return (G.buff[u.side]>0?1.35:1)*(u.slow>0?.55:1); }
+function spdMul(u){ return (G.buff[u.side]>0?1.35:1)*(u.slow>0?.55:1)*(u.relic?.8:1); }
 
 function findEnemy(u,radius){
   let best=null,bd=radius;
@@ -615,6 +626,10 @@ function findEnemy(u,radius){
 }
 function dealDamage(t,amount,fromSide,opts={}){
   if(t.dead) return;
+  if(t.hidden) return;
+  if(t.sleep&&typeof bossWake==='function'&&isBoss(t)) bossWake(t);
+  if((t.chief||t.yield)&&typeof chiefGuard==='function'&&chiefGuard(t,amount,fromSide)) return;
+  if(fromSide) t.lastHitSide=fromSide;
   // pancerz ciezkiej piechoty tlumi kazde uderzenie (belty kusznikow go przebijaja)
   const ud=UNITS[t.type];
   if(ud&&ud.armor&&!opts.pierceArmor){
@@ -665,7 +680,9 @@ function dealDamage(t,amount,fromSide,opts={}){
       dragonReward(fromSide);
     }
     if(t.type==='giant') giantDied(t,fromSide);
-    if(t.type==='troll') trollDied(t,fromSide);
+    if(t.type==='troll'||t.type==='bandit'||t.type==='banditArcher'){ if(t.cave) campMemberDied(t,fromSide); }
+    if(t.type==='kraken'&&typeof krakenDied==='function') krakenDied(t,fromSide);
+    if(isBoss(t)&&typeof relicDrop==='function') relicDrop(t);
     if(fromSide&&G.res[fromSide]&&foe(fromSide,t.side)){
       const loot=8+(t.type==='heavy'?60:0)+(t.type==='troll'?(t.chief?70:40):0)+t.lvl*2;
       G.res[fromSide].gold+=loot;

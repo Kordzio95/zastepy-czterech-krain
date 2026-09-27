@@ -4,58 +4,87 @@
    ========================================================================== */
 'use strict';
 
-const isBoss=u=>!!u&&(u.type==='dragon'||u.type==='giant');
-const bossName=u=>u.type==='giant'?(u.gk?u.gk.name:'Górski Olbrzym'):(u.dk?u.dk.name:'Smok');
-const bossGlow=u=>u.type==='giant'?(u.gk?u.gk.glow:'#ffcf6a'):(u.dk?u.dk.glow:'#bda6d8');
+const isBoss=u=>!!u&&(u.type==='dragon'||u.type==='giant'||u.type==='kraken');
+const bossName=u=>u.type==='kraken'?'Kraken':(u.type==='giant'?(u.gk?u.gk.name:'Kamienny Golem'):(u.dk?u.dk.name:'Smok'));
+const bossGlow=u=>u.type==='kraken'?'#7fe0c8':(u.type==='giant'?(u.gk?u.gk.glow:'#ffcf6a'):(u.dk?u.dk.glow:'#bda6d8'));
 const VILLAGE_NAMES=['Wierzbno','Mokra Dolina','Brzozówka','Kamionka','Zielony Gaj','Stara Wola','Olszynka','Jarzębiec','Dębowy Jar'];
-const PROP_BLOCK={hut:1,well:1,cave:1,cart:1,hay:1,lairRock:1};
+const PROP_BLOCK={hut:1,well:1,cave:1,cart:1,hay:1,lairRock:1,tent:1,stall:1};
 
 /* ---------- generowanie miejsc na mapie ---------- */
 function makeNeutralSites(w,spots,mapKey){
-  w.villages=[]; w.caves=[]; w.props=[]; w.fields=[]; w.giantSpot=null;
-  const big=MAP_W*MAP_H>11e6;
+  w.villages=[]; w.caves=[]; w.props=[]; w.fields=[]; w.giantSpot=null; w.flags=[];
+  const big=MAP_W*MAP_H>15e6;
   const dry=(x,y,p)=>!(typeof inWater==='function')||!inWater(x,y,p);
   const taken=[];
-  for(const s of spots) taken.push({x:s.x,y:s.y,r:620});
+  for(const s of spots) taken.push({x:s.x,y:s.y,r:640});
   const boss=BOSS_BY_MAP[mapKey]||'dragon';
-  taken.push({x:MAP_W/2,y:MAP_H/2,r:boss==='dragon'?540:240});
+  const A=(typeof LAND!=='undefined'&&LAND.on)?LAND.arena:null;
+  if(A) taken.push({x:A.x,y:A.y,r:A.R+A.wall+120});
   for(const r of w.res) if(r.kind==='gold') taken.push({x:r.x,y:r.y,r:150});
   const free=(x,y,r)=>dry(x,y,Math.min(160,r*.9))&&taken.every(t=>Math.hypot(t.x-x,t.y-y)>t.r+r);
   const find=(r,tries,edge)=>{
     for(let i=0;i<tries;i++){
       const x=rand(r+90,MAP_W-r-90), y=rand(r+90,MAP_H-r-90);
-      if(edge&&Math.min(x,MAP_W-x,y,MAP_H-y)>edge) continue;
+      if(edge&&landEdgeDist(x,y)>edge) continue;
       if(free(x,y,r)) return {x,y};
     }
     return null;
   };
-  // ukryty olbrzym: przy krawedzi mapy, wsrod skal
+  // Kamienny Golem: przy brzegu ladu, udaje jedna ze skal w rumowisku
   if(boss==='giant'){
-    const p=find(210,600,Math.min(MAP_W,MAP_H)*.2)||find(190,600)||{x:MAP_W*.5+160,y:MAP_H*.12};
-    w.giantSpot=p; taken.push({x:p.x,y:p.y,r:300});
-    for(let i=0;i<9;i++){
-      const a=rand(0,7), d=rand(160,250);
+    const p=find(210,900,420)||find(190,600)||{x:MAP_W*.5+160,y:MAP_H*.12};
+    w.giantSpot=p; taken.push({x:p.x,y:p.y,r:320});
+    for(let i=0;i<12;i++){
+      const a=rand(0,7), d=rand(140,280);
       const x=clamp(p.x+Math.cos(a)*d,60,MAP_W-60), y=clamp(p.y+Math.sin(a)*d*.75,60,MAP_H-60);
-      if(dry(x,y,30)) w.props.push({kind:'lairRock',x,y,r:rand(20,38),seed:rand(0,99)});
+      if(dry(x,y,30)) w.props.push({kind:'lairRock',x,y,r:rand(34,64),seed:rand(0,99)});
     }
   }
-  // jaskinie trolli
+  if((boss==='titan'||boss==='dragon')&&A) w.giantSpot={x:A.x,y:A.y-20};
+  // flagi krakena na brzegach jeziora
+  if(boss==='kraken'&&LAND.lake){
+    const K=LAND.lake;
+    for(const sg of [-1,1]){
+      let x=K.x, y=K.y+sg*(K.ry+60);
+      for(let g=0;g<40&&!dry(x,y,50);g++) y+=sg*16;
+      y+=sg*40;
+      w.flags.push({x,y,owner:null,prog:0,cap:null,id:sg});
+      taken.push({x,y,r:180});
+    }
+  }
+  // jaskinie trolli (z kociolkiem i ogniskiem)
   const nC=big?3:2;
   for(let i=0;i<nC;i++){
-    const p=find(150,500); if(!p) continue;
-    taken.push({x:p.x,y:p.y,r:230});
-    const cave={id:'c'+i,x:p.x,y:p.y,cleared:false,mx:p.x,my:p.y+44};
+    const p=find(170,600); if(!p) continue;
+    taken.push({x:p.x,y:p.y,r:250});
+    const cave={id:'c'+i,kind:'troll',x:p.x,y:p.y,cleared:false,mx:p.x,my:p.y+48,
+      pot:{x:p.x+78,y:p.y+96},owner:null,chiefOut:false,total:0,dead:0};
     w.caves.push(cave);
     w.props.push({kind:'cave',x:p.x,y:p.y,r:62,seed:rand(0,99),cave});
+    w.props.push({kind:'cauldron',x:cave.pot.x,y:cave.pot.y,r:14,seed:rand(0,99),cave});
+  }
+  // obozy rozbojnikow: namioty, ognisko, palisada
+  const nB=big?2:1;
+  for(let i=0;i<nB;i++){
+    const p=find(170,600); if(!p) continue;
+    taken.push({x:p.x,y:p.y,r:250});
+    const cave={id:'b'+i,kind:'bandit',x:p.x,y:p.y-20,cleared:false,mx:p.x,my:p.y+30,
+      pot:{x:p.x,y:p.y+40},owner:null,chiefOut:false,total:0,dead:0,tents:[]};
+    w.caves.push(cave);
+    w.props.push({kind:'tent',x:p.x,y:p.y-34,r:34,seed:rand(0,99),cave,big:true,col:'#7a3a2a'});
+    for(const sg of [-1,1]){ const t={kind:'tent',x:p.x+sg*92,y:p.y+4,r:24,seed:rand(0,99),cave,col:pick(['#5a5a3a','#6a4a3a','#4a5a5a'])}; w.props.push(t); cave.tents.push(t); }
+    w.props.push({kind:'campfire',x:cave.pot.x,y:cave.pot.y,r:12,seed:rand(0,99),cave});
+    w.props.push({kind:'palisade',x:p.x,y:p.y,r:150,seed:rand(0,99),cave});
+    w.props.push({kind:'loot',x:p.x+40,y:p.y-8,r:10,seed:rand(0,99),cave});
   }
   // wioski
   const nV=big?3:2;
   const names=VILLAGE_NAMES.slice();
   for(let i=0;i<nV;i++){
-    const p=find(220,500); if(!p) continue;
-    taken.push({x:p.x,y:p.y,r:260});
+    const p=find(230,600); if(!p) continue;
+    taken.push({x:p.x,y:p.y,r:270});
     const nm=names.splice(randi(0,names.length-1),1)[0]||'Wioska';
-    const V={id:'v'+i,x:p.x,y:p.y,r:230,name:nm,visited:{},huts:[]};
+    const V={id:'v'+i,x:p.x,y:p.y,r:230,name:nm,visited:{},huts:[],spots:{}};
     w.villages.push(V);
     w.props.push({kind:'well',x:p.x,y:p.y,r:17,seed:rand(0,99)});
     const nh=randi(5,7), a0=rand(0,7);
@@ -70,18 +99,29 @@ function makeNeutralSites(w,spots,mapKey){
     for(let k=0;k<2;k++){
       const a=a0+Math.PI*(k?.35:1.35)+rand(-.3,.3), d=rand(185,215);
       const x=p.x+Math.cos(a)*d, y=p.y+Math.sin(a)*d*.72;
-      if(dry(x,y,70)) w.fields.push({x,y,w:rand(110,150),h:rand(62,80),crop:pick(['zboze','kapusta','len']),seed:rand(0,99)});
+      if(dry(x,y,70)) w.fields.push({x,y,w:rand(110,150),h:rand(62,80),crop:pick(['zboze','kapusta','len']),seed:rand(0,99),vil:V});
     }
+    // warsztaty: kuznia z kowadlem, pieniek drwala, lawka, stragan
+    const ws=(kind,ang,d,r)=>{ const x=p.x+Math.cos(ang)*d, y=p.y+Math.sin(ang)*d*.72; if(!dry(x,y,20)) return null;
+      const pr={kind,x,y,r:r||10,seed:rand(0,99)}; w.props.push(pr); return pr; };
+    V.spots.anvil=ws('anvil',a0+.55,70,9);
+    V.spots.stump=ws('stump',a0+2.6,78,9);
+    V.spots.bench=ws('bench',a0+4.1,60,10);
+    V.spots.stall=ws('stall',a0+5.3,72,16);
     for(let k=0;k<2;k++){
       const a=rand(0,7), d=rand(40,80);
       w.props.push({kind:k?'cart':'hay',x:p.x+Math.cos(a)*d,y:p.y+Math.sin(a)*d*.7+10,r:k?16:14,seed:rand(0,99)});
     }
   }
   // drzewa nie rosna w chatach ani w jaskiniach
-  w.res=w.res.filter(r=>r.kind!=='wood'||!w.props.some(p=>Math.hypot(p.x-r.x,p.y-r.y)<(p.r||20)+20)&&
+  w.res=w.res.filter(r=>r.kind!=='wood'||!w.props.some(p=>Math.hypot(p.x-r.x,p.y-r.y)<(p.kind==='palisade'?p.r:(p.r||20))+20)&&
     !w.fields.some(f=>Math.abs(f.x-r.x)<f.w*.6&&Math.abs(f.y-r.y)<f.h*.6));
 }
-/* chaty, studnie i jaskinie blokuja przejscie */
+/* odleglosc do krawedzi ladu (lub mapy) */
+function landEdgeDist(x,y){
+  if(typeof LAND!=='undefined'&&LAND.on) return Math.max(0,landSD(x,y));
+  return Math.min(x,MAP_W-x,y,MAP_H-y);
+}
 function navBlockProps(){
   if(!NAV.ready||!G.world.props) return;
   const c=NAV.cell;
@@ -116,28 +156,29 @@ function setupNeutralSides(g,mapKey){
   g.faction.neutral='ludzie';
   g.res.neutral={gold:0,wood:0};
   g.lvl.neutral={villager:1}; g.buff.neutral=0; g.fallen.neutral=[]; g.keep.neutral=0;
-  g.lvl.wild.troll=1; g.lvl.wild.giant=1;
+  g.lvl.wild.troll=1; g.lvl.wild.giant=1; g.lvl.wild.bandit=1; g.lvl.wild.banditArcher=1; g.lvl.wild.kraken=1;
 }
 const VK_HUMAN=['chlop','baba','dziecko','kowal','kupiec','starzec','pasterz','drwal'];
 function spawnVillager(V,vk){
   const a=rand(0,7), d=rand(30,V.r*.6);
   const u=spawnUnit('neutral','villager',V.x+Math.cos(a)*d,V.y+Math.sin(a)*d*.7,1);
   u.vil=V; u.vk=vk; u.faction='ludzie';
-  u.r=vk==='dziecko'?7.5:(vk==='kura'?5:(vk==='owca'?9:(vk==='pies'?7:10.5)));
-  u.speed=vk==='dziecko'?42:(vk==='kura'?30:(vk==='starzec'?20:(vk==='pies'?48:30)));
+  u.r=vk==='dziecko'?7.5:(vk==='kura'?5:(vk==='owca'?9:(vk==='pies'?7:(vk==='kot'?5.5:10.5))));
+  u.speed=vk==='dziecko'?42:(vk==='kura'?30:(vk==='starzec'?20:(vk==='pies'?48:(vk==='kot'?34:30))));
+  u.catC=pick(['#3a3430','#d88a3a','#e8e0d0','#8a8a8a','#5a4028']);
   u.cloth=pick(['#8a4a3a','#4a6a8a','#6a7a3a','#8a7a4a','#7a4a6a','#5a5a6a','#9a6a3a']);
   u.cloth2=pick(['#d9c9a4','#bfa57e','#6e4e30','#e8dcc0']);
   u.skinC=pick(['#e3b28a','#d9a57a','#c98f66','#eec29c']);
   u.hair=pick(['#3a2a1c','#6b4a2a','#a67c44','#2a2420','#d8c8a0']);
   u.hat=vk==='starzec'?'kaptur':pick(['slomkowy','chusta','brak','czapka','brak']);
   u.idleT=rand(0,3); u.wp=null; u.task=null; u.fear=0; u.mass=vk==='owca'?2:1;
-  if(vk==='kowal') u.task='kucie';
   return u;
 }
 function spawnTroll(cave,i,n,chief){
-  const a=i/n*Math.PI*2, d=rand(30,60);
-  const u=spawnUnit('wild','troll',cave.mx+Math.cos(a)*d,cave.my+Math.sin(a)*d*.6,1);
-  u.faction='orki'; u.cave=cave; u.home={x:cave.mx+Math.cos(a)*d*.8,y:cave.my+Math.sin(a)*d*.5};
+  const P=cave.pot, a=i/Math.max(1,n)*Math.PI*2+.4, d=chief?0:58;
+  const hx=chief?cave.mx:P.x+Math.cos(a)*d, hy=chief?cave.my+10:P.y+Math.sin(a)*d*.6;
+  const u=spawnUnit('wild','troll',hx,hy,1);
+  u.faction='orki'; u.cave=cave; u.home={x:hx,y:hy}; u.seat=i;
   u.skinT=pick(['#6f7f5a','#7a8a64','#5f6f52','#808a6e']);
   u.club=pick(['maczuga','kosc','glaz']);
   if(chief){ u.chief=true; u.r*=1.28; u.maxHp=u.hp=Math.round(u.hp*1.6); u.dmg=Math.round(u.dmg*1.3); u.club='maczuga'; }
@@ -149,6 +190,7 @@ function spawnGiant(){
   const k=giantKindFor(G.mapKey);
   const u=spawnUnit('wild','giant',p.x,p.y,1);
   u.gk=k; u.faction=k.faction; u.home={x:p.x,y:p.y}; u.maxHp=u.hp=UNITS.giant.hp;
+  if(k.titan){ u.r=138; u.maxHp=u.hp=15000; u.dmg=270; u.titan=true; u.eruptCd=8; }
   u.sleep=true; u.wakeT=0; u.act=null; u.actT=0; u.actDur=1; u.actHit=false;
   u.throwCd=4; u.stompCd=6; u.roarCd=10; u.idleT=0; u.gAnim=rand(0,6);
   u.facing=Math.PI/2;
@@ -156,24 +198,30 @@ function spawnGiant(){
   return u;
 }
 function spawnBoss(){
-  if((BOSS_BY_MAP[G.mapKey]||'dragon')==='giant') spawnGiant();
+  const b=BOSS_BY_MAP[G.mapKey]||'dragon';
+  if(b==='giant'||b==='titan') spawnGiant();
+  else if(b==='kraken'&&typeof spawnKraken==='function') spawnKraken();
   else spawnDragon();
 }
 function spawnNeutrals(){
   const w=G.world;
   for(const V of w.villages||[]){
-    const n=randi(5,7);
-    for(let i=0;i<n;i++) spawnVillager(V,i===0?'kowal':pick(VK_HUMAN));
+    const n=randi(6,8);
+    const kinds=['kowal','chlop','baba','dziecko','dziecko','dziecko','drwal','kupiec','starzec','pasterz','baba','chlop'];
+    for(let i=0;i<n+2;i++) spawnVillager(V,kinds[i%kinds.length]);
     for(let i=0;i<randi(3,5);i++) spawnVillager(V,'kura');
     for(let i=0;i<randi(2,3);i++) spawnVillager(V,'owca');
-    spawnVillager(V,'pies');
+    spawnVillager(V,'pies'); spawnVillager(V,'kot'); if(Math.random()<.6) spawnVillager(V,'kot');
   }
   for(const c of w.caves||[]){
-    const n=MAP_W*MAP_H>11e6?4:3;
-    for(let i=0;i<n;i++) spawnTroll(c,i,n,i===0);
+    const n=c.kind==='bandit'?(MAP_W*MAP_H>15e6?5:4):(MAP_W*MAP_H>15e6?4:3);
+    c.total=n; c.dead=0;
+    for(let i=0;i<n;i++){
+      if(c.kind==='bandit') spawnBandit(c,i,n,false);
+      else spawnTroll(c,i,n,false);
+    }
   }
 }
-
 /* ---------- wspolny prosty ruch ---------- */
 function nMove(u,tx,ty,sp,dt){
   const ang=Math.atan2(ty-u.y,tx-u.x);
@@ -197,54 +245,7 @@ function nFoeNear(u,cx0,cy0,R){
    WIESNIACY
    ========================================================================== */
 const VIL_SAY=['Witajcie, wędrowcy!','Dobrego dnia!','Uważajcie na trolle!','Świeży chleb!','W górach coś chrapie…','Niech bogowie was prowadzą!'];
-function updateVillager(u,dt){
-  if(u.stun>0){ u.stun-=dt; return; }
-  const V=u.vil; if(!V) return;
-  u.scan=(u.scan||0)-dt;
-  if(u.scan<=0){
-    u.scan=.5;
-    let dz=null,bd=240;
-    for(const o of G.units){
-      if(o.dead||o.side==='neutral') continue;
-      if(o.state!=='fight'&&!isBoss(o)&&o.type!=='troll') continue;
-      const d=Math.hypot(o.x-u.x,o.y-u.y);
-      if(d<bd){ bd=d; dz=o; }
-    }
-    if(dz){ u.fear=2.5; u.fx=dz.x; u.fy=dz.y; }
-  }
-  const animal=u.vk==='kura'||u.vk==='owca'||u.vk==='pies';
-  if(u.fear>0){
-    u.fear-=dt;
-    const a=Math.atan2(u.y-u.fy,u.x-u.fx);
-    let tx=u.x+Math.cos(a)*80, ty=u.y+Math.sin(a)*80;
-    // uciekaja, ale nie dalej niz pol wioski dalej
-    if(Math.hypot(tx-V.x,ty-V.y)>V.r*1.3){ tx=V.x+(tx-V.x)*.6; ty=V.y+(ty-V.y)*.6; }
-    nMove(u,tx,ty,u.speed*1.9,dt);
-    if(!animal&&Math.random()<dt*.5&&!(u.sayT>0)){ u.say=pick(['Ratunku!','Uciekać!','Aaa!']); u.sayT=1.2; }
-    return;
-  }
-  if(u.wp){
-    const d=Math.hypot(u.wp.x-u.x,u.wp.y-u.y);
-    if(d<6){ u.wp=null; u.state='idle'; u.idleT=animal?rand(1,4):rand(2,7);
-      u.task=u.vk==='kowal'?'kucie':(animal?(u.vk==='kura'?'dziob':null):pick([null,'rozmowa','zamiatanie','noszenie',null]));
-    }
-    else nMove(u,u.wp.x,u.wp.y,u.speed,dt);
-    return;
-  }
-  u.state='idle';
-  u.idleT-=dt;
-  if(u.idleT<=0){
-    const R=u.vk==='kowal'?40:(u.vk==='owca'?V.r*1.05:V.r*.85);
-    for(let k=0;k<8;k++){
-      const a=rand(0,7), d=rand(20,R);
-      const x=V.x+Math.cos(a)*d, y=V.y+Math.sin(a)*d*.72;
-      if(G.world.props.some(p=>PROP_BLOCK[p.kind]&&Math.hypot(p.x-x,(p.y-y)*1.25)<p.r+12)) continue;
-      u.wp={x,y}; u.task=null; break;
-    }
-    if(!u.wp) u.idleT=1;
-  }
-}
-/* odwiedziny: pierwsza wizyta armii w wiosce = dary */
+
 function updateVillages(dt){
   const W=G.world; if(!W||!W.villages) return;
   W.vt=(W.vt||0)-dt; if(W.vt>0) return; W.vt=.4;
@@ -269,37 +270,7 @@ function updateVillages(dt){
    TROLLE — strazniki jaskin
    ========================================================================== */
 const TROLL_GUARD=300, TROLL_LEASH=470;
-function updateTroll(u,dt){
-  if(u.stun>0){ u.stun-=dt; return; }
-  u.atk=Math.max(-.05,u.atk-dt);
-  if(u.swing>0) u.swing-=dt;
-  if(u.windup>0){
-    u.windup-=dt;
-    if(u.windup<=0){ u.swing=.42; u.swingMax=.42; trollStrike(u); }
-    return;
-  }
-  const h=u.home;
-  let t=nFoeNear(u,h.x,h.y,TROLL_GUARD);
-  if(t&&Math.hypot(u.x-h.x,u.y-h.y)>TROLL_LEASH) t=null;
-  if(!t){
-    if(u.hp<u.maxHp) u.hp=Math.min(u.maxHp,u.hp+dt*9);
-    const dh=Math.hypot(u.x-h.x,u.y-h.y);
-    if(dh>14) nMove(u,h.x,h.y,u.speed,dt);
-    else { u.state='idle'; u.idleT-=dt; if(u.idleT<=0){ u.idleT=rand(3,8); u.task=pick(['drapanie','ziewanie',null,'siedzenie']); u.taskT=2.2; } }
-    if(u.taskT>0) u.taskT-=dt; else u.task=null;
-    return;
-  }
-  u.task=null;
-  const d=Math.hypot(t.x-u.x,t.y-u.y), reach=u.range+u.r+t.r;
-  if(d>reach){ nMove(u,t.x,t.y,u.speed*spdMul(u),dt); return; }
-  u.facing=Math.atan2(t.y-u.y,t.x-u.x); u.state='fight';
-  if(u.atk>0) return;
-  u.atk=u.ias;
-  let crowd=0; for(const o of G.units) if(!o.dead&&isFoe(o,u)&&Math.hypot(o.x-u.x,o.y-u.y)<90) crowd++;
-  u.atkStyle=crowd>=3&&Math.random()<.6?1:(Math.random()<.3?2:0);
-  u.windup=u.atkStyle===2?.6:.45; u.tgt=t;
-  if(Math.random()<.25) { u.say=pick(['GRUUH!','Moja jaskinia!','Miażdżyć!','Troll głodny!']); u.sayT=1; }
-}
+
 function trollStrike(u){
   const dmg=Math.round(u.dmg*dmgMul(u.side));
   const fx=u.x+Math.cos(u.facing)*(u.r+14), fy=u.y+Math.sin(u.facing)*(u.r+14);
@@ -339,18 +310,6 @@ function trollStrike(u){
     if(UNITS[t.type]) knockback(t,nx,ny,150,0);
   }
 }
-function trollDied(t,fromSide){
-  const c=t.cave; if(!c||c.cleared) return;
-  if(G.units.some(o=>!o.dead&&o.cave===c)) return;
-  c.cleared=true;
-  if(!fromSide||!G.res[fromSide]) return;
-  G.res[fromSide].gold+=320; G.res[fromSide].wood+=180;
-  if(fromSide==='player'){
-    floatText(c.x,c.y-70,'+320 złota  +180 drewna','#e6c273',18);
-    G.banner={txt:'Jaskinia trolli oczyszczona! Skarb trolli jest twój.',life:4.5,max:4.5};
-    G.will=Math.min(G.willMax,G.will+40);
-  }
-}
 
 /* ==========================================================================
    GORSKI OLBRZYM — ukryty boss, spi jako skalne wzgorze
@@ -370,8 +329,8 @@ function updateGiant(u,dt){
   if(u.sleep){
     u.state='idle'; u.stun=0;
     if(Math.random()<dt*.35) puff(u.x+rand(-30,30),u.y-u.r*.3,1.4,'rgba(220,220,210,.5)');
-    const near=G.units.some(o=>!o.dead&&o.side!=='wild'&&o.side!=='neutral'&&Math.hypot(o.x-u.x,o.y-u.y)<330);
-    if(near){ u.sleep=false; giantStart(u,'wake'); giantWakeFx(u); }
+    // golem spi do pierwszego ciosu; tytan budzi sie, gdy ktos wejdzie do krateru
+    if(u.titan&&G.units.some(o=>!o.dead&&G.res[o.side]&&o.side!=='neutral'&&o.side!=='wild'&&inArena(o.x,o.y,-30))) bossWake(u);
     return;
   }
   if(u.act){
@@ -396,7 +355,7 @@ function updateGiant(u,dt){
     else {
       u.state='idle'; u.idleT+=dt;
       if(u.roarCd<=0&&u.idleT<3){ giantStart(u,'roar'); u.roarCd=rand(14,22); return; }
-      if(u.idleT>18){ u.sleep=true; u.facing=Math.PI/2; u.idleT=0;
+      if(u.idleT>18&&!u.titan){ u.sleep=true; u.facing=Math.PI/2; u.idleT=0;
         if(vis(u.x,u.y,400)) floatText(u.x,u.y-u.r,'…zasypia','#d9d2c0',15); }
     }
     return;
@@ -755,14 +714,24 @@ function heroStyleOverlay(u,r){
 function updateNeutrals(dt){
   if(!G||!G.world) return;
   updateVillages(dt);
+  if(typeof updateVillageGames==='function') updateVillageGames(dt);
+  if(typeof updateCamps==='function') updateCamps(dt);
+  if(typeof updateBosses2==='function') updateBosses2(dt);
   propPushOut();
 }
 
 /* nazwy do podpisow i podpowiedzi */
-const VK_NAME={chlop:'Chłop',baba:'Wieśniaczka',dziecko:'Dziecko',kowal:'Kowal',kupiec:'Kupiec',starzec:'Starzec',pasterz:'Pasterz',drwal:'Drwal',kura:'Kura',owca:'Owca',pies:'Pies'};
+const VK_NAME={chlop:'Chłop',baba:'Wieśniaczka',dziecko:'Dziecko',kowal:'Kowal',kupiec:'Kupiec',starzec:'Starzec',pasterz:'Pasterz',drwal:'Drwal',kura:'Kura',owca:'Owca',pies:'Pies',kot:'Kot'};
 function neutralName(u){
-  if(isBoss(u)) return bossName(u);
-  if(u.type==='troll') return u.chief?'Wódz Trolli':'Troll z Jaskini';
+  if(isBoss(u)){
+    if(u.sleep&&u.type==='giant'&&!u.titan) return 'Omszały głaz';
+    if(u.sleep&&u.type==='dragon') return u.dk&&u.dk.key==='lodowy'?'Zaspa śnieżna':'Stos kości i złota';
+    if(u.sleep&&u.titan) return 'Skuty posąg';
+    return bossName(u);
+  }
+  if(u.type==='troll') return u.merc?'Najemny troll':(u.chief?'Wódz Trolli':'Troll z Jaskini');
+  if(u.type==='bandit'||u.type==='banditArcher') return u.merc?'Najemny '+(u.type==='bandit'?'rozbójnik':'łucznik'):(u.chief?'Herszt rozbójników':UNITS[u.type].label);
+  if(u.type==='legend') return 'Koronowany Władca';
   if(u.type==='villager') return (VK_NAME[u.vk]||'Wieśniak')+(u.vil?' z '+u.vil.name:'');
   return null;
 }

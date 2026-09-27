@@ -92,7 +92,9 @@ function updateUnits(dt){
 
     if(u.type==='dragon'){ updateDragon(u,dt); continue; }
     if(u.type==='giant'){ updateGiant(u,dt); continue; }
-    if(u.type==='troll'){ updateTroll(u,dt); continue; }
+    if(u.type==='kraken'){ if(typeof updateKraken==='function') updateKraken(u,dt); continue; }
+    if(u.type==='troll'&&u.side==='wild'){ updateTroll(u,dt); continue; }
+    if((u.type==='bandit'||u.type==='banditArcher')&&u.side==='wild'){ updateBandit(u,dt); continue; }
     if(u.type==='villager'){ updateVillager(u,dt); continue; }
     if(u.stun>0){ u.stun-=dt; continue; }
     u.atk=Math.max(-.05,u.atk-dt);
@@ -175,7 +177,7 @@ function updateUnits(dt){
     else u.state='idle';
   }
   separate(dt);
-  if(typeof waterPushOut==='function') for(const u of G.units) if(u.type!=='dragon'&&u.type!=='giant') waterPushOut(u,dt);
+  if(typeof waterPushOut==='function') for(const u of G.units) if(u.type!=='dragon'&&u.type!=='giant'&&u.type!=='kraken') waterPushOut(u,dt);
   if(typeof updateNeutrals==='function') updateNeutrals(dt);
 }
 
@@ -247,7 +249,8 @@ function attackTarget(u,t,dt,keepOrder){
     }
     siegeAttack(u,t); return;
   }
-  if(u.type==='archer') archerAttack(u,t);
+  if(u.type==='banditArcher') shootArrow(u,t);
+  else if(u.type==='archer') archerAttack(u,t);
   else if(u.type==='crossbow') crossbowAttack(u,t);
   else if(u.type==='flamer') flamerAttack(u,t);
   else if(u.type==='guard') guardAttack(u,t);
@@ -728,7 +731,7 @@ function aiTick(side,ai,dt){
     const saving=!G.keep[side]&&ai.step>=3&&G.buildings.some(x=>x.side===side&&!x.dead&&x.done&&x.type==='lair');
     for(const b of G.buildings){
       if(b.side!==side||b.dead||!b.done) continue;
-      const tr=trainsOf(BUILDINGS[b.type],sideFaction(side));
+      const tr=trainsOf(BUILDINGS[b.type],sideFaction(side),side);
       if(!tr||!tr.length) continue;
       if(tr[0]==='worker') continue;
       if(saving&&G.res[side].gold<KEEP_COST.gold+70) continue;
@@ -818,6 +821,10 @@ function updateDragon(u,dt){
   if(u.breathCd>0) u.breathCd-=dt;
   if(u.roarCd>0) u.roarCd-=dt;
   if(u.atk>0) u.atk-=dt;
+  if(u.sleep){ u.state='idle'; u.stun=0; if(u.hp<u.maxHp) u.hp=Math.min(u.maxHp,u.hp+dt*40);
+    if(G.units.some(o=>!o.dead&&G.res[o.side]&&o.side!=='neutral'&&o.side!=='wild'&&(typeof inArena!=='function'||!LAND.arena?Math.hypot(o.x-u.x,o.y-u.y)<380:inArena(o.x,o.y,-20)))) bossWake(u);
+    return; }
+  if(u.wakeT>0){ u.wakeT-=dt; u.state='idle'; return; }
   if(typeof dragonTimers==='function'&&dragonTimers(u,dt)) return;
   if(u.stun>0){ u.stun-=dt; return; }
   if(u.hp<u.maxHp) u.hp=Math.min(u.maxHp,u.hp+dt*14);   // smok sie leczy, trzeba go zabic szybko

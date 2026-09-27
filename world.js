@@ -25,6 +25,7 @@ function makeWorld(mapKey,mode){
   const w={decor:[],res:[],patches:[],theme:T,name:M.name,key:mapKey,rivers:[]};
   G.world=w;                                  // rzeki potrzebuja dostepu przez inWater()
   w.rivers=(typeof makeRivers==='function')?makeRivers(mapKey):[];
+  if(typeof landSetup==='function'){ try{ landSetup(w,mapKey,spots); }catch(e){ console.error(e); LAND.on=false; } }
   const dry=(x,y,pad)=>!(typeof inWater==='function')||!inWater(x,y,pad===undefined?26:pad);
   const nearBase=(x,y,d)=>spots.some(s=>Math.hypot(s.x-x,s.y-y)<d);
   const nP=Math.round(120*(MAP_W*MAP_H)/(2600*1800));

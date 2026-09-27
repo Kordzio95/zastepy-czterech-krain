@@ -67,6 +67,7 @@ function drawTerrain(){
   for(let y=y0;y<CAM.h;y+=gs){cx.moveTo(0,y);cx.lineTo(CAM.w,y);}
   cx.stroke();
   if(typeof drawRivers==='function') drawRivers();
+  if(typeof drawLand==='function') drawLand();
   for(const d of G.world.decor){
     if(!vis(d.x,d.y,20)) continue;
     const sx=toScreenX(d.x), sy=toScreenY(d.y);
@@ -517,6 +518,7 @@ function drawFlag(x,y,c,side,h){
 
 /* ---------- jednostki ---------- */
 function drawUnit(u){
+  if(u.type==='kraken'){ if(typeof drawKraken==='function') drawKraken(u); return; }
   const sx=toScreenX(u.x), sy=toScreenY(u.y)-u.z*.6;
   const c=FACTIONS[u.faction].col, L=look(u.type,u.lvl), r=u.r;
   let bob=u.state==='move'?Math.sin(u.walk)*1.6:Math.sin(u.anim*2+u.id)*.6;
@@ -524,7 +526,7 @@ function drawUnit(u){
   if(u.type==='dragon') bob=u.state==='move'?-Math.abs(Math.sin(u.walk))*5.5+2.6:Math.sin(u.dragAnim*1.1)*2.2;
   if(u.type==='dragon'&&u.stompT>0){ const p=1-u.stompT/.95; bob+=p<.58?-Math.sin(p/.58*Math.PI*.5)*r*.4:-r*.4*Math.max(0,1-(p-.58)/.08); }
   if(u.type==='giant') bob=u.sleep?0:(u.state==='move'?-Math.abs(Math.sin(u.walk))*6+3:Math.sin(u.gAnim*1.2)*1.5);
-  if(u.type==='villager'||u.type==='troll') bob=u.state==='move'?-Math.abs(Math.sin(u.walk))*1.6:0;
+  if(u.type==='villager'||u.type==='troll'||u.type==='bandit'||u.type==='banditArcher') bob=u.state==='move'?-Math.abs(Math.sin(u.walk))*1.6:0;
   cx.save();
   cx.globalAlpha=u.dead?Math.max(0,u.fade):1;
   // cień
@@ -537,7 +539,7 @@ function drawUnit(u){
   cx.lineWidth=1.6;
   cx.beginPath(); cx.ellipse(toScreenX(u.x),toScreenY(u.y)+r*.56,r*.82,r*.44,0,0,7); cx.stroke();
   }
-  if(u.type==='hero'){
+  if(u.type==='hero'||u.type==='legend'){
     const pu=.5+.5*Math.sin(TIME*2.4+u.id);
     const bg=cx.createRadialGradient(toScreenX(u.x),toScreenY(u.y)+r*.56,r*.3,toScreenX(u.x),toScreenY(u.y)+r*.56,r*1.6);
     bg.addColorStop(0,hexA(c.gold,.28)); bg.addColorStop(1,hexA(c.gold,0));
@@ -588,6 +590,8 @@ function drawUnit(u){
   if(u.type==='dragon'&&typeof drawDragonTop==='function') drawDragonTop(u,c,L,r,ang,hit);
   else if(u.type==='giant') drawGiantTop(u,c,L,r,ang,hit);
   else if(u.type==='troll') drawTrollTop(u,c,L,r,ang,hit);
+  else if((u.type==='bandit'||u.type==='banditArcher')&&typeof drawBanditTop==='function') drawBanditTop(u,c,L,r,ang,hit);
+  else if(u.type==='legend'&&typeof drawHeroTop==='function'){ drawHeroTop(u,c,L,r,ang,hit); if(typeof drawLegendCrown==='function') drawLegendCrown(u,r); }
   else if(u.type==='villager') drawVillagerTop(u,c,L,r,ang,hit);
   else if(u.type==='hero'&&typeof drawHeroTop==='function'){
     cx.save(); if(typeof heroStyleXform==='function') heroStyleXform(u,r);
@@ -602,7 +606,7 @@ function drawUnit(u){
   // pasek HP
   const dmgd=u.hp<u.maxHp;
   if(isBoss(u)&&!u.dead&&!u.sleep){
-    const w=150, yy=sy-r*(u.type==='giant'?2.05:1.35);
+    const w=150, yy=sy-r*(u.type==='giant'?2.05:(u.type==='dragon'?2.2:1.35));
     cx.fillStyle='rgba(0,0,0,.6)'; cx.fillRect(sx-w/2-2,yy-2,w+4,11);
     cx.fillStyle=hexA(bossGlow(u),.95);
     cx.fillRect(sx-w/2,yy,w*Math.max(0,u.hp/u.maxHp),7);

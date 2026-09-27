@@ -74,6 +74,7 @@ function riversOf(){ return (G.world&&G.world.rivers)||[]; }
 
 function inWater(x,y,pad){
   pad=pad||0;
+  if(LAND.on&&landSD(x,y)<pad) return LAND_VOID;
   const rv=riversOf();
   for(const r of rv){
     const lim=r.w*.5+pad;
@@ -123,7 +124,7 @@ function blockingRivers(x1,y1,x2,y2,pad){
 }
 /* Most najlepszy dla drogi u -> cel (tylko rzeki blokujace droge) */
 function bestBridge(x,y,tx,ty,pad){
-  const rs=blockingRivers(x,y,tx,ty,pad||0);
+  const rs=blockingRivers(x,y,tx,ty,pad||0).filter(r=>!r.void);
   const pool=rs.length?[rs[0]]:riversOf();   // najpierw przeprawa przez najblizsza rzeke
   let best=null,bs=1e18;
   for(const r of pool) for(const b of r.bridges){
@@ -134,7 +135,7 @@ function bestBridge(x,y,tx,ty,pad){
 }
 /* Wypycha jednostke z wody na najblizszy brzeg */
 function waterPushOut(u,dt){
-  if(!u||u.dead||!riversOf().length) return;
+  if(!u||u.dead||(!riversOf().length&&!LAND.on)) return;
   // na moscie: trzymaj sie pomostu, nie spadaj z krawedzi
   const ob=onBridge(u.x,u.y,0);
   if(ob){
@@ -161,7 +162,7 @@ function waterPushOut(u,dt){
 }
 /* Koryguje kierunek marszu: kieruje do mostu i slizga sie po brzegu */
 function waterAdjust(u,tx,ty,ang,step){
-  if(!riversOf().length) return ang;
+  if(!riversOf().length&&!LAND.on) return ang;
   const ob=onBridge(u.x,u.y,0);
   if(ob){
     const ca=Math.cos(ob.ang), sa=Math.sin(ob.ang);

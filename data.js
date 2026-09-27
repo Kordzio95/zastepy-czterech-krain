@@ -242,31 +242,36 @@ const SIDE_NAME={player:'Twoja osada', e1:'Wróg I', e2:'Wróg II', e3:'Wróg II
 
 /* --- mapy --- */
 const MAPS={
-  rowniny:{name:'Zielone Równiny', w:3640, h:2520, desc:'Otwarte pola i gęste gaje.',
+  rowniny:{name:'Zielone Równiny', w:4740, h:3280, desc:'Otwarte pola i gęste gaje.',
     theme:{g1:'#5f7042',g2:'#506036',grass:'rgba(126,150,84,.65)',stone:'rgba(138,134,120,.75)',
       tree:['#3f6b2c','#4d7d33','#5b8c3a'],trunk:'#4a3520',flower:['#d9d06a','#cf7b8c','#cfd9e8'],
       patch:['rgba(122,140,84,.06)','rgba(88,104,60,.07)','rgba(146,136,88,.05)','rgba(74,96,56,.08)'],
       groves:16, decor:520}},
-  zima:{name:'Mroźne Pustacie', w:3640, h:2520, desc:'Śnieg, lód i rzadkie świerki.',
+  zima:{name:'Mroźne Pustacie', w:4740, h:3280, desc:'Śnieg, lód i rzadkie świerki.',
     theme:{g1:'#9aa7b4',g2:'#84929f',grass:'rgba(240,247,255,.6)',stone:'rgba(190,200,210,.8)',
       tree:['#2f4a3a','#375643','#40624d'],trunk:'#3b342e',flower:['#ffffff','#dbe9f5','#bcd4e8'],
       patch:['rgba(255,255,255,.10)','rgba(210,226,240,.10)','rgba(150,170,190,.08)','rgba(255,255,255,.06)'],
       groves:11, decor:420}},
-  pustynia:{name:'Spieczone Piaski', w:4060, h:2660, desc:'Wielka, sucha mapa z oazami.',
+  pustynia:{name:'Spieczone Piaski', w:5280, h:3460, desc:'Wielka, sucha mapa z oazami.',
     theme:{g1:'#c8a96a',g2:'#b2935a',grass:'rgba(190,168,104,.7)',stone:'rgba(160,140,104,.8)',
       tree:['#6d7a3a','#7d8b42','#8c9a4b'],trunk:'#6b5330',flower:['#e8d98a','#d8a06a','#efe3b8'],
       patch:['rgba(214,186,120,.10)','rgba(170,142,90,.08)','rgba(230,208,150,.07)','rgba(150,124,78,.07)'],
       groves:9, decor:360}},
-  popioly:{name:'Popielne Pola', w:3640, h:2520, desc:'Spalona ziemia i tlące się szczeliny.',
+  popioly:{name:'Popielne Pola', w:4740, h:3280, desc:'Spalona ziemia i tlące się szczeliny.',
     theme:{g1:'#4a423c',g2:'#3a332e',grass:'rgba(120,104,92,.6)',stone:'rgba(120,110,104,.8)',
       tree:['#4a3a2c','#564634','#60503c'],trunk:'#2e2620',flower:['#ff9e3d','#e0623a','#8a6a54'],
       patch:['rgba(90,70,58,.12)','rgba(255,120,50,.05)','rgba(60,52,46,.12)','rgba(130,110,92,.07)'],
       groves:12, decor:430}},
-  cztery:{name:'Krainy Czterech Rzek', w:4480, h:3080, desc:'Największa mapa — cztery osady i środek pełen złota.',
+  cztery:{name:'Krainy Czterech Rzek', w:5820, h:4000, desc:'Największa mapa — cztery osady i środek pełen złota.',
     theme:{g1:'#5b6d48',g2:'#4c5c3c',grass:'rgba(132,158,92,.65)',stone:'rgba(140,138,124,.75)',
       tree:['#3a6630','#467637','#52863f'],trunk:'#453320',flower:['#e2d777','#d08c9a','#cfe0ea'],
       patch:['rgba(122,140,84,.07)','rgba(88,104,60,.07)','rgba(146,136,88,.05)','rgba(74,96,56,.08)'],
-      groves:20, decor:640}}
+      groves:20, decor:640}},
+  jezioro:{name:'Wielkie Jezioro', w:5040, h:3500, desc:'Góry wokół ogromnego jeziora — śpi w nim Kraken.',
+    theme:{g1:'#566a44',g2:'#475a38',grass:'rgba(128,154,90,.65)',stone:'rgba(134,132,120,.75)',
+      tree:['#35602e','#406c35','#4c7a3c'],trunk:'#3f2f1e',flower:['#d9d06a','#b98fd0','#cfe0ea'],
+      patch:['rgba(122,140,84,.07)','rgba(80,98,60,.08)','rgba(146,136,88,.05)','rgba(70,92,56,.08)'],
+      groves:18, decor:560}}
 };
 const MAP_KEYS=Object.keys(MAPS);
 
@@ -308,7 +313,11 @@ const UNITS={
   /* --- neutralni mieszkancy mapy --- */
   giant:{ label:'Górski Olbrzym', r:112, hp:11000, dmg:230, range:90, speed:30, ias:2.8, pop:0, mass:60, armor:9, boss:true },
   troll:{ label:'Troll', r:24, hp:620, dmg:40, range:26, speed:50, ias:2.0, pop:0, mass:6, armor:2 },
-  villager:{ label:'Wieśniak', r:10, hp:60, dmg:0, range:0, speed:34, ias:1, pop:0, mass:1 }
+  villager:{ label:'Wieśniak', r:10, hp:60, dmg:0, range:0, speed:34, ias:1, pop:0, mass:1 },
+  bandit:{ label:'Rozbójnik', r:13, hp:230, dmg:22, range:20, speed:60, ias:1.0, pop:0, mass:1, armor:1, cost:{gold:90,wood:30} },
+  banditArcher:{ label:'Rozbójnik z łukiem', r:13, hp:160, dmg:20, range:165, speed:58, ias:1.5, pop:0, mass:1, cost:{gold:100,wood:40} },
+  kraken:{ label:'Kraken', r:150, hp:16000, dmg:250, range:150, speed:46, ias:2.6, pop:0, mass:99, armor:12, boss:true },
+  legend:{ label:'Koronowany Władca', r:30, hp:4200, dmg:130, range:30, speed:70, ias:.85, cost:{gold:650,wood:450}, time:32, pop:0, mass:7, armor:9 }
 };
 const SIEGE_KEYS=['catapult','ballista','trebuchet','cannon','sling'];
 const UNIT_KEYS=['worker','warrior','guard','archer','crossbow','flamer','beast','heavy','hero'].concat(SIEGE_KEYS);
@@ -416,7 +425,8 @@ function look(type,lvl){
     armor:lvl>=2, trophies:lvl>=2, helm:lvl>=2, bracers:lvl>=2, shieldBack:lvl>=2, warPaint:lvl>=2,
     aura:lvl>=3, crown:lvl>=3, weaponGlow:lvl>=3, cape:lvl>=3, relic:lvl>=3, bannerBack:lvl>=3, bigWeapon:lvl>=3};
   if(type==='dragon') return {scale:1, aura:true, weaponGlow:true, boss:true};
-  if(type==='giant'||type==='troll'||type==='villager') return {scale:1};
+  if(type==='legend') return {scale:1, helmet:true, pauldrons:true, cape:true, bigWeapon:true, plate:true, plume:true, weaponGlow:true, banner:true, aura:true, hero:true, legend:true};
+  if(type==='giant'||type==='troll'||type==='villager'||type==='bandit'||type==='banditArcher'||type==='kraken') return {scale:1};
   if(type==='worker') return {scale:1+(lvl-1)*.06, helmet:lvl>=2, plate:lvl>=3, aura:false, weaponGlow:false};
   if(type==='guard') return {scale:1+(lvl-1)*.055, helmet:true, pauldrons:true, plate:lvl>=2,
     bigWeapon:lvl>=2, cape:lvl>=3, plume:lvl>=3, weaponGlow:lvl>=4, aura:lvl>=4};
@@ -451,9 +461,9 @@ const RES={
    SMOK — boss strzegacy srodka mapy. Rodzaj zalezy od mapy.
    ========================================================================== */
 const DRAGONS={
-  kosciany:{ key:'kosciany', name:'Kościany Smok', faction:'nieumarli',
-    bone:'#e6e0cc', bone2:'#c5bda4', bone3:'#9a9179', glow:'#79e0d2', breath:'#cfeae4',
-    breathName:'TCHNIENIE PRÓCHNICY' },
+  kosciany:{ key:'kosciany', name:'Czarny Smok', faction:'nieumarli',
+    bone:'#3a3a48', bone2:'#2a2a36', bone3:'#8c7fb0', glow:'#b58cff', breath:'#d9c4ff',
+    breathName:'CZARNY PŁOMIEŃ' },
   ognisty:{ key:'ognisty', name:'Ognisty Smok', faction:'demony',
     bone:'#4a1f18', bone2:'#6e2a1e', bone3:'#98381f', glow:'#ff9e3d', breath:'#ffb15c',
     breathName:'POTOP OGNIA' },
@@ -461,15 +471,17 @@ const DRAGONS={
     bone:'#cfe4f2', bone2:'#9dc2dd', bone3:'#6f9cbe', glow:'#9ff0e4', breath:'#dff4ff',
     breathName:'MROŹNY WICHER' }
 };
-const DRAGON_BY_MAP={ rowniny:'kosciany', zima:'lodowy', pustynia:'ognisty', popioly:'ognisty', cztery:'kosciany' };
+const DRAGON_BY_MAP={ rowniny:'kosciany', zima:'lodowy', pustynia:'ognisty', popioly:'ognisty', cztery:'kosciany', jezioro:'kosciany' };
 /* ktory boss pilnuje ktorej mapy: smok albo ukryty Gorski Olbrzym */
-const BOSS_BY_MAP={ rowniny:'giant', zima:'dragon', pustynia:'giant', popioly:'dragon', cztery:'dragon' };
+const BOSS_BY_MAP={ rowniny:'giant', zima:'dragon', pustynia:'giant', popioly:'titan', cztery:'dragon', jezioro:'kraken' };
 const GIANT_KINDS={
   gorski:{ key:'gorski', name:'Górski Olbrzym', faction:'orki',
     rock:'#8f897c', rock2:'#716b60', rock3:'#514c44', moss:'#5f7a3c', moss2:'#7d9a4c', glow:'#ffcf6a', crystal:'#9fd8ff' },
   piaskowy:{ key:'piaskowy', name:'Górski Olbrzym Pustyni', faction:'orki',
-    rock:'#b99d6e', rock2:'#977b50', rock3:'#6f5a3a', moss:'#7d8b42', moss2:'#9aa652', glow:'#ffb35c', crystal:'#ffd98a' }
+    rock:'#b99d6e', rock2:'#977b50', rock3:'#6f5a3a', moss:'#7d8b42', moss2:'#9aa652', glow:'#ffb35c', crystal:'#ffd98a' },
+  tytan:{ key:'tytan', name:'Tytan Popiołów', faction:'demony', titan:true,
+    rock:'#4a3a34', rock2:'#3a2c28', rock3:'#241a17', moss:'#ff7a2a', moss2:'#ffb347', glow:'#ffb04a', crystal:'#ff6a2a' }
 };
-const GIANT_BY_MAP={ rowniny:'gorski', pustynia:'piaskowy' };
+const GIANT_BY_MAP={ rowniny:'gorski', pustynia:'piaskowy', popioly:'tytan' };
 const giantKindFor=m=>GIANT_KINDS[GIANT_BY_MAP[m]||'gorski'];
 const dragonKindFor=m=>DRAGONS[DRAGON_BY_MAP[m]||'kosciany'];
