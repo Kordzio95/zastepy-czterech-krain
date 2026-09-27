@@ -210,6 +210,7 @@ function addBuilding(side,type,x,y,done){
 function popMax(side){
   let m=0;
   for(const b of G.buildings) if(b.side===side&&!b.dead&&b.done){ m+=BUILDINGS[b.type].pop||0; if(b.type==='townhall'&&b.keep) m+=4*b.keep; if(b.type==='house'&&(b.lvl||1)>=2) m+=4; }
+  if(G.god&&side==='player') return 200;
   return Math.min(80,m);
 }
 function popUsed(side){
@@ -218,8 +219,8 @@ function popUsed(side){
   for(const b of G.buildings) if(b.side===side&&!b.dead) for(const q of b.queue) p+=UNITS[q].pop;
   return p;
 }
-function canAfford(side,cost){ return G.res[side].gold>=cost.gold&&G.res[side].wood>=cost.wood; }
-function pay(side,cost){ G.res[side].gold-=cost.gold; G.res[side].wood-=cost.wood; }
+function canAfford(side,cost){ if(G.god&&side==='player') return true; return G.res[side].gold>=cost.gold&&G.res[side].wood>=cost.wood; }
+function pay(side,cost){ if(G.god&&side==='player') return; G.res[side].gold-=cost.gold; G.res[side].wood-=cost.wood; }
 
 /* ==========================================================================
    ROZKAZY
@@ -426,7 +427,8 @@ function trainUnit(b,type){
     if(!G.crown||!G.crown[side]){ if(side==='player') warn('Potrzebujesz Pradawnej Korony'); return false; }
     const have=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='legend').length
       +G.buildings.filter(x=>x.side===side&&!x.dead).reduce((n,x)=>n+x.queue.filter(q=>q==='legend').length,0);
-    if(have>=1){ if(side==='player') warn('Koronowany Władca może być tylko jeden'); return false; }
+    const lim=(G.god&&side==='player')?3:1;
+    if(have>=lim){ if(side==='player') warn(lim>1?'Możesz mieć najwyżej 3 Koronowanych Władców':'Koronowany Władca może być tylko jeden'); return false; }
   }
   if(type==='hero'){
     const have=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='hero').length
@@ -516,6 +518,7 @@ function upgradeBuilding(side,b){
 }
 function trainSpeedMul(b){
   const lvl=b.lvl||1;
+  if(G.god&&b.side==='player') return 6;
   if(lvl<2) return 1;
   if(b.type==='barracks'||b.type==='range'||b.type==='workshop'||b.type==='lair') return 1.3;
   return 1.1;
@@ -1316,4 +1319,36 @@ function endGame(win){
   if(!G||G.phase==='over') return;
   G.phase='over';
   if(typeof showResult==='function') showResult(win);
+}
+
+/* ==========================================================================
+   TRYB BOGA — wszystko odblokowane dla gracza
+   ========================================================================== */
+function godBuilding(b){
+  if(b.type==='townhall') return;
+  const mx=bMaxLvl(b.type);
+  while((b.lvl||1)<mx){ b.lvl=(b.lvl||1)+1; b.maxHp=Math.round(b.maxHp*1.4); }
+  b.hp=b.maxHp;
+}
+function godMode(){
+  const side='player';
+  G.god=true;
+  G.res[side].gold=Math.max(G.res[side].gold,99999); G.res[side].wood=Math.max(G.res[side].wood,99999);
+  // ratusz: Cytadela
+  while((G.keep[side]||0)<2){ G.keep[side]=(G.keep[side]||0)+1;
+    for(const b of G.buildings) if(b.side===side&&!b.dead&&b.type==='townhall'){ b.keep=G.keep[side]; b.lvl=1+b.keep; b.maxHp=Math.round(b.maxHp*1.35); b.hp=b.maxHp; } }
+  for(const b of G.buildings) if(b.side===side&&!b.dead&&b.done) godBuilding(b);
+  // wszystkie ulepszenia z kuzni na maksimum
+  const faction=sideFaction(side);
+  for(const k in UPG) G.lvl[side][k]=UPG[k].max;
+  for(const u of G.units) if(u.side===side&&!u.dead&&UPG[upgKeyOf(u.type)]){
+    const nl=G.lvl[side][upgKeyOf(u.type)], ns=unitStats(faction,u.type,nl), L=look(u.type,nl);
+    u.maxHp=ns.hp; u.hp=ns.hp; u.dmg=ns.dmg; u.lvl=nl; u.r=UNITS[u.type].r*(L?L.scale:1); }
+  // nagroda z bossa: Pradawna Korona i Koronowany Wladca od razu
+  G.crown=G.crown||{}; G.crown[side]=true;
+  const th=G.buildings.find(b=>b.side===side&&!b.dead&&b.type==='townhall');
+  if(th&&!G.units.some(o=>!o.dead&&o.side===side&&o.type==='legend')){
+    const L=spawnUnit(side,'legend',th.x+th.r+40,th.y+th.r*.6,1);
+    if(L){ ring(L.x,L.y,120,'rgba(255,215,110,.9)',.9,6); } }
+  banner('TRYB BOGA — WSZYSTKO ODBLOKOWANE','#ffd35a');
 }

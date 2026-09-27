@@ -23,7 +23,7 @@ let pinch=null, boxMode=false, topBarH=0, addMode=false, lastTap=null, buildPick
 /* ==========================================================================
    START / MENU
    ========================================================================== */
-let pickF='ludzie', pickMap='rowniny', pickMode='1v1';
+let pickF='ludzie', pickMap='rowniny', pickMode='1v1', pickGod=false;
 function startGame(faction,mapKey,mode){
   sndInit(); SND.faction=faction||pickF; SND.bar=0; SND.tension=0;
   document.getElementById('menu').style.display='none';
@@ -32,6 +32,7 @@ function startGame(faction,mapKey,mode){
   newGame(faction||pickF,mapKey||pickMap,mode||pickMode);
   if(MOBILE) setZoom(VIEW_H<360?1:(Math.min(VW,VH)<400?1.15:1.25));
   banner(MODES[G.mode].name+' — '+G.world.name,'#e6c273');
+  if(pickGod) godMode();
 }
 function showResult(win){
   const el=document.getElementById('result');
@@ -1187,6 +1188,8 @@ window.addEventListener('DOMContentLoaded',()=>{
   window.toggleMusic=()=>{ sndSetMusic(!SND.musOn); syncSnd(); };
   window.toggleSfx=()=>{ sndSetSfx(!SND.sfxOn); syncSnd(); };
   document.addEventListener('pointerdown',()=>sndResume(),{once:false});
+  const gc=document.getElementById('godChip');
+  if(gc) gc.addEventListener('click',()=>{ pickGod=!pickGod; gc.classList.toggle('sel',pickGod); });
   document.getElementById('startBtn').addEventListener('click',()=>startGame(pickF,pickMap,pickMode));
   document.querySelectorAll('[data-again]').forEach(el=>{
     el.addEventListener('click',()=>{ document.getElementById('result').style.display='none';

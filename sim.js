@@ -342,13 +342,14 @@ function doBuild(u,dt){
   u.facing=Math.atan2(b.y-u.y,b.x-u.x);
   u.state='build'; u.walk+=dt*7;
   const def=BUILDINGS[b.type];
-  b.progress=Math.min(1,b.progress+dt/def.build*(1+.3*(u.lvl-1)));
+  b.progress=Math.min(1,b.progress+dt/def.build*(1+.3*(u.lvl-1))*(G.god&&b.side==='player'?6:1));
   b.hp=Math.max(b.hp,def.hp*(.2+.8*b.progress));
   if(Math.random()<dt*12) puff(b.x+rand(-b.r,b.r),b.y+rand(-b.r*.6,b.r*.6),.9,'#d6c7a8');
   if(Math.random()<dt*4){ spark(b.x+rand(-b.r*.7,b.r*.7),b.y+rand(-b.r*.5,b.r*.5),'#f3e3bc',3,.5);
     SND.play('build',b.x,b.y,{reach:400}); }
   if(b.progress>=1){
     b.done=true; b.hp=def.hp;
+    if(G.god&&b.side==='player') godBuilding(b);
     ring(b.x,b.y,b.r*1.8,'rgba(230,194,115,.9)',.7,5);
     SND.play('done',b.x,b.y,{reach:900,vol:b.side==='player'?1:.5});
     for(let i=0;i<18;i++) puff(b.x+rand(-b.r,b.r),b.y+rand(-b.r*.7,b.r*.7),1.4,'#e0d0ad');
