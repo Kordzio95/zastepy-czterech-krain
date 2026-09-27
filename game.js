@@ -163,6 +163,7 @@ function spawnUnit(side,type,x,y,lvlOpt){
     dead:false, fade:1, sel:false
   };
   u.xp=0; u.vet=0; u.baseHp=st.hp; u.baseDmg=st.dmg;
+  if(type==='legend'&&side!=='player'&&typeof weakenTitan==='function') weakenTitan(u);
   G.units.push(u);
   for(let i=0;i<5;i++) puff(u.x,u.y,.8);
   return u;

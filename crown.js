@@ -37,7 +37,7 @@ function crownThreats(u,R){
   return out;
 }
 function updateCrownling(dt){
-  if(!G.crownInit){ G.crownInit=true; G.crownT=3; }
+  if(!G.crownInit){ G.crownInit=true; G.crownT=3; giveAiTitans(); }
   const u=G.crownling;
   if(!u||u.dead){
     // nowy stworek pojawia sie jakis czas po oddaniu korony
@@ -161,5 +161,21 @@ function drawCrownling(u){
     if(ZOOM>.55){ cx.font='700 10px Satoshi,sans-serif'; cx.textAlign='center'; cx.fillStyle='rgba(0,0,0,.6)'; cx.fillText('Stworek z Koroną',sx+.5,by-4.5); cx.fillStyle='#ffe7a0'; cx.fillText('Stworek z Koroną',sx,by-5); cx.textAlign='left'; }
     if(u.say&&u.sayT>0){ cx.font='600 11px Satoshi,sans-serif'; cx.textAlign='center'; const w=cx.measureText(u.say).width+10;
       cx.fillStyle='rgba(255,250,235,.92)'; cx.fillRect(sx-w/2,by-30,w,17); cx.fillStyle='#2a2010'; cx.fillText(u.say,sx,by-18); cx.textAlign='left'; }
+  }
+}
+
+/* kazda frakcja komputera dostaje na start Tytana — 3x slabszego */
+function weakenTitan(u){
+  if(u.weakT) return; u.weakT=true;
+  u.maxHp=Math.round(u.maxHp/3); u.hp=Math.min(u.hp,u.maxHp); u.dmg=Math.round(u.dmg/3);
+  u.baseHp=u.maxHp; u.baseDmg=u.dmg;
+}
+function giveAiTitans(){
+  for(const s of G.sides){ if(s==='player'||!mainSide(s)) continue;
+    const th=G.buildings.find(b=>b.side===s&&!b.dead&&b.type==='townhall'); if(!th) continue;
+    if(G.units.some(o=>!o.dead&&o.side===s&&o.type==='legend')) continue;
+    const a=rand(0,6.28);
+    const L=spawnUnit(s,'legend',th.x+Math.cos(a)*(th.r+70),th.y+Math.sin(a)*(th.r+50)+30,1);
+    if(L) ring(L.x,L.y,110,'rgba(255,215,110,.8)',.8,5);
   }
 }
