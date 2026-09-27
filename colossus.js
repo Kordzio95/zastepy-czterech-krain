@@ -5,6 +5,22 @@
    ========================================================================== */
 'use strict';
 
+/* --- widoczne tylne ramie kolosa (piesc / dlon), animowane z chodem i atakiem --- */
+function cBackArm(P,col,w,kind){
+  const {u,r,hit,face,moving,step,stance,shY,shW,sv}=P;
+  const sw=moving?Math.sin(u.walk+Math.PI)*.35:0;
+  const att=u.windup>0?stance:(sv>=0&&sv<1?Math.max(0,1-sv*1.6):0);
+  const sx=-face*shW*.92, sy=shY+r*.02;
+  const ex=sx-face*r*(.34+att*.18)+face*sw*r*.3, ey=sy+r*(.5-att*.3);
+  const hx=ex+face*r*(.12+sw*.35+att*.3), hy=ey+r*(.46-att*.22);
+  if(kind==='bone'){ cBone(sx,sy,ex,ey,w*.55,col,hit); cBone(ex,ey,hx,hy,w*.5,col,hit); }
+  else { limb(sx,sy,ex,ey,w,col,hit); limb(ex,ey,hx,hy,w*.9,col,hit); }
+  cx.fillStyle=hit?'#fff':lit3d(hx,hy,w*.8,col);
+  cx.beginPath(); cx.ellipse(hx,hy+w*.1,w*.62,w*.55,0,0,7); cx.fill();
+  cx.strokeStyle=OUT; cx.lineWidth=1.6; cx.stroke();
+  cx.strokeStyle=hexA(OUT,.6); cx.lineWidth=1;
+  for(let i=-1;i<=1;i++){ cx.beginPath(); cx.moveTo(hx+face*w*.25,hy+i*w*.2); cx.lineTo(hx+face*w*.55,hy+i*w*.2); cx.stroke(); }
+}
 /* --------- pomocnicze kształty --------- */
 function cSpike(x,y,ang,len,w,col,hit){
   const ca=Math.cos(ang), sa=Math.sin(ang), px=-sa, py=ca;
@@ -269,7 +285,6 @@ function colDemon(P){
     cCrack(-torW*.8,hipY+r*.04,torW*.8,hipY+r*.02,seed+9,glowC,2.4);
   }
   /* --- TYLNE RAMIE --- */
-  limb(-face*shW*.8,shY,-face*shW*1.1,shY+r*.6,r*.28,shade(skinD,.06),hit);
   /* --- TORS: masywny, bazaltowy, z rozzarzonymi szczelinami --- */
   cx.fillStyle=hit?'#fff':lit3d(0,torY,r*1.2,skinD);
   cx.beginPath();
@@ -301,6 +316,7 @@ function colDemon(P){
     cg.addColorStop(1,'rgba(180,40,16,0)');
     cx.fillStyle=cg; cx.beginPath(); cx.arc(0,torY-r*.14,r*.55,0,7); cx.fill();
   }
+  cBackArm(P,shade(skinD,.06),r*.28);
   /* --- NARAMIENNIKI: lvl2 obsydianowe kolce, lvl3 plyty z lawa --- */
   if(lvl>=2){
     for(const sd of [-1,1]){
@@ -486,7 +502,6 @@ function colUndead(P){
     cx.strokeStyle=OUT; cx.lineWidth=1.4; cx.stroke();
   }
   /* --- TYLNE RAMIE (kosci) --- */
-  cBone(-face*shW*.78,shY,-face*shW*1.02,shY+r*.58,r*.15,bone,hit);
   /* --- KLATKA PIERSIOWA: kregoslup + zebra, bez skory --- */
   cx.fillStyle=hit?'#fff':lit3d(0,shY,r*.7,bone);
   cx.beginPath();   // obojczyki / mostek
@@ -505,6 +520,7 @@ function colUndead(P){
   if(lvl>=3){
     for(const sd of [-1,1]) cSkull(sd*torW*.52,torY+r*.2,r*.11,bone,hit,null);
   }
+  cBackArm(P,bone,r*.26,'bone');
   /* --- NARAMIENNIKI: lvl2 kolce, lvl3 czaszkowe pauldrony --- */
   if(lvl>=2){
     for(const sd of [-1,1]){
@@ -641,7 +657,6 @@ function colCyclops(P){
     cx.fillStyle=hexA(c.gold,.8); cx.fillRect(-torW,hipY-r*.16,torW*2,r*.08);
   }
   /* --- TYLNE RAMIE --- */
-  limb(-face*shW*.8,shY,-face*shW*1.05,shY+r*.55,r*.28,shade(skin,-.12),hit);
   /* --- TORS --- */
   cx.fillStyle=hit?'#fff':lit3d(0,torY,r*1.1,skin);
   cx.beginPath();
@@ -674,6 +689,7 @@ function colCyclops(P){
       cx.lineTo(0,torY+r*.16); cx.lineTo(-r*.14,torY-r*.06); cx.closePath(); cx.fill();
     }
   }
+  cBackArm(P,shade(skin,-.12),r*.28);
   /* --- NARAMIENNIKI --- */
   if(lvl>=2) for(const sd of [-1,1]){
     const px=sd*shW*.88, py=shY-r*.04;
@@ -832,7 +848,6 @@ function colOrc(P){
   }
   if(lvl>=3) for(let i=-1;i<=1;i++) cSkull(i*torW*.55,hipY+r*.16,r*.1,'#ddd2b4',hit,null);
   /* --- TYLNE RAMIE --- */
-  limb(-face*shW*.82,shY,-face*shW*1.08,shY+r*.58,r*.3,shade(skin,-.12),hit);
   /* --- TORS: garbate, potezne barki --- */
   cx.fillStyle=hit?'#fff':lit3d(0,torY,r*1.15,skin);
   cx.beginPath();
@@ -864,6 +879,7 @@ function colOrc(P){
       for(let k=-2;k<=2;k++){ cx.beginPath(); cx.arc(k*torW*.32,torY-r*.26+i*r*.26,r*.025,0,7); cx.fill(); }
     }
   }
+  cBackArm(P,shade(skin,-.12),r*.3);
   /* --- NARAMIENNIKI Z KOLCAMI --- */
   if(lvl>=2) for(const sd of [-1,1]){
     const px=sd*shW*.9, py=shY-r*.06;
@@ -1109,7 +1125,7 @@ function colEnt(P){
     if(lvl>=3) cCrack(hx,hy,gx,gy,seed+2,sap,2.6);
   }
   /* --- TYLNE RAMIE --- */
-  limb(-face*shW*.85,shY-r*.04,-face*shW*1.12,shY+r*.6,r*(.24+lvl*.02),shade(barkD,-.06),hit);
+  cBackArm(P,shade(barkD,-.06),r*(.24+lvl*.02));
 }
 
 /* --------------------------------------------------------------------------

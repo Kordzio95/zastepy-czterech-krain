@@ -310,7 +310,7 @@ function drawTrollTop(u,c,L,r,ang,hit){
   const st=u.atkStyle||0;
   const wind=u.windup>0?clamp(1-u.windup/(st===2?.6:.45),0,1):0;
   const sv=u.swing>0?1-u.swing/(u.swingMax||.42):-1;
-  const GY=r*.62, hipY=GY-r*.55, torY=hipY-r*.42, shY=torY-r*.4, headY=shY-r*.08;
+  const GY=r*.62, hipY=GY-r*.55, torY=hipY-r*.42, shY=torY-r*.4, headY=shY-r*.3;
   // poza
   let armA=.3, lean=0, jump=0, sq=1;
   if(u.windup>0){ const e=wind*wind*(3-2*wind);
@@ -345,8 +345,9 @@ function drawTrollTop(u,c,L,r,ang,hit){
   cx.fillStyle=hexA(shade(skin,-.3),.6);
   for(let i=0;i<4;i++){ cx.beginPath(); cx.arc((nRand(u.id,i)-.5)*r*.8,torY+(nRand(u.id,i+5)-.5)*r*.6,r*.05,0,7); cx.fill(); }
   // glowa: wysunieta do przodu, wielki nos, kly
-  const hx=face*r*.42, hy=headY-r*.04+(idle==='ziewanie'?-r*.06:0);
-  blob(hx,hy,r*.34,r*.3,skin,hit,0);
+  const hx=face*r*.34, hy=headY-r*.04+(idle==='ziewanie'?-r*.06:0);
+  limb(face*r*.12,shY,hx,hy+r*.12,r*.3,shade(skin,-.06),hit);
+  blob(hx,hy,r*.4,r*.35,shade(skin,.06),hit,0);
   cx.fillStyle=hit?'#fff':shade(skin,-.08); cx.beginPath(); cx.ellipse(hx+face*r*.3,hy+r*.02,r*.16,r*.11,0,0,7); cx.fill(); cx.strokeStyle=OUT; cx.lineWidth=1; cx.stroke();
   cx.fillStyle='#ffd35a'; cx.beginPath(); cx.arc(hx+face*r*.12,hy-r*.1,r*.06,0,7); cx.fill();
   cx.fillStyle='#1a1410'; cx.beginPath(); cx.arc(hx+face*r*.13,hy-r*.1,r*.025,0,7); cx.fill();
@@ -364,7 +365,7 @@ function drawTrollTop(u,c,L,r,ang,hit){
   if(idle==='drapanie') A=-2+Math.sin(u.anim*9)*.2;
   const ex=sx0+face*Math.sin(A)*r*.9, ey=sy0+Math.cos(A)*r*.9;
   limb(sx0,sy0,ex,ey,r*.28,skin,hit);
-  cx.save(); cx.translate(ex,ey); cx.rotate(face>0?-A+Math.PI:A+Math.PI); if(face<0) cx.scale(-1,1);
+  cx.save(); cx.translate(ex,ey); cx.rotate(face>0?-A-.35:A+.35); if(face<0) cx.scale(-1,1);
   if(idle!=='drapanie'){
     if(u.club==='kosc'){ cx.strokeStyle=hit?'#fff':'#ece4cc'; cx.lineWidth=r*.16; cx.lineCap='round';
       cx.beginPath(); cx.moveTo(0,0); cx.lineTo(0,r*1.1); cx.stroke();
