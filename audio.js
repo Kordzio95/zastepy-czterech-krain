@@ -152,75 +152,281 @@ function playSnd(name,x,y,opt){
 SND.play=playSnd;
 
 /* ==========================================================================
-   MUZYKA — generowana takt po takcie, dopasowana do frakcji i napiecia bitwy
+   MUZYKA — skomponowane motywy krain, grane syntezatorem z pogłosem.
+   Każda frakcja ma własną skalę, progresję akordów, melodię i instrumenty.
+   Napięcie bitwy dokłada bas, bębny i róg, ale temat pozostaje ten sam.
    ========================================================================== */
 const MUS_SCALE={
-  ludzie:   [0,2,3,5,7,8,10],   // eolska — rycerska, dostojna
-  orki:     [0,1,5,6,7,10,11],  // frygijska obniżona — dzika
-  nieumarli:[0,2,3,5,6,8,10],   // lokrycka — chłodna, niepokojąca
-  demony:   [0,1,4,6,7,8,11],   // zmniejszona — piekielna
-  elfy:     [0,2,4,7,9,11,12],  // lidyjska — jasna, leśna
-  raclaw:   [0,2,3,5,7,9,10]    // dorycka — watahowa, marszowa
+  ludzie:   [0,2,4,5,7,9,11],   // durowa — rycerska, pogodna
+  orki:     [0,2,3,5,7,9,10],   // dorycka — plemienna
+  nieumarli:[0,2,3,5,7,8,11],   // harmoniczna moll — melancholijna
+  demony:   [0,1,4,5,7,8,10],   // frygijska dominantowa — mroczna, orientalna
+  elfy:     [0,2,4,6,7,9,11],   // lidyjska — jasna, leśna
+  raclaw:   [0,2,3,6,7,9,10]    // dorycka z podwyższoną kwartą — góralska, łowiecka
 };
-const MUS_ROOT={ludzie:110,orki:98,nieumarli:104,demony:92,elfy:123,raclaw:104};
-function musHz(root,semi){ return root*Math.pow(2,semi/12); }
+const MUS_ROOT={ludzie:146.83,orki:110,nieumarli:130.81,demony:116.54,elfy:164.81,raclaw:123.47};
 
-function musNote(f,dur,g,at,type,fc){
-  const c=SND.ctx, t=c.currentTime+at;
-  const osc=c.createOscillator(); osc.type=type||'triangle'; osc.frequency.value=f;
-  const flt=c.createBiquadFilter(); flt.type='lowpass'; flt.frequency.value=fc||1600; flt.Q.value=.7;
-  const gn=c.createGain();
-  gn.gain.setValueAtTime(.0005,t);
-  gn.gain.exponentialRampToValueAtTime(Math.max(.001,g),t+Math.min(.12,dur*.25));
-  gn.gain.exponentialRampToValueAtTime(.0005,t+dur);
-  osc.connect(flt); flt.connect(gn); gn.connect(SND.musG);
-  osc.start(t); osc.stop(t+dur+.02);
+/* Profil krainy: tempo, progresja (stopnie skali), dwie frazy melodii
+   [stopień, długość w ćwierćnutach] (null = pauza), instrumenty. */
+const MUS_THEME={
+  ludzie:{ bpm:84, prog:[0,4,5,3, 0,3,4,4],
+    A:[[4,1],[5,.5],[4,.5],[2,1],[0,1], [1,1.5],[2,.5],[4,2], [5,1],[4,.5],[5,.5],[7,1],[5,1], [4,3],[null,1]],
+    B:[[7,1.5],[6,.5],[5,1],[4,1], [3,1],[4,.5],[5,.5],[4,2], [2,1],[3,1],[4,1],[2,1], [1,2],[0,2]],
+    lead:'flute', arp:'lute', pad:'strings', bass:'bass', perc:'march', horn:true },
+  orki:{ bpm:92, prog:[0,0,6,3, 0,6,4,0],
+    A:[[0,1],[0,.5],[2,.5],[3,1],[4,1], [3,.5],[2,.5],[0,1],[null,2], [4,1],[6,.5],[4,.5],[3,1],[2,1], [0,3],[null,1]],
+    B:[[7,1],[6,1],[4,1],[3,1], [4,1.5],[3,.5],[2,2], [0,.5],[2,.5],[3,1],[4,1],[6,1], [4,2],[0,2]],
+    lead:'horn', arp:'lowpluck', pad:'choirLow', bass:'bass', perc:'tribal', horn:false },
+  nieumarli:{ bpm:64, prog:[0,5,3,4, 0,5,6,4],
+    A:[[4,2],[3,1],[2,1], [0,1.5],[1,.5],[2,2], [3,1],[2,1],[1,1],[-1,1], [0,4]],
+    B:[[7,1.5],[6,.5],[5,2], [4,1],[5,1],[4,1],[2,1], [3,2],[1,2], [0,4]],
+    lead:'bell', arp:'harp', pad:'choir', bass:'bass', perc:'slow', horn:false },
+  demony:{ bpm:74, prog:[0,1,0,6, 0,1,5,4],
+    A:[[0,1],[1,.5],[2,.5],[1,1],[0,1], [4,1.5],[5,.5],[4,1],[2,1], [1,1],[2,1],[1,1],[0,1], [0,3],[null,1]],
+    B:[[4,1],[5,1],[7,2], [5,1],[4,1],[2,1],[1,1], [2,1.5],[1,.5],[0,2], [null,1],[1,1],[0,2]],
+    lead:'oud', arp:'lowpluck', pad:'choirLow', bass:'bass', perc:'taiko', horn:true },
+  elfy:{ bpm:78, prog:[0,1,5,4, 0,1,3,4],
+    A:[[4,1],[6,1],[7,2], [6,.5],[5,.5],[4,1],[2,2], [3,1],[4,1],[6,1],[4,1], [4,4]],
+    B:[[7,1],[8,1],[9,2], [8,1],[7,1],[6,1],[4,1], [5,1.5],[4,.5],[2,2], [0,4]],
+    lead:'flute', arp:'harp', pad:'strings', bass:'bass', perc:'soft', horn:false, sparkle:true },
+  raclaw:{ bpm:100, prog:[0,3,0,4, 0,3,6,0],
+    A:[[0,.5],[2,.5],[4,1],[4,.5],[3,.5],[4,1], [5,.5],[4,.5],[3,.5],[2,.5],[3,2], [4,.5],[3,.5],[2,1],[1,.5],[2,.5],[3,1], [0,3],[null,1]],
+    B:[[7,1],[7,.5],[6,.5],[4,1],[3,1], [4,.5],[3,.5],[2,.5],[3,.5],[4,2], [3,.5],[2,.5],[1,.5],[0,.5],[1,1],[3,1], [0,3],[null,1]],
+    lead:'fiddle', arp:'lute', pad:'strings', bass:'bass', perc:'folk', horn:true }
+};
+function musHz(root,semi){ return root*Math.pow(2,semi/12); }
+function musDeg(sc,d){ // stopień skali -> półtony (także poza oktawą i ujemne)
+  const o=Math.floor(d/7), i=((d%7)+7)%7;
+  return sc[i]+12*o;
 }
-function musDrum(kind,at,g){
-  const c=SND.ctx, t=c.currentTime+at;
-  if(kind==='kick'){
+
+/* --- pogłos (generowany impuls) i szyny miksu --- */
+function musBus(){
+  if(SND.musDry) return;
+  const c=SND.ctx;
+  SND.musDry=c.createGain(); SND.musDry.gain.value=.78; SND.musDry.connect(SND.musG);
+  try{
+    const len=Math.floor(c.sampleRate*3.2), ir=c.createBuffer(2,len,c.sampleRate);
+    for(let ch=0;ch<2;ch++){
+      const d=ir.getChannelData(ch);
+      for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6);
+    }
+    const cv=c.createConvolver(); cv.buffer=ir;
+    const wet=c.createGain(); wet.gain.value=.5;
+    const pre=c.createBiquadFilter(); pre.type='lowpass'; pre.frequency.value=4200;
+    SND.musWet=c.createGain(); SND.musWet.gain.value=1;
+    SND.musWet.connect(pre); pre.connect(cv); cv.connect(wet); wet.connect(SND.musG);
+  }catch(e){ SND.musWet=SND.musDry; }
+}
+function musOut(node,wet,pan){
+  const c=SND.ctx;
+  let n=node;
+  if(pan&&c.createStereoPanner){ const p=c.createStereoPanner(); p.pan.value=pan; n.connect(p); n=p; }
+  n.connect(SND.musDry);
+  if(wet>0){ const s=c.createGain(); s.gain.value=wet; n.connect(s); s.connect(SND.musWet); }
+}
+function env(gn,t,a,peak,hold,rel){
+  gn.gain.setValueAtTime(.0001,t);
+  gn.gain.linearRampToValueAtTime(peak,t+a);
+  gn.gain.setValueAtTime(peak,t+a+hold);
+  gn.gain.exponentialRampToValueAtTime(.0001,t+a+hold+rel);
+}
+function osc(type,f,t,end,det){
+  const o=SND.ctx.createOscillator(); o.type=type; o.frequency.value=f;
+  if(det) o.detune.value=det; o.start(t); o.stop(end); return o;
+}
+
+/* --- instrumenty --- */
+const MUS_INST={
+  // flet / fujarka: sinus z wibrato i odrobiną oddechu
+  flute(f,dur,g,t,pan){
+    const c=SND.ctx, gn=c.createGain(), end=t+dur+.5;
+    env(gn,t,.07,g,Math.max(.02,dur-.12),.35);
+    const o=osc('sine',f,t,end), o2=osc('triangle',f*2,t,end);
+    const g2=c.createGain(); g2.gain.value=.12; o2.connect(g2); g2.connect(gn);
+    const lfo=osc('sine',5.2,t,end), lg=c.createGain(); lg.gain.value=f*.006;
+    lg.gain.setValueAtTime(0,t); lg.gain.linearRampToValueAtTime(f*.007,t+Math.min(.4,dur));
+    lfo.connect(lg); lg.connect(o.frequency); lg.connect(o2.frequency);
+    o.connect(gn);
+    const n=c.createBufferSource(); n.buffer=SND.noiseBuf; n.loop=true;
+    const bp=c.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=f*2; bp.Q.value=6;
+    const ng=c.createGain(); ng.gain.value=.25; n.connect(bp); bp.connect(ng); ng.connect(gn);
+    n.start(t); n.stop(end);
+    musOut(gn,.55,pan);
+  },
+  // skrzypce ludowe: piła przez filtr, wibrato opóźnione
+  fiddle(f,dur,g,t,pan){
+    const c=SND.ctx, gn=c.createGain(), end=t+dur+.4;
+    env(gn,t,.05,g*.8,Math.max(.02,dur-.08),.22);
+    const o=osc('sawtooth',f,t,end), o2=osc('sawtooth',f,t,end,7);
+    const lp=c.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=Math.min(3800,f*5); lp.Q.value=.9;
+    const pk=c.createBiquadFilter(); pk.type='peaking'; pk.frequency.value=2600; pk.gain.value=5; pk.Q.value=1.2;
+    const lfo=osc('sine',5.8,t,end), lg=c.createGain();
+    lg.gain.setValueAtTime(0,t); lg.gain.linearRampToValueAtTime(f*.01,t+Math.min(.35,dur));
+    lfo.connect(lg); lg.connect(o.frequency); lg.connect(o2.frequency);
+    o.connect(lp); o2.connect(lp); lp.connect(pk); pk.connect(gn);
+    musOut(gn,.42,pan);
+  },
+  // róg / ciepły mosiądz
+  horn(f,dur,g,t,pan){
+    const c=SND.ctx, gn=c.createGain(), end=t+dur+.6;
+    env(gn,t,.12,g,Math.max(.02,dur-.15),.4);
+    const o=osc('sawtooth',f,t,end), o2=osc('sawtooth',f,t,end,-6);
+    const lp=c.createBiquadFilter(); lp.type='lowpass'; lp.Q.value=1.1;
+    lp.frequency.setValueAtTime(f*1.5,t); lp.frequency.linearRampToValueAtTime(f*4,t+.18);
+    lp.frequency.exponentialRampToValueAtTime(f*2.4,t+dur);
+    o.connect(lp); o2.connect(lp); lp.connect(gn);
+    musOut(gn,.5,pan);
+  },
+  // oud / saz — szarpana struna z metalicznym brzmieniem
+  oud(f,dur,g,t,pan){
+    const c=SND.ctx, gn=c.createGain(), end=t+Math.max(dur,.9)+.3;
+    env(gn,t,.006,g*1.2,.02,Math.max(.8,dur));
+    const o=osc('sawtooth',f,t,end), o2=osc('square',f*1.002,t,end);
+    const lp=c.createBiquadFilter(); lp.type='lowpass'; lp.Q.value=3;
+    lp.frequency.setValueAtTime(f*8,t); lp.frequency.exponentialRampToValueAtTime(f*1.6,t+.6);
+    const m=c.createGain(); m.gain.value=.35; o2.connect(m); m.connect(lp);
+    o.connect(lp); lp.connect(gn);
+    musOut(gn,.45,pan);
+  },
+  // dzwonek / czelesta — sinus + nieharmoniczny alikwot
+  bell(f,dur,g,t,pan){
+    const c=SND.ctx, gn=c.createGain(), end=t+3.2;
+    env(gn,t,.004,g,.01,2.6);
+    const o=osc('sine',f,t,end), o2=osc('sine',f*2.76,t,end), o3=osc('sine',f*5.4,t,end);
+    const g2=c.createGain(); g2.gain.value=.35; const g3=c.createGain(); g3.gain.value=.12;
+    g3.gain.setValueAtTime(.12,t); g3.gain.exponentialRampToValueAtTime(.001,t+.6);
+    o.connect(gn); o2.connect(g2); g2.connect(gn); o3.connect(g3); g3.connect(gn);
+    musOut(gn,.7,pan);
+  },
+  // lutnia — ciepła szarpana struna
+  lute(f,dur,g,t,pan){
+    const c=SND.ctx, gn=c.createGain(), end=t+1.6;
+    env(gn,t,.004,g,.01,1.3);
+    const o=osc('triangle',f,t,end), o2=osc('sawtooth',f,t,end,4);
+    const lp=c.createBiquadFilter(); lp.type='lowpass'; lp.Q.value=1.5;
+    lp.frequency.setValueAtTime(f*6,t); lp.frequency.exponentialRampToValueAtTime(f*1.3,t+.5);
+    const m=c.createGain(); m.gain.value=.3; o2.connect(m); m.connect(lp); o.connect(lp); lp.connect(gn);
+    musOut(gn,.45,pan);
+  },
+  lowpluck(f,dur,g,t,pan){ MUS_INST.lute(f*.5,dur,g*1.2,t,pan); },
+  // harfa — czysta, długo wybrzmiewa
+  harp(f,dur,g,t,pan){
+    const c=SND.ctx, gn=c.createGain(), end=t+2.6;
+    env(gn,t,.003,g,.01,2.2);
+    const o=osc('triangle',f,t,end), o2=osc('sine',f*2,t,end);
+    const g2=c.createGain(); g2.gain.value=.25; o2.connect(g2); g2.connect(gn); o.connect(gn);
+    musOut(gn,.65,pan);
+  },
+  // smyczki — miękki pad
+  strings(f,dur,g,t,pan){
+    const c=SND.ctx, gn=c.createGain(), end=t+dur+1.4;
+    env(gn,t,Math.min(.9,dur*.35),g,Math.max(.05,dur*.5),1.1);
+    const lp=c.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=Math.min(2600,f*4); lp.Q.value=.5;
+    for(const d of [-9,0,8]){ const o=osc('sawtooth',f,t,end,d); o.connect(lp); }
+    lp.connect(gn);
+    musOut(gn,.7,pan);
+  },
+  // chór „aaa" — piła przez dwa formanty
+  choir(f,dur,g,t,pan){
+    const c=SND.ctx, gn=c.createGain(), end=t+dur+1.6;
+    env(gn,t,Math.min(1,dur*.4),g,Math.max(.05,dur*.45),1.3);
+    const mix=c.createGain(); mix.gain.value=1;
+    for(const d of [-7,6]){ const o=osc('sawtooth',f,t,end,d); o.connect(mix); }
+    for(const [ff,q,gg] of [[720,5,1],[1150,7,.6],[2600,8,.25]]){
+      const bp=c.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=ff; bp.Q.value=q;
+      const bg=c.createGain(); bg.gain.value=gg; mix.connect(bp); bp.connect(bg); bg.connect(gn);
+    }
+    musOut(gn,.8,pan);
+  },
+  choirLow(f,dur,g,t,pan){ MUS_INST.choir(f*.5,dur,g*1.3,t,pan); },
+  bass(f,dur,g,t){
+    const c=SND.ctx, gn=c.createGain(), end=t+dur+.3;
+    env(gn,t,.02,g,Math.max(.02,dur*.6),.25);
+    const o=osc('sine',f,t,end), o2=osc('triangle',f*2,t,end);
+    const g2=c.createGain(); g2.gain.value=.22; o2.connect(g2); g2.connect(gn); o.connect(gn);
+    musOut(gn,.1,0);
+  }
+};
+
+/* --- perkusja: miękkie, muzyczne bębny --- */
+function musHit(kind,t,g){
+  const c=SND.ctx;
+  if(kind==='kick'||kind==='tom'||kind==='taiko'||kind==='frame'){
+    const f0={kick:110,tom:160,taiko:90,frame:190}[kind], f1={kick:46,tom:90,taiko:48,frame:120}[kind];
+    const dur={kick:.32,tom:.4,taiko:.9,frame:.3}[kind];
     const o=c.createOscillator(); o.type='sine';
-    o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(42,t+.22);
-    const gn=c.createGain(); gn.gain.setValueAtTime(g,t); gn.gain.exponentialRampToValueAtTime(.0005,t+.26);
-    o.connect(gn); gn.connect(SND.musG); o.start(t); o.stop(t+.3);
-  } else {
-    const src=c.createBufferSource(); src.buffer=SND.noiseBuf; src.loop=true;
-    const f=c.createBiquadFilter(); f.type=kind==='hat'?'highpass':'bandpass';
-    f.frequency.value=kind==='hat'?6200:1800; f.Q.value=1.2;
-    const gn=c.createGain(); gn.gain.setValueAtTime(g,t);
-    gn.gain.exponentialRampToValueAtTime(.0005,t+(kind==='hat'?.06:.18));
-    src.connect(f); f.connect(gn); gn.connect(SND.musG);
-    src.start(t); src.stop(t+.3);
+    o.frequency.setValueAtTime(f0,t); o.frequency.exponentialRampToValueAtTime(f1,t+dur*.6);
+    const gn=c.createGain(); gn.gain.setValueAtTime(g,t); gn.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(gn); o.start(t); o.stop(t+dur+.05);
+    musOut(gn,kind==='taiko'?.35:.18,0);
+    if(kind==='frame'||kind==='taiko'){ // skórka
+      const n=c.createBufferSource(); n.buffer=SND.noiseBuf;
+      const bp=c.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=kind==='taiko'?500:1400; bp.Q.value=1.4;
+      const ng=c.createGain(); ng.gain.setValueAtTime(g*.5,t); ng.gain.exponentialRampToValueAtTime(.0001,t+.12);
+      n.connect(bp); bp.connect(ng); n.start(t); n.stop(t+.15); musOut(ng,.2,0);
+    }
+    return;
   }
+  // werbel / grzechotka
+  const n=c.createBufferSource(); n.buffer=SND.noiseBuf; n.loop=true;
+  const f=c.createBiquadFilter();
+  f.type=kind==='shaker'?'highpass':'bandpass';
+  f.frequency.value=kind==='shaker'?5200:2100; f.Q.value=kind==='shaker'?.7:.9;
+  const gn=c.createGain(); gn.gain.setValueAtTime(g,t);
+  gn.gain.exponentialRampToValueAtTime(.0001,t+(kind==='shaker'?.07:.16));
+  n.connect(f); f.connect(gn); n.start(t); n.stop(t+.25);
+  musOut(gn,.25,kind==='shaker'?.25:0);
 }
-function musDrone(){
-  // ciagly podklad: dwa oscylatory rozstrojone w kwincie, filtr oddycha
-  const c=SND.ctx, root=MUS_ROOT[SND.faction]||110;
-  const gn=c.createGain(); gn.gain.value=.16; gn.connect(SND.musG);
-  const flt=c.createBiquadFilter(); flt.type='lowpass'; flt.frequency.value=600; flt.Q.value=1.4;
-  flt.connect(gn);
-  const lfo=c.createOscillator(); lfo.frequency.value=.07;
-  const lg=c.createGain(); lg.gain.value=260; lfo.connect(lg); lg.connect(flt.frequency); lfo.start();
-  const oscs=[];
-  for(const [mul,det] of [[.5,0],[.5,5],[.75,-4]]){
-    const o=c.createOscillator(); o.type='sawtooth';
-    o.frequency.value=root*mul; o.detune.value=det;
-    o.connect(flt); o.start(); oscs.push(o);
+function musPerc(style,t0,beat,T,boss){
+  const L=.13+T*.14;                 // głośność rośnie z bitwą
+  const on=T>.18||style==='folk'||style==='tribal';
+  if(!on&&!boss){ if(style!=='slow') musHit('shaker',t0+beat*2,.02); return; }
+  switch(style){
+    case 'march':
+      musHit('kick',t0,L); musHit('kick',t0+beat*2,L*.8);
+      if(T>.35){ musHit('snare',t0+beat,L*.45); musHit('snare',t0+beat*3,L*.45);
+        musHit('snare',t0+beat*3.5,L*.25); }
+      break;
+    case 'tribal':
+      musHit('tom',t0,L*.9); musHit('tom',t0+beat*1.5,L*.6); musHit('tom',t0+beat*2,L*.8);
+      if(T>.3){ musHit('kick',t0,L); musHit('tom',t0+beat*3,L*.7); musHit('tom',t0+beat*3.5,L*.55); }
+      break;
+    case 'slow':
+      musHit('taiko',t0,L*.8);
+      if(T>.4) musHit('taiko',t0+beat*2,L*.6);
+      break;
+    case 'taiko':
+      musHit('taiko',t0,L); if(T>.3) musHit('taiko',t0+beat*1.5,L*.6);
+      musHit('taiko',t0+beat*2.5,L*.7);
+      if(T>.55) for(let i=0;i<4;i++) musHit('frame',t0+beat*(3+i*.25),L*.35);
+      break;
+    case 'soft':
+      musHit('frame',t0,L*.55); musHit('frame',t0+beat*2,L*.4);
+      for(let i=0;i<4;i++) musHit('shaker',t0+beat*(i+.5),.018+T*.02);
+      break;
+    case 'folk': // bęben obręczowy z akcentem na „raz" i „trzy", grzechotka
+      musHit('frame',t0,L*.8); musHit('frame',t0+beat*1.5,L*.45);
+      musHit('frame',t0+beat*2,L*.7); musHit('frame',t0+beat*3.5,L*.4);
+      if(T>.3) musHit('kick',t0,L*.9);
+      for(let i=0;i<8;i++) if(i%2) musHit('shaker',t0+beat*i*.5,.02+T*.02);
+      break;
   }
-  SND.droneFlt=flt; SND.droneGain=gn;
+  if(boss) musHit('taiko',t0,L*1.1);
 }
+
 function sndMusicStart(){
   if(!SND.ready||SND.timer) return;
-  musDrone();
+  musBus();
   SND.musG.gain.setTargetAtTime(SND.musOn?SND.musVol:0,SND.ctx.currentTime,1.5);
-  SND.timer=setInterval(musStep,10);
-  SND.nextBar=SND.ctx.currentTime+.2;
+  SND.timer=setInterval(musStep,25);
+  SND.nextBar=SND.ctx.currentTime+.3;
 }
 function musStep(){
   if(!SND.ready||!SND.musOn) return;
   const c=SND.ctx;
-  if(c.currentTime<SND.nextBar-.15) return;
-  // napiecie liczone z bitwy: ilu wrogow blisko naszych + boss w poblizu
+  if(c.currentTime<SND.nextBar-.2) return;
+  // napięcie: ilu walczy + boss w pobliżu
   let hostile=0, boss=0;
   if(typeof G!=='undefined'&&G&&G.units){
     for(const u of G.units){
@@ -230,38 +436,67 @@ function musStep(){
     }
   }
   const target=boss?1:Math.min(1,hostile/14);
-  SND.tension+=(target-SND.tension)*.16;
+  SND.tension+=(target-SND.tension)*.2;
   const T=SND.tension;
-  const bpm=72+T*40+(boss?10:0);
+  const f=MUS_THEME[SND.faction]?SND.faction:'ludzie';
+  const th=MUS_THEME[f], sc=MUS_SCALE[f], root=MUS_ROOT[f];
+  const bpm=th.bpm*(1+T*.14);
   const beat=60/bpm, barLen=beat*4;
-  const sc=MUS_SCALE[SND.faction]||MUS_SCALE.ludzie;
-  const root=MUS_ROOT[SND.faction]||110;
+  const t0=Math.max(SND.nextBar,c.currentTime+.05);
   const bar=SND.bar++;
-  const deg=[0,5,3,4][bar%4];
-  // akord podkladu
-  for(const st of [0,2,4]){
-    const semi=sc[(deg+st)%7]+(deg+st>=7?12:0);
-    musNote(musHz(root*2,semi),barLen*.98,.045+T*.03,0,'triangle',900+T*900);
+  const deg=th.prog[bar%th.prog.length];
+  const hz=d=>musHz(root,musDeg(sc,d));
+
+  // pad akordowy (co takt, miękko)
+  const padG=.028+T*.012;
+  for(const st of [0,2,4]) MUS_INST[th.pad](hz(deg+st),barLen*.92,padG,t0,st===2?-.2:(st===4?.2:0));
+  // bas
+  if(T>.15||th.perc==='folk'||th.perc==='tribal'){
+    MUS_INST.bass(hz(deg)/2,beat*1.6,.1+T*.05,t0);
+    MUS_INST.bass(hz(deg+(bar%2?4:0))/2,beat*1.4,.08+T*.05,t0+beat*2);
+  } else {
+    MUS_INST.bass(hz(deg)/2,barLen*.9,.07,t0);
   }
-  // melodia — im wieksze napiecie, tym gesciej i wyzej
-  const steps=T>.55?8:4;
-  for(let i=0;i<steps;i++){
-    if(Math.random()>(T>.55?.8:.55)) continue;
-    const semi=sc[(deg+i+ (Math.random()<.3?2:0))%7]+12*(Math.random()<.3?1:0);
-    musNote(musHz(root*4,semi),beat*(steps===8?.4:.8),.03+T*.035,i*(barLen/steps),
-      boss?'sawtooth':'triangle',1800+T*1800);
+  // arpeggio / szarpane struny
+  const arpN=T>.45?8:4, pat=[0,2,4,7,4,2,4,2];
+  for(let i=0;i<arpN;i++){
+    const d=deg+pat[i%pat.length];
+    MUS_INST[th.arp](hz(d)*(th.arp==='lowpluck'?1:2),beat*.9,.05+T*.015,t0+i*barLen/arpN,(i%2?.3:-.3));
   }
-  // perkusja narasta razem z bitwa
-  musDrum('kick',0,.16+T*.16);
-  if(T>.2) musDrum('kick',beat*2,.12+T*.16);
-  if(T>.35){ musDrum('snare',beat,.06+T*.1); musDrum('snare',beat*3,.06+T*.1); }
-  if(T>.6) for(let i=0;i<8;i++) musDrum('hat',i*beat*.5,.03+T*.03);
-  if(boss&&bar%2===0) musNote(musHz(root,sc[0]),barLen,.09,0,'sawtooth',400);
-  SND.nextBar=c.currentTime+barLen;
+  // melodia: frazy A A B A, każda po 4 takty; grana co drugą ośmiotaktową sekcję,
+  // żeby temat nie męczył — pomiędzy przerwami tylko harmonia i dzwoneczki
+  const section=Math.floor(bar/16), inSec=bar%16;
+  const phraseName=['A','A','B','A'][Math.floor(inSec/4)];
+  const playLead=(section%2===0)||T>.35;
+  if(playLead){
+    const phrase=th[phraseName];
+    // rozłóż frazę na 4 takty (16 ćwierćnut); zagraj ten fragment, który wypada w bieżącym takcie
+    const barIn=inSec%4, from=barIn*4, to=from+4;
+    let pos=0;
+    for(const [d,len] of phrase){
+      const L=Math.abs(len);
+      if(pos+L>from&&pos<to&&pos>=from&&d!==null){
+        const at=t0+(pos-from)*beat;
+        const lg=.07+T*.02;
+        MUS_INST[th.lead](hz(d)*2,L*beat*.95,lg,at,.08);
+        if(th.horn&&T>.5) MUS_INST.horn(hz(d),L*beat*.95,.035,at,-.15);
+      }
+      pos+=L;
+    }
+  }
+  // elfie iskierki / dzwoneczki w spokoju
+  if(th.sparkle&&Math.random()<.6) MUS_INST.bell(hz(deg+4+Math.floor(Math.random()*3)*2)*4,.5,.02,t0+beat*(1+Math.floor(Math.random()*3)),.4);
+  if(f==='nieumarli'&&bar%4===3) MUS_INST.bell(hz(deg)*2,1,.04,t0+beat*2,-.3);
+  // perkusja
+  musPerc(th.perc,t0,beat,T,boss);
+  // boss: niski chór i róg na tonice
+  if(boss&&bar%2===0){ MUS_INST.choirLow(hz(0),barLen*1.8,.05,t0); MUS_INST.horn(hz(0)/2,barLen*.9,.05,t0); }
+  SND.nextBar=t0+barLen;
 }
 function sndSetMusic(on){
   SND.musOn=on;
   if(!SND.ready) return;
+  if(on) SND.nextBar=Math.max(SND.nextBar,SND.ctx.currentTime+.1);
   SND.musG.gain.setTargetAtTime(on?SND.musVol:0,SND.ctx.currentTime,.4);
 }
 function sndSetSfx(on){
