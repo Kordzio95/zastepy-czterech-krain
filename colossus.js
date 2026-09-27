@@ -112,7 +112,7 @@ function drawHeavyTop(u,c,L,r,ang,hit){
   const face=dx>=0?1:-1, prof=Math.min(1,Math.abs(dx));
   const f=u.faction;
   const moving=u.state==='move';
-  const wind=u.windup>0?Math.min(1,Math.max(0,1-u.windup/.42)):0;
+  const wind=u.windup>0?Math.min(1,Math.max(0,1-u.windup/((u.windupKind==='boulder'?.5:u.windMax)||.42))):0;
   const step=moving?Math.sin(u.walk)*1.1:0;
   const sway=moving?Math.sin(u.walk*.5)*.055:Math.sin(u.anim*.8+u.id)*.014;
 
@@ -133,9 +133,24 @@ function drawHeavyTop(u,c,L,r,ang,hit){
       squash=1+.07*(1-ke); stance=1-ke;
     }
   }
+  /* style ciosu: 1 = zamach poziomy z obrotem tulowia, 2 = skok z uderzeniem */
+  const aSt=(u.windupKind==='boulder'||u.type==='beast')?0:(u.atkStyle||0);
+  let twist=0, hop=0;
+  if(aSt===1&&(u.windup>0||sv>=0)){
+    if(u.windup>0){ const e=wind*wind*(3-2*wind); armA=A_REST+(-1.7-A_REST)*e; lean=-.1*e; drop=0; twist=-e; stretch=1; squash=1; stance=e; }
+    else if(sv<.35){ const k=Math.pow(sv/.35,.6); armA=-1.7+(.35+1.7)*k; lean=-.1+.35*k; twist=-1+2*k; smear=1-k*.2; stance=1; stretch=1; squash=1; drop=0; }
+    else { const k=(sv-.35)/.65, ke=k*k*(3-2*k); armA=.35+(A_REST-.35)*ke; lean=.25*(1-ke); twist=1-ke; smear=.5*(1-ke); stance=1-ke; stretch=1; squash=1; drop=0; }
+  } else if(aSt===2&&(u.windup>0||sv>=0)){
+    if(u.windup>0){
+      if(wind<.35){ const e=wind/.35; drop=r*.14*e; squash=1-.12*e; stretch=1+.08*e; armA=A_REST+(.3-A_REST)*e; stance=e; }
+      else { const e=(wind-.35)/.65; hop=-r*.95*Math.sin(e*Math.PI*.5); drop=0; squash=1+.06; stretch=.96; armA=.3+(A_UP-.3)*Math.min(1,e*1.4); lean=-.15*e; stance=1; }
+    } else if(sv<.25){ const k=sv/.25; hop=-r*.95*(1-k)*(1-k); armA=A_UP+(A_DOWN+.3-A_UP)*Math.pow(k,.5); squash=1+.16*k; stretch=1-.1*k; lean=.35*k; drop=r*.12*k; smear=1; stance=1; }
+    else { const k=(sv-.25)/.75, ke=k*k*(3-2*k); armA=A_DOWN+.3+(A_REST-A_DOWN-.3)*ke; squash=1+.16*(1-ke); stretch=1-.1*(1-ke); lean=.35*(1-ke); drop=r*.12*(1-ke); smear=.4*(1-ke); stance=1-ke; }
+  }
 
   cx.save();
-  cx.translate(0,drop);
+  cx.translate(0,drop+hop);
+  if(twist) cx.scale(1-Math.abs(twist)*.2,1);
   cx.rotate(sway+lean*face*.55);
   if(u.windup>0||sv>=0) cx.scale(stretch,squash);
   else if(!moving) cx.scale(1+Math.sin(u.anim*1.15+u.id)*.012,1+Math.sin(u.anim*1.15+u.id+1.6)*.016);
@@ -159,6 +174,15 @@ function drawHeavyTop(u,c,L,r,ang,hit){
   else if(f==='orki')     colOrc(P);
   else                    colCyclops(P);
 
+  if(aSt===1&&smear>.05){
+    // smuga poziomego zamachu wokol tulowia
+    const acc=FACTIONS[f].col.accent;
+    cx.lineCap='round';
+    cx.strokeStyle=hexA(acc,.4*smear); cx.lineWidth=r*.34;
+    cx.beginPath(); cx.ellipse(0,torY+r*.1,r*1.5,r*.5,0,face>0?-.6:Math.PI-1.4,face>0?1.4:Math.PI+.6); cx.stroke();
+    cx.strokeStyle='rgba(255,255,255,'+(.3*smear).toFixed(2)+')'; cx.lineWidth=r*.1;
+    cx.beginPath(); cx.ellipse(0,torY+r*.1,r*1.7,r*.58,0,face>0?-.4:Math.PI-1.2,face>0?1.2:Math.PI+.4); cx.stroke();
+  }
   cx.restore();
 }
 

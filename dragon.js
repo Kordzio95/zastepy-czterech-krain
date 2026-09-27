@@ -60,7 +60,7 @@ function drawDragonTop(u,c,L,r,ang,hit){
   const moving=u.state==='move';
   const brth=Math.sin(u.dragAnim*1.1)*.5+.5;                 // oddech
   const step=moving?Math.sin(u.walk)*1:0;
-  const flap=Math.sin(u.wingPh)*.5+.5;                       // 0..1 trzepot
+  const flap=u.wingT>0?(.5+.5*Math.sin((1-u.wingT/.85)*Math.PI*5)):(Math.sin(u.wingPh)*.5+.5);                       // 0..1 trzepot
   const headB=Math.sin(u.headPh)*r*.03;
 
   const GY=r*.62;                    // linia ziemi
@@ -68,8 +68,9 @@ function drawDragonTop(u,c,L,r,ang,hit){
   const bodyY=hipY-r*.22;            // srodek tulowia
   const shY=bodyY-r*.1;
   const neckBase=shY-r*.16;
-  const headY=neckBase-r*.5-headB-(moving?0:brth*r*.02);
-  const headX=face*r*.5;
+  const lunge=u.biteT>0?Math.sin((1-u.biteT/.55)*Math.PI):0;
+  const headY=neckBase-r*.5-headB-(moving?0:brth*r*.02)+lunge*r*.22;
+  const headX=face*r*(.5+lunge*.38);
 
   /* ---- aura ---- */
   const au=cx.createRadialGradient(0,bodyY,r*.3,0,bodyY,r*1.25);
@@ -79,7 +80,7 @@ function drawDragonTop(u,c,L,r,ang,hit){
   /* ===================== OGON (za cialem) ===================== */
   const tSeg=9, tailDir=-face;
   let tx=tailDir*r*.42, ty=hipY+r*.04, ta=tailDir>0?.1:Math.PI-.1;
-  const swing=Math.sin(u.dragAnim*1.5)*.16+(moving?Math.sin(u.walk*.5)*.1:0);
+  const swing=Math.sin(u.dragAnim*1.5)*.16+(moving?Math.sin(u.walk*.5)*.1:0)+(u.tailT>0?Math.sin((1-u.tailT/.75)*Math.PI*2)*.34:0);
   for(let i=0;i<tSeg;i++){
     const f2=i/tSeg;
     const seg=r*.17*(1-f2*.55);
@@ -255,7 +256,7 @@ function drawDragonTop(u,c,L,r,ang,hit){
   cx.closePath(); cx.fill();
   cx.strokeStyle='rgba(12,10,8,.7)'; cx.lineWidth=1.8; cx.stroke();
   // dolna szczeka (otwiera sie przy tchnieniu / ryku)
-  const jaw=u.breath>0?.55:(u.state==='fight'?.22:.06+brth*.04);
+  const jaw=u.breath>0?.55:(u.biteT>0?.2+.5*(1-lunge):(u.stompT>0?.45:(u.state==='fight'?.22:.06+brth*.04)));
   cx.save();
   cx.translate(hx-face*hw*.55,hy+hh*.3); cx.rotate(face*jaw);
   cx.fillStyle=hit?'#fff':shade(bone2,-.08);

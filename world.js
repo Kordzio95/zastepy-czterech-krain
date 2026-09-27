@@ -80,7 +80,8 @@ function makeWorld(mapKey,mode){
     }
   }
   mineSpots.push({x:MAP_W*.5,y:MAP_H*.5},{x:MAP_W*.5,y:MAP_H*.26},{x:MAP_W*.5,y:MAP_H*.76},
-                 {x:MAP_W*.26,y:MAP_H*.5},{x:MAP_W*.74,y:MAP_H*.5});
+                 {x:MAP_W*.26,y:MAP_H*.5},{x:MAP_W*.74,y:MAP_H*.5},
+                 {x:MAP_W*.34,y:MAP_H*.3},{x:MAP_W*.66,y:MAP_H*.7},{x:MAP_W*.66,y:MAP_H*.3},{x:MAP_W*.34,y:MAP_H*.7});
   for(const m of mineSpots){
     // kopalnia nie moze lezec w rzece — odsun ja na brzeg
     for(let g=0;g<24&&!dry(m.x,m.y,70);g++){
@@ -95,7 +96,9 @@ function makeWorld(mapKey,mode){
         amount:RES.gold.amount, max:RES.gold.amount, seed:rand(0,7), s:rand(.9,1.2)});
     }
   }
+  if(typeof makeNeutralSites==='function'){ try{ makeNeutralSites(w,spots,mapKey); }catch(e){ console.error(e); } }
   if(typeof navBuild==='function'){ try{ navBuild(); }catch(e){} }
+  if(typeof navBlockProps==='function'){ try{ navBlockProps(); }catch(e){} }
   return w;
 }
 

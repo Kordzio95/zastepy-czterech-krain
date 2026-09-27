@@ -91,6 +91,9 @@ function updateUnits(dt){
     u.x=clamp(u.x,14,MAP_W-14); u.y=clamp(u.y,14,MAP_H-14);
 
     if(u.type==='dragon'){ updateDragon(u,dt); continue; }
+    if(u.type==='giant'){ updateGiant(u,dt); continue; }
+    if(u.type==='troll'){ updateTroll(u,dt); continue; }
+    if(u.type==='villager'){ updateVillager(u,dt); continue; }
     if(u.stun>0){ u.stun-=dt; continue; }
     u.atk=Math.max(-.05,u.atk-dt);
     if(u.swing>0) u.swing-=dt;
@@ -172,7 +175,8 @@ function updateUnits(dt){
     else u.state='idle';
   }
   separate(dt);
-  if(typeof waterPushOut==='function') for(const u of G.units) if(u.type!=='dragon') waterPushOut(u,dt);
+  if(typeof waterPushOut==='function') for(const u of G.units) if(u.type!=='dragon'&&u.type!=='giant') waterPushOut(u,dt);
+  if(typeof updateNeutrals==='function') updateNeutrals(dt);
 }
 
 function moveTo(u,tx,ty,dt,ignore){
@@ -599,8 +603,9 @@ function updateParticles(dt){
         for(const o of G.units){
           if(o.dead||!foe(o.side,p.side)) continue;
           const d=Math.hypot(o.x-p.x,o.y-p.y);
-          if(d>110) continue;
-          const fall=1-d/110, nx=d<1?1:(o.x-p.x)/d, ny=d<1?0:(o.y-p.y)/d;
+          const BR=p.R||110;
+          if(d>BR) continue;
+          const fall=1-d/BR, nx=d<1?1:(o.x-p.x)/d, ny=d<1?0:(o.y-p.y)/d;
           knockback(o,nx,ny,360+260*fall,170+160*fall,.3*fall);
           dealDamage(o,Math.round(p.dmg*(.5+.7*fall)),p.side,{n:8,power:1.4,dx:nx,dy:ny});
         }
@@ -813,6 +818,7 @@ function updateDragon(u,dt){
   if(u.breathCd>0) u.breathCd-=dt;
   if(u.roarCd>0) u.roarCd-=dt;
   if(u.atk>0) u.atk-=dt;
+  if(typeof dragonTimers==='function'&&dragonTimers(u,dt)) return;
   if(u.stun>0){ u.stun-=dt; return; }
   if(u.hp<u.maxHp) u.hp=Math.min(u.maxHp,u.hp+dt*14);   // smok sie leczy, trzeba go zabic szybko
 
@@ -855,7 +861,7 @@ function updateDragon(u,dt){
   u.state='fight';
   if(u.atk>0) return;
   u.atk=u.ias;
-  dragonClaw(u,t,isB);
+  if(typeof dragonMelee==='function') dragonMelee(u,t,isB); else dragonClaw(u,t,isB);
 }
 function dragonMove(u,tx,ty,dt){
   const ang=Math.atan2(ty-u.y,tx-u.x);

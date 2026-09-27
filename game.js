@@ -34,20 +34,22 @@ function newGame(pf,mapKey,mode){
   g.ef=g.faction[sides.find(s=>g.team[s]!==g.team.player)]||pf;
   // strona neutralna dla bossa: wroga wszystkim, bez ekonomii i bez AI
   g.team.wild='wild';
-  g.faction.wild=dragonKindFor(mapKey).faction;
+  g.faction.wild=(BOSS_BY_MAP[mapKey]==='giant')?giantKindFor(mapKey).faction:dragonKindFor(mapKey).faction;
   g.res.wild={gold:0,wood:0};
   g.lvl.wild={dragon:1}; g.buff.wild=0; g.fallen.wild=[]; g.keep.wild=0;
+  if(typeof setupNeutralSides==='function') setupNeutralSides(g,mapKey);
   g.world=makeWorld(mapKey,mode);
   const spots=baseSpots(mode);
   sides.forEach((s,i)=>foundSettlement(s,g.faction[s],spots[i].x,spots[i].y));
-  spawnDragon();
+  if(typeof spawnBoss==='function') spawnBoss(); else spawnDragon();
+  if(typeof spawnNeutrals==='function') spawnNeutrals();
   centerCam(spots[0].x,spots[0].y);
   return g;
 }
 /* --- strony, drużyny, frakcje --- */
 const sideFaction=s=>(G.faction&&G.faction[s])||G.pf;
-function foe(a,b){ return a!==b && G.team[a]!==G.team[b]; }
-const isFoe=(x,y)=>foe(x.side,y.side);
+function foe(a,b){ return a!==b && a!=='neutral' && b!=='neutral' && G.team[a]!==G.team[b]; }
+const isFoe=(x,y)=>foe(x.side,y.side)&&!x.sleep&&!y.sleep;
 const allySide=(a,b)=>a===b||G.team[a]===G.team[b];
 function foeSides(side){ return G.sides.filter(s=>foe(s,side)); }
 function teamHasTownhall(team){ return G.buildings.some(b=>!b.dead&&b.type==='townhall'&&G.team[b.side]===team); }
@@ -544,6 +546,7 @@ const other=s=>foeSides(s)[0]||s;
 function dmgMul(side){ return G.buff[side]>0?1.4:1; }
 /* --- awanse w boju --- */
 function awardXp(victim,side){
+  if(side==='wild'||side==='neutral') return;
   const worth=victim.type==='heavy'||victim.type==='hero'?4:(SIEGE_KEYS.indexOf(victim.type)>=0?2:1);
   const near=G.units.filter(u=>!u.dead&&u.side===side&&u.type!=='worker'&&Math.hypot(u.x-victim.x,u.y-victim.y)<170);
   if(!near.length) return;
@@ -647,7 +650,7 @@ function dealDamage(t,amount,fromSide,opts={}){
     ring(t.x,t.y,t.type==='heavy'?60:26,hexA(FACTIONS[t.faction].col.accent,.65),.35,3);
     bloodCone(t.x,t.y,t.faction,opts.dx||rand(-1,1),opts.dy||rand(-1,1),1.3);
     SND.play(t.type==='heavy'?'dieHeavy':'die',t.x,t.y,{reach:t.type==='heavy'?900:620});
-    if(typeof unitVoice==='function'&&t.type!=='dragon') unitVoice(t,'die');
+    if(typeof unitVoice==='function'&&t.type!=='dragon'&&t.type!=='giant'&&t.type!=='troll'&&t.type!=='villager') unitVoice(t,'die');
     if(t.type==='heavy'){ shake(9,t.x,t.y,420); hitstopAt(.08,t.x,t.y); debris(t.x,t.y,16); shockRing(t.x,t.y,70,FACTIONS[t.faction].col.accent); }
     G.fallen[t.side].push({x:t.x,y:t.y,type:t.type,lvl:t.lvl});
     if(G.fallen[t.side].length>30) G.fallen[t.side].shift();
@@ -661,8 +664,10 @@ function dealDamage(t,amount,fromSide,opts={}){
       decal(t.x,t.y,120,'rgba(40,32,24,.4)');
       dragonReward(fromSide);
     }
+    if(t.type==='giant') giantDied(t,fromSide);
+    if(t.type==='troll') trollDied(t,fromSide);
     if(fromSide&&G.res[fromSide]&&foe(fromSide,t.side)){
-      const loot=8+(t.type==='heavy'?60:0)+(t.type==='dragon'?0:0)+t.lvl*2;
+      const loot=8+(t.type==='heavy'?60:0)+(t.type==='troll'?(t.chief?70:40):0)+t.lvl*2;
       G.res[fromSide].gold+=loot;
       if(fromSide==='player'){
         G.will=Math.min(G.willMax,G.will+(t.type==='heavy'?18:3));
@@ -738,6 +743,7 @@ function meleeAttack(u,t){
   if(typeof unitVoice==='function'&&u.side==='player'&&Math.random()<.07) unitVoice(u,'attack');
   const ang=Math.atan2(t.y-u.y,t.x-u.x), nx=Math.cos(ang), ny=Math.sin(ang);
   u.facing=ang;
+  if(u.type==='hero'&&typeof heroPickStyle==='function') heroPickStyle(u,t);
   const swCol=u.faction==='nieumarli'?'#cfeee8':(u.faction==='orki'?'#f3c98f':(u.faction==='demony'?'#ffb15e':(u.faction==='elfy'?'#d6f7e2':(u.faction==='raclaw'?'#f2e0c6':'#eef3ff'))));
   SND.play('slash',u.x,u.y);
   slashArc(u.x+nx*(u.r+8),u.y+ny*(u.r+8),ang,u.r*2.4+16,swCol,u.lvl>=3?6:4);
@@ -1009,10 +1015,13 @@ function heavyAttack(u,t){
   u.facing=Math.atan2(t.y-u.y,t.x-u.x);
   if(u.faction==='ludzie'&&d>90&&UNITS[t.type]){ u.windup=.5; u.windupKind='boulder'; u.boulderTarget={x:t.x,y:t.y}; return; }
   u.windup=.42;
+  if(typeof heavyPickStyle==='function') heavyPickStyle(u); else u.atkStyle=0;
   u.windupKind=u.faction==='orki'?'whirl':(u.faction==='nieumarli'?'quake':(u.faction==='demony'?'fire':(u.faction==='elfy'?'roots':(u.faction==='raclaw'?'bite':'slam'))));
 }
 function resolveHeavy(u){
   const k=u.windupKind; u.windupKind=null;
+  if(k!=='boulder'&&u.atkStyle===1&&typeof heavySweep==='function'){ heavySweep(u); return; }
+  if(k!=='boulder'&&u.atkStyle===2&&typeof heavyLeap==='function'){ heavyLeap(u); return; }
   const dmg=unitDmg(u);
   const acc=FACTIONS[u.faction].col.accent;
   if(k==='boulder'){

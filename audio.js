@@ -432,7 +432,7 @@ function musStep(){
     for(const u of G.units){
       if(u.dead) continue;
       if(u.target&&!u.target.dead&&u.type!=='worker') hostile++;
-      if(u.type==='dragon'&&typeof CAM!=='undefined'&&Math.hypot(u.x-(CAM.x+CAM.w/2),u.y-(CAM.y+CAM.h/2))<1400) boss=1;
+      if((u.type==='dragon'||(u.type==='giant'&&!u.sleep))&&typeof CAM!=='undefined'&&Math.hypot(u.x-(CAM.x+CAM.w/2),u.y-(CAM.y+CAM.h/2))<1400) boss=1;
     }
   }
   const target=boss?1:Math.min(1,hostile/14);

@@ -862,10 +862,11 @@ function drawMinimap(){
     const s=b.type==='townhall'?6:4;
     cx.fillRect(m.x+b.x*sx-s/2,m.y+b.y*sy-s/2,s,s);
   }
+  if(typeof drawNeutralsMini==='function') drawNeutralsMini(m,sx,sy);
   for(const u of G.units){
-    if(u.dead) continue;
-    cx.fillStyle=u.type==='dragon'?(u.dk?u.dk.glow:'#bda6d8'):(u.side==='player'&&u.type==='worker'?'#cfe7b8':sideCol(u.side));
-    const s=u.type==='dragon'?8:(u.type==='heavy'?4:2.4);
+    if(u.dead||u.sleep||u.type==='villager') continue;
+    cx.fillStyle=isBoss(u)?bossGlow(u):(u.side==='player'&&u.type==='worker'?'#cfe7b8':sideCol(u.side));
+    const s=isBoss(u)?8:(u.type==='heavy'?4:(u.type==='troll'?3:2.4));
     cx.fillRect(m.x+u.x*sx-s/2,m.y+u.y*sy-s/2,s,s);
   }
   cx.strokeStyle='rgba(255,255,255,.85)'; cx.lineWidth=1.4;
@@ -888,13 +889,15 @@ function renderScene(){
   cx.scale(ZOOM,ZOOM);
   drawTerrain();
   drawDecals();
+  if(typeof drawNeutralGround==='function') drawNeutralGround();
   drawResources();
   // sortowanie po Y dla głębi
   const ents=[];
+  if(G.world.props) for(const p of G.world.props) if(vis(p.x,p.y,110)) ents.push({y:p.y,p});
   for(const b of G.buildings) if(vis(b.x,b.y,b.r*2)) ents.push({y:b.y,b});
-  for(const u of G.units) if(vis(u.x,u.y,u.type==='dragon'?260:60)) ents.push({y:u.y,u});
+  for(const u of G.units) if(vis(u.x,u.y,isBoss(u)?280:60)) ents.push({y:u.y,u});
   ents.sort((a,b)=>a.y-b.y);
-  for(const e of ents){ if(e.b) drawBuilding(e.b); else drawUnit(e.u); }
+  for(const e of ents){ if(e.b) drawBuilding(e.b); else if(e.p){ try{ drawProp(e.p); }catch(er){} } else drawUnit(e.u); }
   drawEffects();
   drawPlacementGhost();
   drawSelectionBox();
@@ -1021,7 +1024,7 @@ function infoTip(mx,my,title,sub,lines,hp,mx2,col){
 function unitTip(u,mx,my){
   const f=sideFaction(u.side);
   let nm=UNITS[u.type].label;
-  try{ nm=u.type==='dragon'?(u.dk?u.dk.name:'Smok'):tierName(f,u.type,u.lvl||1); }catch(e){}
+  try{ nm=neutralName(u)||tierName(f,u.type,u.lvl||1); }catch(e){}
   const d=UNITS[u.type];
   const desc=(FACTIONS[f]&&FACTIONS[f].attackDesc&&FACTIONS[f].attackDesc[u.type])||
              (typeof UDESC!=='undefined'?UDESC[u.type]:'')||'';

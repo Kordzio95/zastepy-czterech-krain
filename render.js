@@ -522,6 +522,9 @@ function drawUnit(u){
   let bob=u.state==='move'?Math.sin(u.walk)*1.6:Math.sin(u.anim*2+u.id)*.6;
   if(u.type==='heavy'||u.type==='beast') bob=u.state==='move'?-Math.abs(Math.sin(u.walk))*(u.type==='beast'?2.1:3.2)+1.6:Math.sin(u.anim*1.1+u.id)*1.1;
   if(u.type==='dragon') bob=u.state==='move'?-Math.abs(Math.sin(u.walk))*5.5+2.6:Math.sin(u.dragAnim*1.1)*2.2;
+  if(u.type==='dragon'&&u.stompT>0){ const p=1-u.stompT/.95; bob+=p<.58?-Math.sin(p/.58*Math.PI*.5)*r*.4:-r*.4*Math.max(0,1-(p-.58)/.08); }
+  if(u.type==='giant') bob=u.sleep?0:(u.state==='move'?-Math.abs(Math.sin(u.walk))*6+3:Math.sin(u.gAnim*1.2)*1.5);
+  if(u.type==='villager'||u.type==='troll') bob=u.state==='move'?-Math.abs(Math.sin(u.walk))*1.6:0;
   cx.save();
   cx.globalAlpha=u.dead?Math.max(0,u.fade):1;
   // cień
@@ -529,9 +532,11 @@ function drawUnit(u){
   cx.fillStyle='rgba(0,0,0,'+(.3*shadeS)+')';
   cx.beginPath(); cx.ellipse(toScreenX(u.x),toScreenY(u.y)+r*.56,r*.9*shadeS,r*.5*shadeS,0,0,7); cx.fill();
   // obwódka drużyny — od razu widać kto jest kto
+  if(u.type!=='villager'&&!u.sleep){
   cx.strokeStyle=hexA(TCOL(u.side),.55);
   cx.lineWidth=1.6;
   cx.beginPath(); cx.ellipse(toScreenX(u.x),toScreenY(u.y)+r*.56,r*.82,r*.44,0,0,7); cx.stroke();
+  }
   if(u.type==='hero'){
     const pu=.5+.5*Math.sin(TIME*2.4+u.id);
     const bg=cx.createRadialGradient(toScreenX(u.x),toScreenY(u.y)+r*.56,r*.3,toScreenX(u.x),toScreenY(u.y)+r*.56,r*1.6);
@@ -581,7 +586,14 @@ function drawUnit(u){
   }
   const hit=u.hitFlash>0;
   if(u.type==='dragon'&&typeof drawDragonTop==='function') drawDragonTop(u,c,L,r,ang,hit);
-  else if(u.type==='hero'&&typeof drawHeroTop==='function') drawHeroTop(u,c,L,r,ang,hit);
+  else if(u.type==='giant') drawGiantTop(u,c,L,r,ang,hit);
+  else if(u.type==='troll') drawTrollTop(u,c,L,r,ang,hit);
+  else if(u.type==='villager') drawVillagerTop(u,c,L,r,ang,hit);
+  else if(u.type==='hero'&&typeof drawHeroTop==='function'){
+    cx.save(); if(typeof heroStyleXform==='function') heroStyleXform(u,r);
+    drawHeroTop(u,c,L,r,ang,hit); cx.restore();
+    if(typeof heroStyleOverlay==='function') heroStyleOverlay(u,r);
+  }
   else if(UNITS[u.type].siege) drawSiegeTop(u,c,L,r,ang,hit);
   else if(u.type==='heavy'||u.type==='beast') drawHeavyTop(u,c,L,r,ang,hit);
   else drawSoldierTop(u,c,L,r,ang,hit);
@@ -589,21 +601,21 @@ function drawUnit(u){
 
   // pasek HP
   const dmgd=u.hp<u.maxHp;
-  if(u.type==='dragon'&&!u.dead){
-    const w=150, yy=sy-r*1.35;
+  if(isBoss(u)&&!u.dead&&!u.sleep){
+    const w=150, yy=sy-r*(u.type==='giant'?2.05:1.35);
     cx.fillStyle='rgba(0,0,0,.6)'; cx.fillRect(sx-w/2-2,yy-2,w+4,11);
-    cx.fillStyle=hexA(u.dk?u.dk.glow:'#fff',.95);
+    cx.fillStyle=hexA(bossGlow(u),.95);
     cx.fillRect(sx-w/2,yy,w*Math.max(0,u.hp/u.maxHp),7);
     cx.strokeStyle='rgba(20,16,12,.8)'; cx.lineWidth=1.4; cx.strokeRect(sx-w/2-2,yy-2,w+4,11);
     cx.font='700 13px Cinzel, serif'; cx.textAlign='center';
-    cx.fillStyle='rgba(0,0,0,.7)'; cx.fillText((u.dk?u.dk.name:'Smok'),sx+1,yy-7);
-    cx.fillStyle=u.dk?u.dk.glow:'#fff'; cx.fillText((u.dk?u.dk.name:'Smok'),sx,yy-8);
+    cx.fillStyle='rgba(0,0,0,.7)'; cx.fillText(bossName(u),sx+1,yy-7);
+    cx.fillStyle=bossGlow(u); cx.fillText(bossName(u),sx,yy-8);
     cx.textAlign='left';
     cx.restore&&0;
   }
-  if(!u.dead){
+  if(!u.dead&&!isBoss(u)&&u.type!=='villager'){
     const w=u.type==='heavy'?42:(u.type==='hero'?34:(u.sel?26:22));
-    const yy=sy-r*(u.type==='heavy'?2.3:1.85)-8;
+    const yy=sy-r*(u.type==='heavy'?2.3:(u.type==='troll'?1.35:1.85))-8;
     const fr=clamp(u.hp/u.maxHp,0,1);
     cx.fillStyle='rgba(0,0,0,.6)'; cx.fillRect(sx-w/2-1,yy-1,w+2,5);
     cx.fillStyle='rgba(60,50,40,.55)'; cx.fillRect(sx-w/2,yy,w,3);
@@ -622,7 +634,7 @@ function drawUnit(u){
   // nazwa jednostki pod zaznaczeniem — krotki opis kto to jest
   if(u.sel&&!u.dead&&ZOOM>.8&&G.sel.length<=4&&typeof tierName==='function'){
     let nm='';
-    try{ nm=u.type==='dragon'?(u.dk?u.dk.name:'Smok'):tierName(sideFaction(u.side),u.type,u.lvl||1); }catch(e){ nm=UNITS[u.type].label; }
+    try{ nm=neutralName(u)||tierName(sideFaction(u.side),u.type,u.lvl||1); }catch(e){ nm=UNITS[u.type].label; }
     cx.font='600 10px Satoshi,sans-serif'; cx.textAlign='center';
     cx.fillStyle='rgba(0,0,0,.6)'; cx.fillText(nm,sx+.5,sy+r*.95+.5);
     cx.fillStyle='rgba(241,231,207,.92)'; cx.fillText(nm,sx,sy+r*.95);
