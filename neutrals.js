@@ -731,7 +731,7 @@ function neutralName(u){
   }
   if(u.type==='troll') return u.merc?'Najemny troll':(u.chief?'Wódz Trolli':'Troll z Jaskini');
   if(u.type==='bandit'||u.type==='banditArcher') return u.merc?'Najemny '+(u.type==='bandit'?'rozbójnik':'łucznik'):(u.chief?'Herszt rozbójników':UNITS[u.type].label);
-  if(u.type==='legend') return 'Koronowany Władca';
+  if(u.type==='legend') return titanName(u.faction);
   if(u.type==='villager') return (VK_NAME[u.vk]||'Wieśniak')+(u.vil?' z '+u.vil.name:'');
   return null;
 }

@@ -317,7 +317,7 @@ const UNITS={
   bandit:{ label:'Rozbójnik', r:13, hp:230, dmg:22, range:20, speed:60, ias:1.0, pop:0, mass:1, armor:1, cost:{gold:90,wood:30} },
   banditArcher:{ label:'Rozbójnik z łukiem', r:13, hp:160, dmg:20, range:165, speed:58, ias:1.5, pop:0, mass:1, cost:{gold:100,wood:40} },
   kraken:{ label:'Kraken', r:150, hp:16000, dmg:250, range:150, speed:46, ias:2.6, pop:0, mass:99, armor:12, boss:true },
-  legend:{ label:'Koronowany Władca', r:30, hp:4200, dmg:130, range:30, speed:70, ias:.85, cost:{gold:650,wood:450}, time:32, pop:0, mass:7, armor:9 }
+  legend:{ label:'Tytan', plural:'Tytani', r:44, hp:9500, dmg:250, range:46, speed:60, ias:1.05, cost:{gold:650,wood:450}, time:32, pop:0, mass:30, armor:14 }
 };
 const SIEGE_KEYS=['catapult','ballista','trebuchet','cannon','sling'];
 const UNIT_KEYS=['worker','warrior','guard','archer','crossbow','flamer','beast','heavy','hero'].concat(SIEGE_KEYS);
@@ -410,6 +410,7 @@ const BEAST_DESC={ludzie:'Niewyrośnięty cyklop — ciska kamieniami i bije pi�
   raclaw:'Szczenię Zory — gryzie nogi i nie puszcza.'};
 const tierName=(f,t,l)=>{
   const T=FACTIONS[f]&&FACTIONS[f].tiers[t];
+  if(t==='legend'&&typeof titanName==='function') return titanName(f);
   if(!T||!T.length) return t==='beast'?(BEAST_NAMES[f]||'Bestia'):((UNITS[t]&&UNITS[t].label)||t);
   return T[Math.min(l,T.length)-1];
 };
@@ -425,7 +426,7 @@ function look(type,lvl){
     armor:lvl>=2, trophies:lvl>=2, helm:lvl>=2, bracers:lvl>=2, shieldBack:lvl>=2, warPaint:lvl>=2,
     aura:lvl>=3, crown:lvl>=3, weaponGlow:lvl>=3, cape:lvl>=3, relic:lvl>=3, bannerBack:lvl>=3, bigWeapon:lvl>=3};
   if(type==='dragon') return {scale:1, aura:true, weaponGlow:true, boss:true};
-  if(type==='legend') return {scale:1, helmet:true, pauldrons:true, cape:true, bigWeapon:true, plate:true, plume:true, weaponGlow:true, banner:true, aura:true, hero:true, legend:true};
+  if(type==='legend') return {scale:1, aura:true, legend:true};
   if(type==='giant'||type==='troll'||type==='villager'||type==='bandit'||type==='banditArcher'||type==='kraken') return {scale:1};
   if(type==='worker') return {scale:1+(lvl-1)*.06, helmet:lvl>=2, plate:lvl>=3, aura:false, weaponGlow:false};
   if(type==='guard') return {scale:1+(lvl-1)*.055, helmet:true, pauldrons:true, plate:lvl>=2,

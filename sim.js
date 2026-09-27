@@ -255,6 +255,7 @@ function attackTarget(u,t,dt,keepOrder){
   else if(u.type==='flamer') flamerAttack(u,t);
   else if(u.type==='guard') guardAttack(u,t);
   else if(u.type==='heavy') heavyAttack(u,t);
+  else if(u.type==='legend'&&typeof titanAttack==='function') titanAttack(u,t);
   else if(u.type==='worker'){ dealDamage(t,unitDmg(u),u.side,{n:3});
     slashArc(u.x+Math.cos(u.facing)*12,u.y+Math.sin(u.facing)*12,u.facing,20,'#e8dcc0',3); }
   else meleeAttack(u,t);

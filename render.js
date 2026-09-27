@@ -586,12 +586,12 @@ function drawUnit(u){
     cx.strokeStyle='rgba(159,240,228,.8)'; cx.lineWidth=2;
     cx.beginPath(); cx.ellipse(0,r*.55,r*1.05,r*.58,0,0,7); cx.stroke();
   }
-  const hit=u.hitFlash>0;
+  const hit=u.type==='legend'?u.hitFlash>.13:u.hitFlash>0;
   if(u.type==='dragon'&&typeof drawDragonTop==='function') drawDragonTop(u,c,L,r,ang,hit);
   else if(u.type==='giant') drawGiantTop(u,c,L,r,ang,hit);
   else if(u.type==='troll') drawTrollTop(u,c,L,r,ang,hit);
   else if((u.type==='bandit'||u.type==='banditArcher')&&typeof drawBanditTop==='function') drawBanditTop(u,c,L,r,ang,hit);
-  else if(u.type==='legend'&&typeof drawHeroTop==='function'){ drawHeroTop(u,c,L,r,ang,hit); if(typeof drawLegendCrown==='function') drawLegendCrown(u,r); }
+  else if(u.type==='legend'&&typeof drawLegendTitan==='function') drawLegendTitan(u,c,L,r,ang,hit);
   else if(u.type==='villager') drawVillagerTop(u,c,L,r,ang,hit);
   else if(u.type==='hero'&&typeof drawHeroTop==='function'){
     cx.save(); if(typeof heroStyleXform==='function') heroStyleXform(u,r);
@@ -618,8 +618,8 @@ function drawUnit(u){
     cx.restore&&0;
   }
   if(!u.dead&&!isBoss(u)&&u.type!=='villager'){
-    const w=u.type==='heavy'?42:(u.type==='hero'?34:(u.sel?26:22));
-    const yy=sy-r*(u.type==='heavy'?2.3:(u.type==='troll'?1.35:1.85))-8;
+    const w=u.type==='legend'?64:(u.type==='heavy'?42:(u.type==='hero'?34:(u.sel?26:22)));
+    const yy=sy-u.z*.6-r*(u.type==='legend'?(u.faction==='raclaw'?2.3:3.3):(u.type==='heavy'?2.3:(u.type==='troll'?1.35:1.85)))-8;
     const fr=clamp(u.hp/u.maxHp,0,1);
     cx.fillStyle='rgba(0,0,0,.6)'; cx.fillRect(sx-w/2-1,yy-1,w+2,5);
     cx.fillStyle='rgba(60,50,40,.55)'; cx.fillRect(sx-w/2,yy,w,3);

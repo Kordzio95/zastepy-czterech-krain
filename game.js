@@ -428,7 +428,7 @@ function trainUnit(b,type){
     const have=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='legend').length
       +G.buildings.filter(x=>x.side===side&&!x.dead).reduce((n,x)=>n+x.queue.filter(q=>q==='legend').length,0);
     const lim=(G.god&&side==='player')?3:1;
-    if(have>=lim){ if(side==='player') warn(lim>1?'Możesz mieć najwyżej 3 Koronowanych Władców':'Koronowany Władca może być tylko jeden'); return false; }
+    if(have>=lim){ if(side==='player') warn(lim>1?'Możesz mieć najwyżej 3 Tytanów':'Tytan może być tylko jeden'); return false; }
   }
   if(type==='hero'){
     const have=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='hero').length

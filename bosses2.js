@@ -245,7 +245,7 @@ function relicDrop(b){
   }
   G.relic={x,y,state:'ground',carrier:null,owner:null,t:0};
   ring(x,y,90,'rgba(255,215,110,.9)',1,6); for(let i=0;i<20;i++) spark(x,y,'#ffd35a',2,1.6);
-  setTimeout(()=>{ if(G&&G.relic&&G.relic.state==='ground') G.banner={txt:'Pradawna Korona leży na ziemi! Zanieś ją do ratusza, by stworzyć Koronowanego Władcę.',life:5.5,max:5.5}; },2200);
+  setTimeout(()=>{ if(G&&G.relic&&G.relic.state==='ground') G.banner={txt:'Pradawna Korona leży na ziemi! Zanieś ją do ratusza, by przywołać Tytana swojej frakcji.',life:5.5,max:5.5}; },2200);
 }
 function townhallOf(side){ return G.buildings.find(b=>!b.dead&&b.done&&b.side===side&&b.type==='townhall'); }
 function updateRelic(dt){
@@ -267,7 +267,7 @@ function updateRelic(dt){
       R.state='done'; R.owner=c.side; c.relic=false; R.carrier=null;
       G.crown=G.crown||{}; G.crown[c.side]=true;
       ring(th.x,th.y,200,'rgba(255,215,110,.9)',1.2,10); SND.play('ability',th.x,th.y,{reach:4000});
-      G.banner={txt:c.side==='player'?'KORONA W RATUSZU! Możesz stworzyć Koronowanego Władcę.':'Wróg zaniósł Koronę do ratusza — szykuje Koronowanego Władcę!',life:5,max:5};
+      G.banner={txt:c.side==='player'?'KORONA W RATUSZU! Możesz przywołać Tytana!':'Wróg zaniósł Koronę do ratusza — szykuje Tytana!',life:5,max:5};
     }
   }
 }
@@ -312,18 +312,8 @@ function drawLegendCrown(u,r){
   cx.beginPath(); cx.ellipse(0,r*.56,r*(1.7+p*.15),r*(.95+p*.08),0,0,7); cx.stroke();
 }
 function legendTick(dt){
-  for(const u of G.units){
-    if(u.dead||u.type!=='legend') continue;
-    u.lcd=(u.lcd===undefined?4:u.lcd)-dt;
-    if(u.lcd>0||u.state!=='fight') continue;
-    u.lcd=8;
-    shockRing(u.x,u.y,200,'rgba(255,215,110,.9)'); ring(u.x,u.y,190,'rgba(255,235,160,.8)',.6,8);
-    shake(8,u.x,u.y,600); SND.play('ability',u.x,u.y,{reach:1500});
-    floatText(u.x,u.y-u.r*2.4,'GNIEW KORONY!','#ffd35a',16);
-    for(const o of G.units){ if(o.dead) continue; const d=Math.hypot(o.x-u.x,o.y-u.y);
-      if(isFoe(o,u)&&d<190){ dealDamage(o,isBoss(o)?260:120,u.side,{n:8}); if(!o.dead&&!isBoss(o)){ const a=Math.atan2(o.y-u.y,o.x-u.x); knockback(o,Math.cos(a),Math.sin(a),260,80,.4); } }
-      else if(allySide(o.side,u.side)&&d<260&&o.hp<o.maxHp) o.hp=Math.min(o.maxHp,o.hp+o.maxHp*.12); }
-  }
+  for(const u of G.units){ if(u.dead||u.type!=='legend') continue; if(typeof titanTick==='function') titanTick(u,dt); }
+  if(typeof updateTitanFx==='function') updateTitanFx(dt);
 }
 
 /* ---------------- efekty (erupcje) ---------------- */
@@ -362,4 +352,5 @@ function bossEnts(ents){
   for(const f of G.world.flags||[]) if(vis(f.x,f.y,160)) ents.push({y:f.y,f:()=>drawFlag(f)});
   if(G.relic&&G.relic.state!=='done'&&vis(G.relic.x,G.relic.y,80)) ents.push({y:G.relic.y+(G.relic.state==='carried'?30:0),f:drawRelic});
   for(const e of G.bfx||[]) if(vis(e.x,e.y,300)) ents.push({y:e.y+(e.done?40:-200),f:()=>drawBfx(e)});
+  if(typeof titanEnts==='function') titanEnts(ents);
 }
