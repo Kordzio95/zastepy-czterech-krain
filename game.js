@@ -1372,25 +1372,3 @@ function godBuilding(b){
   while((b.lvl||1)<mx){ b.lvl=(b.lvl||1)+1; b.maxHp=Math.round(b.maxHp*1.4); }
   b.hp=b.maxHp;
 }
-function godMode(){
-  const side='player';
-  G.god=true;
-  G.res[side].gold=Math.max(G.res[side].gold,99999); G.res[side].wood=Math.max(G.res[side].wood,99999);
-  // ratusz: Cytadela
-  while((G.keep[side]||0)<2){ G.keep[side]=(G.keep[side]||0)+1;
-    for(const b of G.buildings) if(b.side===side&&!b.dead&&b.type==='townhall'){ b.keep=G.keep[side]; b.lvl=1+b.keep; b.maxHp=Math.round(b.maxHp*1.35); b.hp=b.maxHp; } }
-  for(const b of G.buildings) if(b.side===side&&!b.dead&&b.done) godBuilding(b);
-  // wszystkie ulepszenia z kuzni na maksimum
-  const faction=sideFaction(side);
-  for(const k in UPG) G.lvl[side][k]=UPG[k].max;
-  for(const u of G.units) if(u.side===side&&!u.dead&&UPG[upgKeyOf(u.type)]){
-    const nl=G.lvl[side][upgKeyOf(u.type)], ns=unitStats(faction,u.type,nl), L=look(u.type,nl);
-    u.maxHp=ns.hp; u.hp=ns.hp; u.dmg=ns.dmg; u.lvl=nl; u.r=UNITS[u.type].r*(L?L.scale:1); }
-  // Pradawna Korona i Tytan od razu
-  G.crown=G.crown||{}; G.crown[side]=true;
-  const th=G.buildings.find(b=>b.side===side&&!b.dead&&b.type==='townhall');
-  if(th&&!G.units.some(o=>!o.dead&&o.side===side&&o.type==='legend')){
-    const L=spawnUnit(side,'legend',th.x+th.r+40,th.y+th.r*.6,1);
-    if(L){ ring(L.x,L.y,120,'rgba(255,215,110,.9)',.9,6); } }
-  banner('TRYB BOGA — WSZYSTKO ODBLOKOWANE','#ffd35a');
-}

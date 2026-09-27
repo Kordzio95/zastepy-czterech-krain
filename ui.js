@@ -32,7 +32,7 @@ function startGame(faction,mapKey,mode){
   newGame(faction||pickF,mapKey||pickMap,mode||pickMode);
   if(MOBILE) setZoom(VIEW_H<360?1:(Math.min(VW,VH)<400?1.15:1.25));
   banner(MODES[G.mode].name+' — '+G.world.name,'#e6c273');
-  if(pickGod) godMode();
+
 }
 function showResult(win){
   const el=document.getElementById('result');
