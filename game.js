@@ -428,8 +428,8 @@ function trainUnit(b,type){
     if(!G.crown||!G.crown[side]){ if(side==='player') warn('Potrzebujesz Pradawnej Korony'); return false; }
     const have=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='legend').length
       +G.buildings.filter(x=>x.side===side&&!x.dead).reduce((n,x)=>n+x.queue.filter(q=>q==='legend').length,0);
-    const lim=(G.god&&side==='player')?3:1;
-    if(have>=lim){ if(side==='player') warn(lim>1?'Możesz mieć najwyżej 3 Tytanów':'Tytan może być tylko jeden'); return false; }
+    const lim=typeof titanLimit==='function'?titanLimit(side):1;
+    if(have>=lim){ if(side==='player') warn(lim>=3?'Możesz mieć najwyżej 3 Tytanów':'Każdy Tytan wymaga Korony — masz ich '+lim+' (max 3)'); return false; }
   }
   if(type==='hero'){
     const have=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='hero').length
@@ -441,10 +441,10 @@ function trainUnit(b,type){
     if((b.lvl||1)<2){ if(side==='player') warn('Najpierw ulepsz Wielką Jamę na Legowisko Kolosa'); return false; }
   }
   if(type==='heavy'){
-    // jeden kolos na stronę — to jednostka wyjątkowa
+    // najwyzej 3 kolosy na strone
     const have=G.units.filter(u=>u.side===side&&!u.dead&&u.type==='heavy').length
       +G.buildings.filter(x=>x.side===side&&!x.dead).reduce((n,x)=>n+x.queue.filter(q=>q==='heavy').length,0);
-    if(have>=1){ if(side==='player') warn('Możesz mieć tylko jednego kolosa'); return false; }
+    if(have>=3){ if(side==='player') warn('Możesz mieć najwyżej 3 kolosy'); return false; }
   }
   if(b.queue.length>=5) return false;
   if(popUsed(side)+def.pop>popMax(side)){ if(side==='player') warn('Limit ludności — postaw chatę'); return false; }

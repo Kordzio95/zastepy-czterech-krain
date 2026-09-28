@@ -27,7 +27,7 @@ function spawnCrownling(){
   const P=crownSpawnPoint();
   const u=spawnUnit('wild','crownling',P.x,P.y,1);
   u.hidden=true; u.seenT=0; u.wp=null; u.wait=rand(0,2); u.cw=rand(0,9); u.revealedOnce=false;
-  G.crownling=u; G.crownCount=(G.crownCount||0)+1;
+  G.crownCount=(G.crownCount||0)+1;
   return u;
 }
 function crownThreats(u,R){
@@ -36,19 +36,22 @@ function crownThreats(u,R){
     const d=Math.hypot(o.x-u.x,o.y-u.y); if(d<R) out.push({o,d}); }
   return out;
 }
+function crownTarget(){ return 2+G.sides.filter(s=>mainSide(s)).length; }
 function updateCrownling(dt){
-  if(!G.crownInit){ G.crownInit=true; G.crownT=3; giveAiTitans(); }
-  const u=G.crownling;
-  if(!u||u.dead){
-    // nowy stworek pojawia sie jakis czas po oddaniu korony
-    if(G.relic&&G.relic.state==='done'&&(G.crownCount||0)<3){
-      G.crownRespawn=(G.crownRespawn==null?210:G.crownRespawn)-dt;
-      if(G.crownRespawn<=0){ G.crownRespawn=null; G.relic=null; spawnCrownling();
-        G.banner={txt:'Na mapie znów biega niewidzialny Stworek z Pradawną Koroną!',life:4.5,max:4.5}; }
-    } else if(!G.crownCount&&!G.relic){ G.crownT-=dt; if(G.crownT<=0){ spawnCrownling();
-      G.banner={txt:'Gdzieś na mapie biega niewidzialny Stworek z Pradawną Koroną. Znajdź go i złap — Korona przywoła Tytana!',life:6,max:6}; } }
-    return;
+  G.crownlings=G.crownlings||[]; G.relics=G.relics||[];
+  if(!G.crownInit){ G.crownInit=true; G.crownT=3; }
+  if(G.crownT>0){ G.crownT-=dt; if(G.crownT<=0){ for(let i=0;i<crownTarget();i++) G.crownlings.push(spawnCrownling());
+      G.banner={txt:'Po mapie biega kilka niewidzialnych Stworków z Pradawnymi Koronami. Złap je — każda Korona to Tytan (najwyżej 3)!',life:6.5,max:6.5}; } return; }
+  G.crownlings=G.crownlings.filter(u=>!u.dead);
+  // uzupelnianie: nowy stworek po jakims czasie, dopoki ktos moze jeszcze miec tytana
+  const want=crownTarget()-G.relics.filter(r=>r.state!=='done').length;
+  if(G.crownlings.length<want&&(G.crownCount||0)<crownTarget()*3){
+    G.crownRespawn=(G.crownRespawn==null?120:G.crownRespawn)-dt;
+    if(G.crownRespawn<=0){ G.crownRespawn=null; G.crownlings.push(spawnCrownling()); }
   }
+  for(const u of G.crownlings) crownlingTick(u,dt);
+}
+function crownlingTick(u,dt){
   u.cw+=dt;
   if(u.stun>0){ u.stun-=dt; return; }
   const near=crownThreats(u,CROWN_FLEE);
@@ -92,19 +95,18 @@ function updateCrownling(dt){
   } else u.state='idle';
 }
 function crownlingDied(t,fromSide){
-  G.crownling=null;
-  if(typeof relicDrop==='function'){ G.relic=null; relicDrop(t); }
+  relicDrop(t);
   G.banner={txt:(fromSide==='player'?'Złapałeś Stworka! ':'Stworek złapany! ')+'Pradawna Korona leży na ziemi — zanieś ją do ratusza.',life:5,max:5};
 }
 /* AI przeciwnikow: gonia stworka, gdy go zobacza */
 function crownAI(dt){
   G.crownAIt=(G.crownAIt||0)-dt; if(G.crownAIt>0) return; G.crownAIt=1.2;
-  const u=G.crownling; if(!u||u.dead||u.hidden) return;
+  for(const u of G.crownlings||[]){ if(u.dead||u.hidden) continue;
   for(const s of G.sides){ if(s==='player'||!mainSide(s)) continue;
     const us=G.units.filter(o=>!o.dead&&o.side===s&&o.type!=='worker'&&!UNITS[o.type].siege&&Math.hypot(o.x-u.x,o.y-u.y)<700)
       .sort((a,b)=>Math.hypot(a.x-u.x,a.y-u.y)-Math.hypot(b.x-u.x,b.y-u.y)).slice(0,4);
     for(const o of us) o.order={kind:'attack',target:u};
-  }
+  } }
 }
 
 /* ---------------- rysowanie stworka ---------------- */
@@ -178,4 +180,72 @@ function giveAiTitans(){
     const L=spawnUnit(s,'legend',th.x+Math.cos(a)*(th.r+70),th.y+Math.sin(a)*(th.r+50)+30,1);
     if(L) ring(L.x,L.y,110,'rgba(255,215,110,.8)',.8,5);
   }
+}
+
+/* ---------------- wiele koron ---------------- */
+function titanLimit(side){ return Math.min(3,(G.crownN&&G.crownN[side])||0); }
+function relicDrop(b){
+  G.relics=G.relics||[];
+  let x=b.x, y=b.y;
+  if(!crownOkPoint(x,y,20)){ for(let d=30;d<600;d+=30){ let f=false; for(let a=0;a<6.28;a+=.4){ const px=b.x+Math.cos(a)*d, py=b.y+Math.sin(a)*d; if(crownOkPoint(px,py,30)){ x=px; y=py; f=true; break; } } if(f) break; } }
+  G.relics.push({x,y,state:'ground',carrier:null,owner:null,t:0});
+  ring(x,y,90,'rgba(255,215,110,.9)',1,6); for(let i=0;i<20;i++) spark(x,y,'#ffd35a',2,1.6);
+}
+function relicWho(side){ return side==='player'?'Twoja jednostka':(G.team[side]===G.team.player?'Sojusznik':'Wróg'); }
+function updateRelic(dt){
+  for(const R of G.relics||[]){ if(R.state==='done') continue;
+    R.t+=dt;
+    if(R.state==='ground'){
+      for(const o of G.units){ if(o.dead||!mainSide(o.side)||o.type==='worker'||o.relic||UNITS[o.type].siege) continue;
+        if(Math.hypot(o.x-R.x,o.y-R.y)<o.r+26){ R.state='carried'; R.carrier=o; o.relic=true;
+          SND.play('ability',o.x,o.y,{reach:1800});
+          if(o.side==='player'||inSightAny('player',o.x,o.y,900)) G.banner={txt:relicWho(o.side)+' niesie Pradawną Koronę!',life:3,max:3};
+          break; } }
+    } else if(R.state==='carried'){
+      const c=R.carrier;
+      if(!c||c.dead||c.gone||!mainSide(c.side)){ R.state='ground'; R.carrier=null; if(c){ R.x=c.x; R.y=c.y; c.relic=false; } continue; }
+      R.x=c.x; R.y=c.y;
+      const th=townhallOf(c.side);
+      if(th&&Math.hypot(th.x-c.x,th.y-c.y)<th.r+70){
+        R.state='done'; R.owner=c.side; c.relic=false; R.carrier=null;
+        G.crown=G.crown||{}; G.crown[c.side]=true;
+        G.crownN=G.crownN||{}; G.crownN[c.side]=(G.crownN[c.side]||0)+1;
+        ring(th.x,th.y,200,'rgba(255,215,110,.9)',1.2,10); SND.play('ability',th.x,th.y,{reach:4000});
+        const n=titanLimit(c.side);
+        G.banner={txt:c.side==='player'?'KORONA W RATUSZU! Możesz mieć Tytanów: '+n+' / 3':(G.team[c.side]===G.team.player?'Sojusznik':'Wróg')+' zaniósł Koronę do ratusza — szykuje Tytana!',life:4.5,max:4.5};
+      }
+    }
+  }
+}
+function relicAI(dt){
+  G.relicAIt=(G.relicAIt||0)-dt; if(G.relicAIt>0) return; G.relicAIt=1.5;
+  for(const s of G.sides){
+    if(s==='player'||!mainSide(s)) continue;
+    for(const R of G.relics||[]){
+      if(R.state==='ground'){
+        const us=G.units.filter(o=>!o.dead&&o.side===s&&o.type!=='worker'&&!o.relic&&!UNITS[o.type].siege&&Math.hypot(o.x-R.x,o.y-R.y)<2600)
+          .sort((a,b)=>Math.hypot(a.x-R.x,a.y-R.y)-Math.hypot(b.x-R.x,b.y-R.y)).slice(0,3);
+        for(const o of us) o.order={kind:'move',x:R.x,y:R.y};
+      } else if(R.state==='carried'&&R.carrier&&R.carrier.side===s){
+        const th=townhallOf(s); if(th) R.carrier.order={kind:'move',x:th.x,y:th.y+th.r*.6};
+      }
+    }
+    const th=townhallOf(s);
+    if(th&&titanLimit(s)>0){
+      const have=G.units.filter(o=>!o.dead&&o.side===s&&o.type==='legend').length+th.queue.filter(q=>q==='legend').length;
+      if(have<titanLimit(s)&&canAfford(s,UNITS.legend.cost)) trainUnit(th,'legend');
+    }
+  }
+}
+function drawRelicOne(R){
+  let x=R.x, y=R.y, lift=0;
+  if(R.state==='carried'&&R.carrier){ lift=R.carrier.r*2.6+14; }
+  const sx=toScreenX(x), sy=toScreenY(y)-lift+Math.sin(TIME*3)*3;
+  const gl=cx.createRadialGradient(sx,sy,2,sx,sy,46); gl.addColorStop(0,'rgba(255,225,130,.55)'); gl.addColorStop(1,'rgba(255,200,80,0)');
+  cx.fillStyle=gl; cx.beginPath(); cx.arc(sx,sy,46,0,7); cx.fill();
+  if(R.state==='ground'){ const p=.5+.5*Math.sin(TIME*2); cx.strokeStyle='rgba(255,215,110,'+(.35+.3*p).toFixed(2)+')'; cx.lineWidth=2; cx.beginPath(); cx.ellipse(sx,toScreenY(y)+6,30+p*8,12+p*3,0,0,7); cx.stroke(); }
+  drawCrownIcon(sx,sy,R.state==='carried'?15:19);
+}
+function relicEnts(ents){
+  for(const R of G.relics||[]) if(R.state!=='done'&&vis(R.x,R.y,80)) ents.push({y:R.y+(R.state==='carried'?30:0),f:()=>drawRelicOne(R)});
 }

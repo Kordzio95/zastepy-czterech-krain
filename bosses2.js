@@ -234,67 +234,7 @@ function drawFlag(f){
 }
 
 /* ---------------- PRADAWNA KORONA ---------------- */
-function relicDrop(b){
-  if(G.relic) return;
-  let x=b.x, y=b.y+(b.type==='kraken'?0:b.r*.3);
-  if(LAND.on&&landSD(x,y)<30){
-    let best=null,bd=1e9;
-    for(let a=0;a<Math.PI*2;a+=Math.PI/24) for(let d=40;d<1400;d+=30){ const px=b.x+Math.cos(a)*d, py=b.y+Math.sin(a)*d;
-      if(landSD(px,py)>50&&!inWater(px,py,10)){ if(d<bd){ bd=d; best={x:px,y:py}; } break; } }
-    if(best){ x=best.x; y=best.y; }
-  }
-  G.relic={x,y,state:'ground',carrier:null,owner:null,t:0};
-  ring(x,y,90,'rgba(255,215,110,.9)',1,6); for(let i=0;i<20;i++) spark(x,y,'#ffd35a',2,1.6);
-  setTimeout(()=>{ if(G&&G.relic&&G.relic.state==='ground') G.banner={txt:'Pradawna Korona leży na ziemi! Zanieś ją do ratusza, by przywołać Tytana swojej frakcji.',life:5.5,max:5.5}; },2200);
-}
 function townhallOf(side){ return G.buildings.find(b=>!b.dead&&b.done&&b.side===side&&b.type==='townhall'); }
-function updateRelic(dt){
-  const R=G.relic; if(!R||R.state==='done') return;
-  R.t+=dt;
-  if(R.state==='ground'){
-    for(const o of G.units){ if(o.dead||!mainSide(o.side)||o.type==='worker'||UNITS[o.type].siege) continue;
-      if(Math.hypot(o.x-R.x,o.y-R.y)<o.r+26){ R.state='carried'; R.carrier=o; o.relic=true;
-        SND.play('ability',o.x,o.y,{reach:1800});
-        G.banner={txt:(o.side==='player'?'Twoja jednostka niesie':(G.team[o.side]===G.team.player?'Sojusznik niesie':'Wróg niesie'))+' Pradawną Koronę!',life:3.5,max:3.5};
-        break; } }
-  } else if(R.state==='carried'){
-    const c=R.carrier;
-    if(!c||c.dead||c.side==='wild'||c.gone){ R.state='ground'; R.carrier=null; if(c){ R.x=c.x; R.y=c.y; c.relic=false; }
-      if(!(LAND.on&&landSD(R.x,R.y)<10)) {} G.banner={txt:'Nosiciel Korony poległ — Korona leży na ziemi!',life:3,max:3}; return; }
-    R.x=c.x; R.y=c.y;
-    const th=townhallOf(c.side);
-    if(th&&Math.hypot(th.x-c.x,th.y-c.y)<th.r+70){
-      R.state='done'; R.owner=c.side; c.relic=false; R.carrier=null;
-      G.crown=G.crown||{}; G.crown[c.side]=true;
-      ring(th.x,th.y,200,'rgba(255,215,110,.9)',1.2,10); SND.play('ability',th.x,th.y,{reach:4000});
-      G.banner={txt:c.side==='player'?'KORONA W RATUSZU! Możesz przywołać Tytana!':'Wróg zaniósł Koronę do ratusza — szykuje Tytana!',life:5,max:5};
-    }
-  }
-}
-function relicAI(dt){
-  G.relicAIt=(G.relicAIt||0)-dt; if(G.relicAIt>0) return; G.relicAIt=1.5;
-  const R=G.relic;
-  for(const s of G.sides){
-    if(s==='player'||!mainSide(s)) continue;
-    if(R&&R.state==='ground'){
-      const us=G.units.filter(o=>!o.dead&&o.side===s&&o.type!=='worker'&&!UNITS[o.type].siege).sort((a,b)=>Math.hypot(a.x-R.x,a.y-R.y)-Math.hypot(b.x-R.x,b.y-R.y)).slice(0,5);
-      for(const o of us) if(Math.hypot(o.x-R.x,o.y-R.y)<2600) o.order={kind:'move',x:R.x,y:R.y};
-    } else if(R&&R.state==='carried'&&R.carrier&&R.carrier.side===s){
-      const th=townhallOf(s); if(th){ R.carrier.order={kind:'move',x:th.x,y:th.y+th.r*.6}; }
-    }
-    if(G.crown&&G.crown[s]){ const th=townhallOf(s); if(th&&!G.units.some(o=>!o.dead&&o.side===s&&o.type==='legend')&&!th.queue.includes('legend')&&canAfford(s,UNITS.legend.cost)) trainUnit(th,'legend'); }
-  }
-}
-function drawRelic(){
-  const R=G.relic; if(!R||R.state==='done') return;
-  let x=R.x, y=R.y, lift=0;
-  if(R.state==='carried'&&R.carrier){ lift=R.carrier.r*2.6+14; }
-  const sx=toScreenX(x), sy=toScreenY(y)-lift+Math.sin(TIME*3)*3;
-  const gl=cx.createRadialGradient(sx,sy,2,sx,sy,46); gl.addColorStop(0,'rgba(255,225,130,.55)'); gl.addColorStop(1,'rgba(255,200,80,0)');
-  cx.fillStyle=gl; cx.beginPath(); cx.arc(sx,sy,46,0,7); cx.fill();
-  if(R.state==='ground'){ const p=.5+.5*Math.sin(TIME*2); cx.strokeStyle='rgba(255,215,110,'+(.35+.3*p).toFixed(2)+')'; cx.lineWidth=2; cx.beginPath(); cx.ellipse(sx,toScreenY(y)+6,30+p*8,12+p*3,0,0,7); cx.stroke(); }
-  drawCrownIcon(sx,sy,R.state==='carried'?15:19);
-}
 function drawCrownIcon(x,y,s){
   cx.save(); cx.translate(x,y);
   cx.fillStyle='#d9a93a'; cx.strokeStyle='#5a3e12'; cx.lineWidth=1.4;
@@ -352,7 +292,7 @@ function updateBosses2(dt){
 function bossEnts(ents){
   if(typeof campEnts==='function') campEnts(ents);
   for(const f of G.world.flags||[]) if(vis(f.x,f.y,160)) ents.push({y:f.y,f:()=>drawFlag(f)});
-  if(G.relic&&G.relic.state!=='done'&&vis(G.relic.x,G.relic.y,80)) ents.push({y:G.relic.y+(G.relic.state==='carried'?30:0),f:drawRelic});
+  if(typeof relicEnts==='function') relicEnts(ents);
   for(const e of G.bfx||[]) if(vis(e.x,e.y,300)) ents.push({y:e.y+(e.done?40:-200),f:()=>drawBfx(e)});
   if(typeof titanEnts==='function') titanEnts(ents); if(typeof finEnts==='function') finEnts(ents);
 }
